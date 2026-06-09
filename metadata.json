@@ -1,0 +1,6 @@
+{
+  "name": "New Fish Center",
+  "description": "Wholesale fish market offline-first transaction and collection management app with optimistic local queue synchronization",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

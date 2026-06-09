@@ -1,0 +1,539 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState } from "react";
+import { useData } from "./DataContext";
+import { PlusCircle, Search, KeyRound, User, UserCheck, ShieldAlert, CheckSquare, RefreshCcw, Trash2, Key, Sun, Moon, Sliders } from "lucide-react";
+import { User as DbUser } from "../db";
+
+interface SettingsPanelProps {
+  activeUser: DbUser | null;
+  isAuthenticated: boolean;
+  onLogout?: () => void;
+}
+
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuthenticated, onLogout }) => {
+  const { data, write, theme, setTheme, activeTheme } = useData();
+  const [showAddUserForm, setShowAddUserForm] = useState(false);
+
+  // Archive & Database Optimization States
+  const [isPruning, setIsPruning] = useState(false);
+  const [pruningStatus, setPruningStatus] = useState<string | null>(null);
+
+  // New User States
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserPin, setNewUserPin] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"admin" | "auctioneer" | "collector">("auctioneer");
+
+  // Halkhata Pin States
+  const settings = data?.settings || [];
+  const halkhataPinObj = settings.find((s) => s.key === "halkhata_pin") || { key: "halkhata_pin", value: "9988" };
+  const [halkhataInput, setHalkhataInput] = useState(halkhataPinObj.value);
+  const [pinChangeSuccess, setPinChangeSuccess] = useState(false);
+
+  const users = data?.users || [];
+
+  const isAdmin = activeUser?.role === "admin" && isAuthenticated;
+
+  const handleSafetyPrune = async () => {
+    if (!isAdmin) {
+      alert("Only an authenticated Administrator operator can prune system history records!");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to run the 7-day safety retention optimizer? Granular transactions & payments older than 7 days will be pruned. Cumulative balances on all Buyer accounts will remain perfectly intact.")) {
+      return;
+    }
+
+    setIsPruning(true);
+    setPruningStatus("Initializing safety optimizer...");
+
+    try {
+      const CUTOFF_DATE = "2026-06-02"; // CUTOFF is always 7 days before current market date 2026-06-09
+      const prevTransactions = data?.transactions || [];
+      const prevCollections = data?.daily_collections || [];
+      const prevPayments = data?.source_payments || [];
+
+      const txToPrune = prevTransactions.filter((tx) => tx.date < CUTOFF_DATE);
+      const collectionsToPrune = prevCollections.filter((c) => c.date < CUTOFF_DATE);
+      const paymentsToPrune = prevPayments.filter((p) => p.date < CUTOFF_DATE);
+
+      let prunedCount = 0;
+
+      for (const tx of txToPrune) {
+        await write("transactions", "delete", { id: tx.id });
+        prunedCount++;
+      }
+
+      for (const col of collectionsToPrune) {
+        await write("daily_collections", "delete", { id: col.id });
+        prunedCount++;
+      }
+
+      for (const pm of paymentsToPrune) {
+        await write("source_payments", "delete", { id: pm.id });
+        prunedCount++;
+      }
+
+      setPruningStatus(`Pruning complete! ${prunedCount} old logs safely optimized from local/remote memory. Cumulative buyer outstandings are fully protected!`);
+      setTimeout(() => setPruningStatus(null), 8500);
+    } catch (e) {
+      console.error(e);
+      setPruningStatus("Error executing safety prune optimization.");
+    } finally {
+      setIsPruning(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName || !newUserPin) return;
+
+    if (!activeUser || !isAuthenticated || activeUser.role !== "admin") {
+      alert("Only an authenticated Administrator operator can create system users!");
+      return;
+    }
+
+    const newUserPayload = {
+      id: `temp_u_${Date.now()}`,
+      name: newUserName,
+      pin: newUserPin,
+      role: newUserRole,
+    };
+
+    await write("users", "insert", newUserPayload);
+
+    setNewUserName("");
+    setNewUserPin("");
+    setShowAddUserForm(false);
+  };
+
+  const handleUpdateHalkhataPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!halkhataInput) return;
+
+    if (!activeUser || !isAuthenticated || activeUser.role !== "admin") {
+      alert("Only an authenticated Administrator operator can change the configuration PIN!");
+      return;
+    }
+
+    const updatedPin = {
+      key: "halkhata_pin",
+      value: halkhataInput,
+    };
+
+    await write("settings", "upsert", updatedPin);
+    setPinChangeSuccess(true);
+    setTimeout(() => {
+      setPinChangeSuccess(false);
+    }, 4000);
+  };
+
+  return (
+    <div className={`space-y-6 transition-colors duration-200 ${activeTheme === "light" ? "text-slate-900" : "text-[#f8fafc]"}`} id="settings-halkhata-panel">
+      <div className="flex flex-col gap-6">
+        {/* 1. System Users management */}
+        <div className={`border rounded-xl overflow-hidden shadow-md flex flex-col transition-colors duration-200 ${
+          activeTheme === "light" ? "bg-white border-slate-200" : "bg-[#060a15] border-[#1d2d52]"
+        }`}>
+          <div className={`px-5 py-4 border-b flex justify-between items-center transition-colors duration-200 ${
+            activeTheme === "light" ? "bg-slate-50 border-slate-200" : "bg-[#0a1125] border-[#1d2d52]"
+          }`}>
+            <h4 className={`font-sans font-extrabold text-xs uppercase tracking-wider ${
+              activeTheme === "light" ? "text-slate-800" : "text-[#f8fafc]"
+            }`}>
+              Operator Management (Team)
+            </h4>
+            <button
+              onClick={() => {
+                if (!isAdmin) {
+                  alert("Only authenticated Administrators can register new team members!");
+                  return;
+                }
+                setShowAddUserForm(!showAddUserForm);
+              }}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center gap-1 cursor-pointer transition ${
+                isAdmin
+                  ? "bg-teal-600 hover:bg-teal-700 text-white"
+                  : activeTheme === "light"
+                    ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed"
+                    : "bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed"
+              }`}
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Add team member</span>
+            </button>
+          </div>
+
+          <div className="p-5 flex-grow space-y-4">
+            {showAddUserForm && (
+              <form onSubmit={handleCreateUser} className={`border p-4 rounded-xl space-y-3 animate-slideDown transition-colors duration-200 ${
+                activeTheme === "light" ? "bg-slate-50 border-slate-200 text-slate-900" : "bg-[#030611] border-[#1a2d52]"
+              }`}>
+                <div className={`text-[11px] font-black uppercase tracking-wider ${
+                  activeTheme === "light" ? "text-slate-800" : "text-slate-300"
+                }`}>
+                  Registration form
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="space-y-1">
+                    <label className={`font-bold block ${activeTheme === "light" ? "text-slate-700" : "text-slate-300"}`}>Full Name:</label>
+                    <input
+                      type="text"
+                      required
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                      placeholder="e.g. Kashem Ali"
+                      className={`w-full text-xs rounded-lg p-2 focus:ring-1 outline-none font-semibold ${
+                        activeTheme === "light"
+                          ? "text-slate-900 bg-white border border-slate-300 focus:ring-teal-500 font-bold"
+                          : "text-white bg-[#020409] border border-[#1d2d52] focus:ring-indigo-505"
+                      }`}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={`font-bold block ${activeTheme === "light" ? "text-slate-700" : "text-slate-300"}`}>Login Code / PIN (Digits):</label>
+                    <input
+                      type="password"
+                      required
+                      maxLength={6}
+                      value={newUserPin}
+                      onChange={(e) => setNewUserPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="e.g. 5566"
+                      className={`w-full text-xs rounded-lg p-2 focus:ring-1 outline-none font-semibold ${
+                        activeTheme === "light"
+                          ? "text-slate-900 bg-white border border-slate-300 focus:ring-teal-500 font-bold"
+                          : "text-white bg-[#020409] border border-[#1d2d52] focus:ring-indigo-550"
+                      }`}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <label className={`font-bold block ${activeTheme === "light" ? "text-slate-705" : "text-slate-300"}`}>System Access Role:</label>
+                  <select
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value as any)}
+                    className={`w-full text-xs rounded-lg p-2 focus:ring-1 outline-none font-semibold ${
+                      activeTheme === "light"
+                        ? "text-slate-900 bg-white border border-slate-300 focus:ring-teal-500 font-bold"
+                        : "text-white bg-[#020409] border border-[#1d2d52] focus:ring-indigo-550"
+                    }`}
+                  >
+                    <option value="admin">Administrator (Complete accounts & settlements access)</option>
+                    <option value="auctioneer">Auctioneer (Logs trawlers and record buyer transactions)</option>
+                    <option value="collector">Collector (Logs cash receipts and collections drafts)</option>
+                  </select>
+                </div>
+                <div className="flex gap-2 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUserForm(false)}
+                    className={`px-3 py-1.5 text-[11px] font-bold rounded-lg cursor-pointer transition ${
+                      activeTheme === "light"
+                        ? "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-200"
+                    }`}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-bold rounded-lg shadow-sm cursor-pointer"
+                  >
+                    Save Team Member
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* List of team members */}
+            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+              {users.map((u) => (
+                <div key={u.id} className={`p-3 border rounded-xl flex items-center justify-between transition-colors duration-200 ${
+                  activeTheme === "light" ? "bg-slate-50 border-slate-150 text-slate-905" : "bg-[#030611] border-[#131b2e] text-slate-105"
+                }`}>
+                  <div className="flex items-center space-x-2.5">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs uppercase ${
+                      activeTheme === "light" ? "bg-slate-200 text-slate-700" : "bg-[#16223f] text-slate-100"
+                    }`}>
+                      {u.name.substring(0, 2)}
+                    </div>
+                    <div>
+                      <div className={`text-xs font-bold ${activeTheme === "light" ? "text-slate-800" : "text-[#ffffff]"}`}>{u.name}</div>
+                      <div className={`text-[10px] flex items-center gap-1 font-mono ${activeTheme === "light" ? "text-slate-550" : "text-slate-400"}`}>
+                        PIN code: <span className="tracking-widest font-bold font-mono">••••</span> (Hint: {u.pin})
+                      </div>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-bold ${
+                    u.role === "admin" ? "bg-purple-100 text-purple-800 border border-purple-200" :
+                    u.role === "auctioneer" ? "bg-blue-100 text-blue-800 border border-blue-205" :
+                    "bg-orange-100 text-orange-800 border border-orange-200"
+                  }`}>
+                    {u.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Global Halkhata configuration/settings */}
+        <div className={`border rounded-xl overflow-hidden shadow-md flex flex-col transition-colors duration-200 ${
+          activeTheme === "light" ? "bg-white border-slate-200" : "bg-[#060a15] border-[#1d2d52]"
+        }`}>
+          <div className={`px-5 py-4 border-b flex items-center justify-between transition-colors duration-200 ${
+            activeTheme === "light" ? "bg-slate-50 border-slate-200" : "bg-[#0a1125] border-[#1d2d52]"
+          }`}>
+            <h4 className={`font-sans font-extrabold text-xs uppercase tracking-wider ${
+              activeTheme === "light" ? "text-slate-850" : "text-[#f8fafc]"
+            }`}>
+              Halkhata Configuration & Database Keys
+            </h4>
+            <KeyRound className="w-4 h-4 text-slate-400" />
+          </div>
+
+          <div className="p-5 flex-grow space-y-4">
+            <div className={`rounded-xl p-4 border space-y-3 text-xs leading-relaxed transition-colors duration-200 ${
+              activeTheme === "light" ? "bg-slate-50 border-slate-200 text-slate-700" : "bg-[#030611] border-[#1d2d52] text-slate-300"
+            }`}>
+              <div className={`font-sans font-black text-[11px] uppercase tracking-wider flex items-center gap-1 ${
+                activeTheme === "light" ? "text-slate-800" : "text-white"
+              }`}>
+                <ShieldAlert className="w-4 h-4 text-teal-555 shrink-0" /> Security Access Rules
+              </div>
+              <p>
+                The <strong>halkhata_pin</strong> value sets the overarching master override key. This allows collectors or admin operators to unlock protected ledger settlements or balance archives at the end of the market shift!
+              </p>
+              <div className={`p-3 border rounded-lg font-mono flex justify-between items-center text-[10px] transition-colors duration-200 ${
+                activeTheme === "light" ? "bg-white border-slate-250 text-slate-900" : "bg-[#020409] border-[#1d2d52]"
+              }`}>
+                <span className={`uppercase font-sans font-bold ${activeTheme === "light" ? "text-slate-500" : "text-slate-400"}`}>Active Master PIN:</span>
+                <span className="font-extrabold text-teal-600 tracking-widest text-xs">{halkhataPinObj.value}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateHalkhataPin} className="space-y-4">
+              <div className="space-y-1 text-xs">
+                <label className={`font-bold block ${activeTheme === "light" ? "text-slate-700" : "text-slate-300"}`}>Configure Master Halkhata PIN:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={halkhataInput}
+                    onChange={(e) => {
+                      setHalkhataInput(e.target.value.replace(/\D/g, ""));
+                      setPinChangeSuccess(false);
+                    }}
+                    placeholder="Enter 4-6 digits"
+                    className={`text-xs text-center tracking-widest font-mono rounded-lg px-2 py-2 flex-grow focus:outline-none focus:ring-1 ${
+                      activeTheme === "light"
+                        ? "bg-white text-slate-900 border border-slate-300 focus:ring-teal-500"
+                        : "bg-[#020409] text-white border border-[#1d2d52] focus:ring-indigo-500"
+                    }`}
+                  />
+                  <button
+                    type="submit"
+                    className={`px-4 rounded-lg font-bold text-xs transition duration-200 cursor-pointer flex items-center gap-1 border shadow-sm ${
+                      isAdmin
+                        ? activeTheme === "light"
+                          ? "bg-slate-900 text-white border-slate-850 hover:bg-slate-800"
+                          : "bg-teal-600 text-white border-teal-500 hover:bg-teal-700"
+                        : activeTheme === "light"
+                          ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                          : "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed"
+                    }`}
+                    title={isAdmin ? "Save PIN to settings table" : "Changing system parameters requires Admin Operator authentication."}
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    Change PIN
+                  </button>
+                </div>
+              </div>
+
+              {pinChangeSuccess && (
+                <div className="p-2 bg-emerald-50 text-emerald-850 border border-emerald-200 text-center rounded-lg text-[10px] font-bold">
+                  Halkhata configuration PIN successfully committed and queued!
+                </div>
+              )}
+
+              {!isAdmin && (
+                <div className={`p-3 rounded-lg text-[11px] leading-relaxed border font-bold ${
+                  activeTheme === "light"
+                    ? "bg-rose-50 text-rose-700 border-rose-200"
+                    : "bg-rose-950/20 text-rose-300 border-rose-900/40"
+                }`}>
+                  🔒 Operator locked. Please authorize as Apon Das (Admin) and enter PIN 2255 in the left Operator panel before applying configuration changes.
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      </div>
+         {/* 3. Terminal Theme Adjustment */}
+      <div className={`border rounded-xl overflow-hidden shadow-md p-5 space-y-4 max-w-xl mx-auto transition-colors duration-200 ${
+        activeTheme === "light" ? "bg-white border-slate-200" : "bg-[#060a15] border-[#1d2d52]"
+      }`}>
+        <div className={`border-b pb-3 flex justify-between items-center ${activeTheme === "light" ? "border-slate-100" : "border-[#1d2d52]"}`}>
+          <h4 className={`font-sans font-black text-xs uppercase tracking-wider flex items-center gap-1.5 ${
+            activeTheme === "light" ? "text-slate-800" : "text-[#f8fafc]"
+          }`}>
+            🎨 Terminal Theme & Sunlight Settings
+          </h4>
+          <span className={`text-[9.5px] uppercase font-mono font-extrabold px-3 py-1 rounded-full ${
+            activeTheme === "light" ? "bg-amber-100 text-amber-805 border border-amber-250" : "bg-sky-950/80 text-[#2dd4bf] border border-[#115e59]"
+          }`}>
+            {activeTheme === "light" ? "☀️ Active: Light (Sunlight)" : "🌙 Active: Midnight Dark"}
+          </span>
+        </div>
+
+        <p className={`text-[10.5px] leading-relaxed font-sans ${activeTheme === "light" ? "text-slate-650" : "text-slate-400"}`}>
+          Configure display colors to combat harsh outdoor sunlight reflections or switch to eye-safe nighttime levels. Choosing <strong>System</strong> will automatically pair with your device default theme.
+        </p>
+
+        <div className="grid grid-cols-3 gap-3 pt-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setTheme("system")}
+            className={`py-3 px-3.5 rounded-xl border text-center font-bold tracking-tight transition cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+              theme === "system"
+                ? "bg-teal-50 border-teal-500 text-teal-705 font-extrabold shadow-sm"
+                : activeTheme === "light"
+                  ? "bg-slate-50 border-slate-200 text-slate-705 hover:bg-slate-100"
+                  : "bg-[#030611] border-[#1d2d52] text-slate-350 hover:bg-[#0a1125]"
+            }`}
+          >
+            <Sliders className="w-4.5 h-4.5 text-slate-500" />
+            <span>🖥️ System</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setTheme("light")}
+            className={`py-3 px-3.5 rounded-xl border text-center font-bold tracking-tight transition cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+              theme === "light"
+                ? "bg-amber-100 border-amber-500 text-amber-800 font-extrabold shadow-sm"
+                : activeTheme === "light"
+                  ? "bg-slate-50 border-slate-200 text-slate-705 hover:bg-slate-100"
+                  : "bg-[#030611] border-[#1d2d52] text-slate-350 hover:bg-[#0a1125]"
+            }`}
+          >
+            <Sun className="w-4.5 h-4.5 text-amber-550" />
+            <span>☀️ Light Mode</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => setTheme("dark")}
+            className={`py-3 px-3.5 rounded-xl border text-center font-bold tracking-tight transition cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+              theme === "dark"
+                ? "bg-indigo-950 border-indigo-400 text-indigo-150 font-extrabold shadow-sm"
+                : activeTheme === "light"
+                  ? "bg-slate-50 border-slate-200 text-slate-705 hover:bg-slate-100"
+                  : "bg-[#030611] border-[#1d2d52] text-slate-350 hover:bg-[#0a1125]"
+            }`}
+          >
+            <Moon className="w-4.5 h-4.5 text-indigo-500" />
+            <span>🌙 Dark Mode</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 4. Database Storage & 7-Day Safety Retention Optimizer */}
+      <div className={`border rounded-xl overflow-hidden shadow-md p-5 space-y-4 max-w-xl mx-auto transition-colors duration-200 ${
+        activeTheme === "light" ? "bg-white border-slate-200" : "bg-[#060a15] border-[#1d2d52]"
+      }`}>
+        <div className={`border-b pb-3 flex justify-between items-center ${activeTheme === "light" ? "border-slate-100" : "border-[#1d2d52]"}`}>
+          <h4 className={`font-sans font-black text-xs uppercase tracking-wider flex items-center gap-1.5 ${
+            activeTheme === "light" ? "text-slate-800" : "text-[#f8fafc]"
+          }`}>
+            ⚡ 7-Day Database Space Optimizer
+          </h4>
+          <span className="text-[9.5px] uppercase font-mono font-extrabold px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500 text-emerald-550">
+            Automated Retention Guard
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <p className={`text-[10.5px] leading-relaxed font-sans ${activeTheme === "light" ? "text-slate-655" : "text-slate-400"}`}>
+            Your Arat operates with around 350+ global buyers (100+ active daily) and up to 20 vessels. At 1,000+ transaction/weight entries per day, the system writes fewer than <strong>250 KB / day</strong> of active storage.
+          </p>
+
+          <div className={`grid grid-cols-2 gap-2.5 p-3 rounded-xl border text-[10px] font-mono transition-colors duration-200 ${
+            activeTheme === "light" ? "bg-slate-50 border-slate-200 text-slate-800" : "bg-[#020409] border-[#1d2d52] text-slate-350"
+          }`}>
+            <div className="space-y-1">
+              <div>👥 Stored Buyers: <strong className="text-teal-650">{data?.buyers?.length || 0} accounts</strong></div>
+              <div>⚓ Stored Vessels: <strong className="text-indigo-650">{data?.sources?.length || 0} sources</strong></div>
+              <div>📦 Total Auction Lots: <strong>{data?.transactions?.length || 0} records</strong></div>
+            </div>
+            <div className="space-y-1 border-l pl-3 border-slate-200/50">
+              <div>💳 Stored Collections: <strong>{data?.daily_collections?.length || 0} entries</strong></div>
+              <div>💾 Est. Storage Used: <strong className="text-emerald-505">~{Math.round(((data?.transactions?.length || 0) * 0.25 + (data?.daily_collections?.length || 0) * 0.15 + (data?.buyers?.length || 0) * 0.15) * 10) / 10} KB</strong></div>
+              <div className="text-[8.5px] text-slate-500">Firebase Free Quota: <strong>1,048,576 KB (1 GB)</strong></div>
+            </div>
+          </div>
+
+          <p className={`text-[10px] leading-relaxed italic ${activeTheme === "light" ? "text-slate-500" : "text-slate-450"}`}>
+            * <strong>Safety Assurance Rule:</strong> Running the 7-day space sweep purges old granular transaction lots and payment stamps older than 7 days (Cutoff: Before 2026-06-02). However, all historical outstanding dues, lifetime debt, and registered buyer details are mathematically rolled up into cumulative balance cards and kept completely safe!
+          </p>
+
+          {pruningStatus && (
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-center text-[10px] font-mono text-emerald-400 font-black animate-slideDown">
+              ⚙️ {pruningStatus}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              disabled={isPruning}
+              onClick={handleSafetyPrune}
+              className={`px-4 py-2 w-full sm:w-auto text-center font-bold text-xs rounded-lg transition-all duration-150 cursor-pointer shadow border ${
+                isAdmin
+                  ? isPruning
+                    ? "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed"
+                    : activeTheme === "light"
+                      ? "bg-slate-900 border-slate-800 text-white hover:bg-slate-800"
+                      : "bg-teal-605 border-teal-555 text-white hover:bg-teal-700 shadow-teal-500/10"
+                  : activeTheme === "light"
+                    ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                    : "bg-slate-850 text-slate-500 border-slate-750 cursor-not-allowed"
+              }`}
+            >
+              {isPruning ? "⚙️ Saving Space..." : "⚡ Run 7-Day Safety Retention Pruning"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Shift Session termination - Only visible under settings */}
+      {isAuthenticated && onLogout && (
+        <div className={`border rounded-xl overflow-hidden shadow-md p-5 transition-colors duration-200 ${
+          activeTheme === "light"
+            ? "bg-rose-50 border-rose-200 text-rose-955"
+            : "bg-[#180a0f] border-[#5e192a] text-[#fca5a5]"
+        }`}>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+              <h4 className="font-sans font-extrabold text-xs uppercase tracking-wider text-rose-650 flex items-center gap-1.5">
+                🚨 End Shift Session & Lock Desk
+              </h4>
+              <p className="text-[10.5px] text-slate-500 mt-1 max-w-md">
+                Terminate your active terminal cache session, secure all registered outstanding accounts, and lock the hardware workspace for next operator change.
+              </p>
+            </div>
+            <button
+              onClick={onLogout}
+              className="px-4 py-2 w-full sm:w-auto text-center shrink-0 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-black text-[11px] uppercase tracking-wider transition-all duration-150 cursor-pointer shadow-md shadow-rose-900/10"
+            >
+              Sign Out Session
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

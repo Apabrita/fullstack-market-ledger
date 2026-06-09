@@ -1,0 +1,461 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  body {
+    background-color: #02040b;
+    color: #f1f5f9;
+    transition: background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/* 
+ * BRAND NEON LIGHTS AND GRADIENTS (THEME-DARK IS DEFAULT)
+ */
+:root {
+  --color-brand-teal: #06b6d4;
+  --color-brand-cyan: #22d3ee;
+  --color-brand-gold: #fbbf24;
+  --color-brand-indigo: #818cf8;
+}
+
+/* 
+ * 🌌 THEME-DARK SPECIFICATIONS (OBSIDIAN MIDNIGHT & GLOWING SAPPHIRE)
+ * Incredibly rich, deep backdrops with glowing borders. High-contrast white fonts.
+ */
+.theme-dark, :root {
+  background-color: #020409 !important;
+  color: #f8fafc !important;
+
+  --color-slate-50: #040712;
+  --color-slate-100: #f8fafc;
+  --color-slate-200: #cbd5e1;
+  --color-slate-300: #94a3b8;
+  --color-slate-400: #64748b;
+  --color-slate-500: #475569;
+  --color-slate-650: #131b2e;
+  --color-slate-700: #1e293b;
+  --color-slate-705: #334155;
+  --color-slate-800: #0f172a;
+  --color-slate-850: #1b2641; 
+  --color-slate-900: #050814; 
+  --color-slate-950: #070a16; 
+}
+
+.theme-dark body {
+  background-color: #020409 !important;
+  color: #f8fafc !important;
+}
+
+/* Make all dark mode containers darker and crisper */
+.theme-dark .bg-white,
+.theme-dark .bg-slate-950,
+.theme-dark .bg-slate-950\/40,
+.theme-dark .bg-slate-950\/50,
+.theme-dark .bg-slate-900,
+.theme-dark .bg-slate-900\/50,
+.theme-dark .bg-slate-850,
+.theme-dark .bg-slate-800,
+.theme-dark [class*="bg-slate-950"],
+.theme-dark [class*="bg-slate-900"] {
+  background-color: #060a15 !important;
+  color: #f1f5f9 !important;
+  border-color: #1a2744 !important;
+}
+
+.theme-dark .bg-slate-50,
+.theme-dark .bg-slate-100,
+.theme-dark .bg-slate-100\/50,
+.theme-dark .bg-slate-50\/50 {
+  background-color: #0a0f1f !important;
+  color: #f1f5f9 !important;
+  border-color: #1d2c4e !important;
+}
+
+/* Strict font color enforcement in Dark Mode for complete visibility inside cards and boxes */
+.theme-dark .text-slate-950,
+.theme-dark .text-slate-900,
+.theme-dark .text-slate-800,
+.theme-dark .text-slate-755,
+.theme-dark .text-slate-705,
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-650,
+.theme-dark .text-slate-600,
+.theme-dark .text-slate-555,
+.theme-dark .text-slate-505,
+.theme-dark .text-slate-500,
+.theme-dark .text-slate-450 {
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .text-slate-400,
+.theme-dark .text-slate-350,
+.theme-dark .text-slate-300 {
+  color: #cbd5e1 !important;
+}
+
+.theme-dark h1,
+.theme-dark h2,
+.theme-dark h3,
+.theme-dark h4,
+.theme-dark h5,
+.theme-dark h6,
+.theme-dark label,
+.theme-dark strong,
+.theme-dark th {
+  color: #ffffff !important;
+}
+
+/* Form values & list titles in dark mode */
+.theme-dark input,
+.theme-dark select,
+.theme-dark textarea {
+  background-color: #03050c !important;
+  color: #ffffff !important;
+  border: 1.5px solid #1a2d52 !important;
+}
+
+.theme-dark input:focus,
+.theme-dark select:focus,
+.theme-dark textarea:focus {
+  border-color: #6366f1 !important;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.2) !important;
+}
+
+/* Beautiful color-balanced highlight blocks under Dark model */
+.theme-dark .bg-teal-950\/80,
+.theme-dark .bg-teal-950\/50,
+.theme-dark .bg-teal-50\/10,
+.theme-dark .bg-teal-50 {
+  background-color: #0b2e2d !important;
+  color: #2dd4bf !important;
+  border-color: #115e59 !important;
+}
+.theme-dark .text-teal-400,
+.theme-dark .text-teal-500,
+.theme-dark .text-teal-300 {
+  color: #2dd4bf !important;
+}
+
+.theme-dark .bg-indigo-950\/20,
+.theme-dark .bg-indigo-950\/50,
+.theme-dark .bg-indigo-50 {
+  background-color: #1e1b4b !important;
+  color: #a5b4fc !important;
+  border-color: #312e81 !important;
+}
+.theme-dark .text-indigo-400,
+.theme-dark .text-indigo-500,
+.theme-dark .text-indigo-300 {
+  color: #a5b4fc !important;
+}
+
+.theme-dark .bg-amber-950\/50,
+.theme-dark .bg-amber-50 {
+  background-color: #451a03 !important;
+  color: #fde047 !important;
+  border-color: #78350f !important;
+}
+.theme-dark .text-amber-400,
+.theme-dark .text-amber-500,
+.theme-dark .text-amber-300 {
+  color: #fde047 !important;
+}
+
+.theme-dark .bg-rose-950\/20,
+.theme-dark .bg-rose-950\/50,
+.theme-dark .bg-rose-50 {
+  background-color: #4c0519 !important;
+  color: #fda4af !important;
+  border-color: #881337 !important;
+}
+.theme-dark .text-rose-400,
+.theme-dark .text-rose-500,
+.theme-dark .text-rose-300 {
+  color: #fda4af !important;
+}
+
+/* Standard default helper buttons in dark mode */
+.theme-dark button:not(.bg-indigo-650):not(.bg-teal-650):not(.bg-emerald-650):not(.bg-sky-600):not(.bg-red-650):not(.bg-red-600):not(.bg-indigo-600):not(.bg-teal-600):not(.bg-emerald-600) {
+  background-color: #111a2e !important;
+  color: #e2e8f0 !important;
+  border-color: #1e2d4d !important;
+}
+.theme-dark button:not(.bg-indigo-650):not(.bg-teal-650):not(.bg-emerald-650):not(.bg-sky-600):not(.bg-red-650):not(.bg-red-600):not(.bg-indigo-600):not(.bg-teal-600):not(.bg-emerald-600):hover {
+  background-color: #1a2642 !important;
+}
+
+
+/* 
+ * ☀️ THEME-LIGHT SPECIFICATIONS (CRISP NAUTICAL SAND & DEEP OCEAN INK)
+ * Extreme legibility under sunlight. Solid Dark Charcoal-Black fonts & Pure White backgrounds.
+ */
+.theme-light, html.theme-light, :root.theme-light {
+  background-color: #f3f6fa !important;
+  color: #0b0f1d !important;
+
+  --color-slate-50: #ffffff;
+  --color-slate-100: #0f172a; 
+  --color-slate-200: #1e293b; 
+  --color-slate-300: #334155; 
+  --color-slate-400: #475569; 
+  --color-slate-500: #64748b; 
+  --color-slate-650: #cbd5e1;
+  --color-slate-700: #94a3b8; 
+  --color-slate-705: #64748b;
+  --color-slate-800: #cbd5e1; 
+  --color-slate-850: #cbd5e1; 
+  --color-slate-900: #f1f5f9; 
+  --color-slate-950: #ffffff; 
+}
+
+.theme-light body {
+  background-color: #f3f6fa !important;
+  color: #0b0f1d !important;
+}
+
+/* Ensure all light mode elements are bright white, crisp, and contrasty */
+.theme-light .bg-white,
+.theme-light .bg-slate-950,
+.theme-light .bg-slate-950\/40,
+.theme-light .bg-slate-950\/50,
+.theme-light .bg-slate-950\/60,
+.theme-light [class*="bg-slate-950"] {
+  background-color: #ffffff !important;
+  color: #0b0f1d !important;
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light .bg-slate-900,
+.theme-light .bg-slate-900\/40,
+.theme-light .bg-slate-900\/50,
+.theme-light .bg-slate-900\/60,
+.theme-light [class*="bg-slate-900"],
+.theme-light .bg-slate-50,
+.theme-light .bg-slate-100,
+.theme-light .bg-slate-100\/50,
+.theme-light .bg-slate-50\/50 {
+  background-color: #f8fafc !important;
+  color: #0b0f1d !important;
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light .bg-slate-850,
+.theme-light .bg-slate-800 {
+  background-color: #e2e8f0 !important;
+  color: #0b0f1d !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Force Light text classes to be highly visible deep ink */
+.theme-light .text-slate-100,
+.theme-light .text-slate-150,
+.theme-light .text-slate-200,
+.theme-light .text-slate-250,
+.theme-light .text-slate-300,
+.theme-light .text-slate-400,
+.theme-light .text-slate-450,
+.theme-light .text-slate-500,
+.theme-light .text-slate-555,
+.theme-light .text-slate-600,
+.theme-light .text-slate-700,
+.theme-light .text-slate-850,
+.theme-light .text-slate-800,
+.theme-light .text-slate-900 {
+  color: #0b0f1d !important;
+}
+
+.theme-light .text-slate-505 {
+  color: #334155 !important;
+}
+
+.theme-light h1,
+.theme-light h2,
+.theme-light h3,
+.theme-light h4,
+.theme-light h5,
+.theme-light h6,
+.theme-light label,
+.theme-light strong,
+.theme-light th,
+.theme-light td {
+  color: #0b0f1d !important;
+}
+
+.theme-light p,
+.theme-light span,
+.theme-light li {
+  color: #1e293b !important;
+}
+
+/* Inputs, Textareas, & dropdowns in light mode */
+.theme-light select,
+.theme-light input,
+.theme-light textarea {
+  color: #0b0f1d !important;
+  background-color: #ffffff !important;
+  border: 1.5px solid #94a3b8 !important;
+  font-weight: 600 !important;
+}
+
+.theme-light select:focus,
+.theme-light input:focus,
+.theme-light textarea:focus {
+  border-color: #0f766e !important;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1) !important;
+}
+
+/* Beautiful color-balanced highlight blocks under Light model */
+.theme-light .bg-teal-950\/80,
+.theme-light .bg-teal-950\/50,
+.theme-light .bg-teal-50\/10,
+.theme-light .bg-teal-55,
+.theme-light .bg-teal-50,
+.theme-light .bg-teal-500\/10 {
+  background-color: #ccfbf1 !important;
+  color: #0f766e !important;
+  border-color: #0d9488 !important;
+}
+.theme-light .text-teal-400,
+.theme-light .text-teal-505,
+.theme-light .text-teal-500,
+.theme-light .text-teal-300 {
+  color: #0f766e !important;
+}
+
+.theme-light .bg-indigo-950\/20,
+.theme-light .bg-indigo-950\/50,
+.theme-light .bg-indigo-50,
+.theme-light .bg-indigo-55,
+.theme-light .bg-indigo-500\/10 {
+  background-color: #e0e7ff !important;
+  color: #3730a3 !important;
+  border-color: #4f46e5 !important;
+}
+.theme-light .text-indigo-400,
+.theme-light .text-indigo-500,
+.theme-light .text-indigo-300 {
+  color: #3730e3 !important;
+}
+
+.theme-light .text-amber-400,
+.theme-light .text-amber-505,
+.theme-light .text-amber-500,
+.theme-light .text-amber-300 {
+  color: #c2410c !important;
+}
+.theme-light .bg-amber-950\/50,
+.theme-light .bg-amber-50,
+.theme-light .bg-amber-55,
+.theme-light .bg-amber-500\/10 {
+  background-color: #fef3c7 !important;
+  color: #78350f !important;
+  border-color: #d97706 !important;
+}
+
+.theme-light .text-rose-400,
+.theme-light .text-rose-500,
+.theme-light .text-rose-300 {
+  color: #be123c !important;
+}
+.theme-light .bg-rose-950\/20,
+.theme-light .bg-rose-950\/50,
+.theme-light .bg-rose-50,
+.theme-light .bg-rose-55,
+.theme-light .bg-rose-500\/10 {
+  background-color: #ffe4e6 !important;
+  color: #9c1233 !important;
+  border-color: #e11d48 !important;
+}
+
+/* Standard navigation helper buttons in light mode */
+.theme-light button:not(.bg-indigo-650):not(.bg-teal-650):not(.bg-emerald-650):not(.bg-sky-600):not(.bg-red-650):not(.bg-red-600):not(.bg-indigo-600):not(.bg-teal-600):not(.bg-emerald-600) {
+  background-color: #e2e8f0 !important;
+  color: #0b0f1d !important;
+  border-color: #cbd5e1 !important;
+}
+.theme-light button:not(.bg-indigo-650):not(.bg-teal-650):not(.bg-emerald-650):not(.bg-sky-600):not(.bg-red-650):not(.bg-red-600):not(.bg-indigo-600):not(.bg-teal-600):not(.bg-emerald-600):hover {
+  background-color: #cbd5e1 !important;
+}
+
+/* Primaries */
+.theme-light .bg-indigo-650,
+.theme-light .bg-indigo-600 {
+  background-color: #4f46e5 !important;
+  color: #ffffff !important;
+  border-color: #4338ca !important;
+}
+
+.theme-light .bg-teal-650,
+.theme-light .bg-teal-600 {
+  background-color: #0d9488 !important;
+  color: #ffffff !important;
+  border-color: #0f766e !important;
+}
+
+.theme-light .bg-emerald-600,
+.theme-light .bg-emerald-700 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+}
+
+
+/* 
+ * 🎬 FLUID ANIMATIONS TRANSITIONS
+ */
+@keyframes waveMotion {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+@keyframes bubbleUp {
+  0% { transform: translateY(100px) scale(0.8); opacity: 0; }
+  50% { opacity: 0.55; }
+  100% { transform: translateY(-200px) scale(1.25); opacity: 0; }
+}
+
+@keyframes pulseBorder {
+  0%, 100% { border-color: rgba(99, 102, 241, 0.4); }
+  50% { border-color: rgba(6, 182, 212, 0.8); }
+}
+
+.animate-wave-boat {
+  animation: waveMotion 3.5s ease-in-out infinite;
+}
+
+.pulse-border-glowing {
+  animation: pulseBorder 3s infinite;
+}
+
+.bubble {
+  position: absolute;
+  bottom: 0;
+  background-color: rgba(34, 211, 238, 0.22);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: bubbleUp 5.5s ease-in infinite;
+}
+
+/* Global scroll styling */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
