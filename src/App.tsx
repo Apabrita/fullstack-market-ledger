@@ -369,7 +369,7 @@ const MarketDashboard: React.FC = () => {
   // Let's implement the Android Specialized Terminal view
   // Designed for direct usage inside the Arat Floor on a mobile interface
   const renderAndroidWorkspace = () => (
-    <div className="min-h-screen bg-slate-900 bg-radial flex flex-col items-center justify-center p-0 sm:p-6 font-sans">
+    <div className="h-[100dvh] w-full overflow-hidden bg-slate-900 bg-radial flex flex-col items-center justify-center p-0 sm:p-6 font-sans">
       {/* Device Mode Selection Bar above Smartphone wrapper (visible only on desktop) */}
       <div className="hidden sm:flex bg-slate-950 border border-slate-850 p-1.5 rounded-2xl mb-4 gap-3 items-center shadow-lg">
         <span className="text-xs text-slate-400 font-bold uppercase pl-2 select-none">Preview Hardware:</span>
@@ -390,7 +390,7 @@ const MarketDashboard: React.FC = () => {
       </div>
 
       {/* Styled smartphone container with correct aesthetic */}
-      <div className="w-full max-w-[460px] min-h-[100vh] sm:min-h-[820px] sm:max-h-[860px] sm:rounded-[40px] sm:ring-[14px] sm:ring-slate-950 sm:border-[4px] sm:border-slate-800 bg-slate-50 flex flex-col justify-between shadow-2xl relative overflow-hidden text-slate-900">
+      <div className="w-full max-w-[460px] h-[100dvh] sm:h-[820px] sm:min-h-0 sm:max-h-[860px] sm:rounded-[40px] sm:ring-[14px] sm:ring-slate-950 sm:border-[4px] sm:border-slate-800 bg-slate-50 flex flex-col justify-between shadow-2xl relative overflow-hidden text-slate-900">
         
         {/* Smartphone top camera ear notch on desktop screens */}
         <div className="hidden sm:block absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-slate-950 rounded-b-2xl z-[100] shadow-inner" />
@@ -568,6 +568,12 @@ const MarketDashboard: React.FC = () => {
 
   return (
     <>
+      <PinGate 
+        activeUser={activeUser}
+        setActiveUser={setActiveUser}
+        isAuthenticated={isAuthenticated}
+        setIsAuthenticated={setIsAuthenticated}
+      />
       {deviceMode === "laptop" ? renderLaptopWorkspace() : renderAndroidWorkspace()}
 
       {/* 🚢 Cinematic Marine Startup Loader Video Simulation Overlay */}

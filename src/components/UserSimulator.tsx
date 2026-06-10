@@ -34,7 +34,8 @@ export const UserSimulator: React.FC<UserSimulatorProps> = ({
       // Find Admin as default for testing convenience
       const adminUser = users.find((u) => u.role === "admin") || users[0];
       setActiveUser(adminUser);
-      setIsAuthenticated(true); // Pre-authenticate default admin to save preview time
+      setIsAuthenticated(false);
+      setIsChanging(true);
     }
   }, [users, activeUser, setActiveUser, setIsAuthenticated]);
 

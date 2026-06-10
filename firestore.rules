@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Define rules for each collection based on our schema blueprint
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /buyers/{buyerId} {
+      allow read, write: if true;
+    }
+
+    match /sources/{sourceId} {
+      allow read, write: if true;
+    }
+
+    match /transactions/{transactionId} {
+      allow read, write: if true;
+    }
+
+    match /daily_collections/{collectionId} {
+      allow read, write: if true;
+    }
+
+    match /source_payments/{paymentId} {
+      allow read, write: if true;
+    }
+
+    match /settings/{settingKey} {
+      allow read, write: if true;
+    }
+  }
+}

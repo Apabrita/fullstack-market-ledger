@@ -1,0 +1,17 @@
+{
+  "name": "New Fish Center",
+  "short_name": "NFC",
+  "description": "Premium wholesale harbor cash & transaction management system.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "https://api.iconify.design/lucide:fish-symbol.svg?color=%23d946ef",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

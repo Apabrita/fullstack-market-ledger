@@ -10,6 +10,7 @@
   body {
     background-color: #02040b;
     color: #f1f5f9;
+    overscroll-behavior-y: none;
     transition: background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
 }

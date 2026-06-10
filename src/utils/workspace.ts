@@ -92,7 +92,8 @@ export function initiateGoogleOAuth() {
     `&response_type=token` +
     `&scope=${encodeURIComponent(scopes)}` +
     `&include_granted_scopes=true` +
-    `&state=newfishcenter`;
+    `&state=newfishcenter` +
+    `&login_hint=newfishcenter%45gmail.com`.replace('%45', '@');
 
   // Open the redirect in a secure popup or within the current window if popup fails
   const width = 500;

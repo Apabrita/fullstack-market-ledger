@@ -1,0 +1,132 @@
+{
+  "entities": {
+    "User": {
+      "title": "System User/Operator",
+      "description": "Represents an authorized operator, auctioneer, or admin at the harbor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "pin": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "auctioneer", "collector"] }
+      },
+      "required": ["id", "name", "pin", "role"]
+    },
+    "Buyer": {
+      "title": "Buyer Account Profile",
+      "description": "Wholesale buyer details featuring lifetime debt tracker and credit limits.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nickname": { "type": "string" },
+        "lifetime_debt": { "type": "number" },
+        "credit_limit": { "type": "number" }
+      },
+      "required": ["id", "nickname", "lifetime_debt", "credit_limit"]
+    },
+    "Source": {
+      "title": "Trawler Source Vessel",
+      "description": "Arrival status and landing metrics for incoming harbor vessels.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "rate_per_kg": { "type": "number" },
+        "date": { "type": "string" },
+        "is_completed": { "type": "boolean" },
+        "is_archived": { "type": "boolean" }
+      },
+      "required": ["id", "name", "rate_per_kg", "date", "is_completed", "is_archived"]
+    },
+    "Transaction": {
+      "title": "Auction Fish Transaction",
+      "description": "Log of weight, purchase prices, types of fish traded at the wholesale market.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "source_id": { "type": "string" },
+        "buyer_id": { "type": "string" },
+        "weight": { "type": "number" },
+        "price_per_kg": { "type": "number" },
+        "total_price": { "type": "number" },
+        "date": { "type": "string" },
+        "fish_type": { "type": "string" },
+        "added_by": { "type": "string" }
+      },
+      "required": ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by"]
+    },
+    "DailyCollection": {
+      "title": "Daily Cash Collection Entry",
+      "description": "Daily balance payment log with approval verification stamp.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "buyer_id": { "type": "string" },
+        "date": { "type": "string" },
+        "total_owed_today": { "type": "number" },
+        "amount_paid": { "type": "number" },
+        "is_rolled_over": { "type": "boolean" },
+        "is_approved": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "buyer_id", "date", "total_owed_today", "amount_paid", "is_rolled_over", "is_approved"]
+    },
+    "SourcePayment": {
+      "title": "Vessel Net Commission Payout",
+      "description": "Commission settlements, net payouts, of vessel landing transactions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "source_id": { "type": "string" },
+        "date": { "type": "string" },
+        "total_kg": { "type": "number" },
+        "rate_per_kg": { "type": "number" },
+        "sale_total": { "type": "number" },
+        "amount_paid_to_source": { "type": "number" },
+        "commission": { "type": "number" },
+        "is_settled": { "type": "boolean" }
+      },
+      "required": ["id", "source_id", "date", "total_kg", "rate_per_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled"]
+    },
+    "Setting": {
+      "title": "System Parameters",
+      "description": "Global custom config settings like Halkhata authorization overrides PIN.",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection storing harbor crew logins and PIN pins."
+    },
+    "/buyers/{buyerId}": {
+      "schema": "Buyer",
+      "description": "Tabular records of active registered buyers."
+    },
+    "/sources/{sourceId}": {
+      "schema": "Source",
+      "description": "Active fishing source trawlers."
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Detailed fish auction transaction records."
+    },
+    "/daily_collections/{collectionId}": {
+      "schema": "DailyCollection",
+      "description": "Daily cashier vaults and collection logs."
+    },
+    "/source_payments/{paymentId}": {
+      "schema": "SourcePayment",
+      "description": "Commission distributions and net payout ledger."
+    },
+    "/settings/{settingKey}": {
+      "schema": "Setting",
+      "description": "Custom hardware parameters configuration."
+    }
+  }
+}

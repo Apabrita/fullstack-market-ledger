@@ -29,7 +29,8 @@ import {
   Loader,
   FileSpreadsheet,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  RefreshCcw
 } from "lucide-react";
 import {
   isWorkspaceConnected,
@@ -45,6 +46,8 @@ import {
   syncReportToGoogleDocs,
   syncSourcesToGoogleCalendar
 } from "../utils/workspace";
+import { bidirectionalSync } from "../utils/sheets_sync";
+import { performDayClosingBackup } from "../utils/BackupService";
 import {
   ResponsiveContainer,
   BarChart,
@@ -80,11 +83,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
   const [customCliId, setCustomCliId] = React.useState(getCustomClientId());
   const [showConfigCliId, setShowConfigCliId] = React.useState(false);
   const [selectedWcReport, setSelectedWcReport] = React.useState<"auction" | "source_payment" | "collection" | "collection_slip">("auction");
+  const [masterSpreadsheetId, setMasterSpreadsheetId] = React.useState("");
   
   const [isSyncingSheets, setIsSyncingSheets] = React.useState(false);
   const [isUploadingDrive, setIsUploadingDrive] = React.useState(false);
   const [isCreatingDocs, setIsCreatingDocs] = React.useState(false);
   const [isLoggingCalendar, setIsLoggingCalendar] = React.useState(false);
+  const [isMasterSyncing, setIsMasterSyncing] = React.useState(false);
+  const [isDayClosing, setIsDayClosing] = React.useState(false);
   const [wcErrorMessage, setWcErrorMessage] = React.useState<string | null>(null);
   const [wcSuccessMessage, setWcSuccessMessage] = React.useState<string | null>(null);
 
@@ -180,6 +186,40 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
       setWcErrorMessage(`Google Calendar sync failed: ${err.message}. Ensure permissions are enabled.`);
     } finally {
       setIsLoggingCalendar(false);
+    }
+  };
+
+  const handleMasterSync = async () => {
+    if (!data || !masterSpreadsheetId) {
+      setWcErrorMessage("Please enter a valid Spreadsheet ID to perform Master Sync.");
+      return;
+    }
+    setIsMasterSyncing(true);
+    setWcErrorMessage(null);
+    setWcSuccessMessage(null);
+    try {
+      const stats = await bidirectionalSync(masterSpreadsheetId, data);
+      setWcSuccessMessage(`🔄 BI-DIRECTIONAL MASTER SYNC COMPLETE! Exported: ${stats.rowsExported} rows. Imported/Merged: ${stats.rowsImported} rows.`);
+    } catch (err: any) {
+      console.error(err);
+      setWcErrorMessage(`Master sync failed: ${err.message}. (Ensure the sheet has 'Buyers' and 'Sources' tabs)`);
+    } finally {
+      setIsMasterSyncing(false);
+    }
+  };
+
+  const handleDayClosingBackup = async () => {
+    setIsDayClosing(true);
+    setWcErrorMessage(null);
+    setWcSuccessMessage(null);
+    try {
+      const res = await performDayClosingBackup();
+      setWcSuccessMessage(`💾 DAY CLOSED! Snapshot backup saved to Drive. File ID: ${res.fileId}. Size: ${(res.bytes / 1024).toFixed(2)} KB.`);
+    } catch (err: any) {
+      console.error(err);
+      setWcErrorMessage(`Day closing failed: ${err.message}.`);
+    } finally {
+      setIsDayClosing(false);
     }
   };
 
@@ -506,6 +546,72 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             </div>
           </div>
         )}
+
+        {/* Master Bidirectional Sync Section */}
+        <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+          <div className="mb-2">
+             <h4 className="text-[11px] font-sans font-bold uppercase tracking-wide text-fuchsia-400 flex items-center gap-1.5">
+               <RefreshCcw className="w-4 h-4" /> BI-DIRECTIONAL MASTER SYNC
+             </h4>
+             <p className="text-[10.5px] text-slate-400 mt-1">
+               Connect a designated Master Google Sheet to pull real-time database updates and export local Firebase states simultaneously. Useful for accounting departments modifying credit limits or trawler metrics directly from Google Sheets.
+             </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
+            <input
+              type="text"
+              value={masterSpreadsheetId}
+              onChange={(e) => setMasterSpreadsheetId(e.target.value)}
+              placeholder="Paste Google Sheet ID (e.g. 1BxiMVs0XRYFa...)"
+              className="flex-grow bg-slate-950 border border-slate-800 text-slate-200 px-3 py-1.5 rounded-lg focus:outline-none focus:border-fuchsia-500 font-mono text-xs"
+              disabled={!googleConnected}
+            />
+            <button
+              onClick={handleMasterSync}
+              disabled={!googleConnected || isMasterSyncing || !masterSpreadsheetId.trim()}
+              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition shrink-0 ${
+                !googleConnected || isMasterSyncing || !masterSpreadsheetId.trim()
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/20 cursor-pointer"
+              }`}
+            >
+              {isMasterSyncing ? (
+                <span className="flex items-center gap-1.5"><Loader className="w-3.5 h-3.5 animate-spin" /> SYNCING...</span>
+              ) : (
+                "EXECUTE SYNC ⚡"
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Day Closing Backup Section */}
+        <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+          <div className="mb-2">
+             <h4 className="text-[11px] font-sans font-bold uppercase tracking-wide text-rose-400 flex items-center gap-1.5">
+               <HardDrive className="w-4 h-4" /> DAY CLOSING SNAPSHOT
+             </h4>
+             <p className="text-[10.5px] text-slate-400 mt-1">
+               Generate a complete database snapshot (.json) and archive it securely on Google Drive. This acts as a reliable rollback point to finish operations for the day.
+             </p>
+          </div>
+          <div className="flex justify-start pt-1">
+            <button
+              onClick={handleDayClosingBackup}
+              disabled={!googleConnected || isDayClosing}
+              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition ${
+                !googleConnected || isDayClosing
+                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  : "bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 cursor-pointer"
+              }`}
+            >
+              {isDayClosing ? (
+                <span className="flex items-center gap-1.5"><Loader className="w-3.5 h-3.5 animate-spin" /> BACKING UP...</span>
+              ) : (
+                "TRIGGER DAY CLOSING BACKUP 💾"
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* Sync Controls Section */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">

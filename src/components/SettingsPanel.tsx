@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import { useData } from "./DataContext";
-import { PlusCircle, Search, KeyRound, User, UserCheck, ShieldAlert, CheckSquare, RefreshCcw, Trash2, Key, Sun, Moon, Sliders } from "lucide-react";
+import { PlusCircle, Search, KeyRound, User, UserCheck, ShieldAlert, CheckSquare, RefreshCcw, Trash2, Key, Sun, Moon, Sliders, AlertCircle } from "lucide-react";
 import { User as DbUser } from "../db";
 
 interface SettingsPanelProps {
@@ -508,6 +508,45 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
           </div>
         </div>
       </div>
+
+      {/* Danger Zone: Wipe Database Section */}
+      {isAdmin && (
+        <div className={`border rounded-xl overflow-hidden shadow-md p-5 space-y-4 max-w-xl mx-auto transition-colors duration-200 mt-4 relative ${
+          activeTheme === "light" ? "bg-rose-50 border-rose-200" : "bg-slate-900 border-red-900/50"
+        }`}>
+          <div className="absolute inset-0 bg-red-500/5 pointer-events-none"></div>
+          <div className={`border-b pb-3 flex justify-between items-center relative ${activeTheme === "light" ? "border-rose-100" : "border-red-900/50"}`}>
+            <h4 className="font-sans font-black text-xs uppercase tracking-wider flex items-center gap-1.5 text-red-500">
+              <AlertCircle className="w-4 h-4" /> DANGER ZONE: PURGE SYSTEM
+            </h4>
+          </div>
+          <div className="space-y-3 relative">
+             <p className={`text-[10.5px] leading-relaxed font-sans ${activeTheme === "light" ? "text-slate-600" : "text-slate-400"}`}>
+               Completely erase all Buyers, Sources, Transactions, and Reports from the Cloud Firestore Database. Cannot be undone!
+             </p>
+             <div className="flex justify-end pt-1">
+               <button
+                 onClick={async () => {
+                   const step1 = window.confirm("🚨 DANGER ZONE 🚨\n\nThis will completely ERASE the entire database globally (All buyers, sources, transactions). It CANNOT be undone.\n\nAre you mathematically sure you want to proceed?");
+                   if (!step1) return;
+                   const step2 = window.prompt("Type 'DELETE' to confirm complete system wipe:");
+                   if (step2 === "DELETE") {
+                     try {
+                       const { wipeAllData } = await import('../db');
+                       await wipeAllData();
+                     } catch(e: any) {
+                       alert('Wipe failed: ' + e.message);
+                     }
+                   }
+                 }}
+                 className="px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/20 cursor-pointer w-full sm:w-auto text-center"
+               >
+                 WIPE ENTIRE DATABASE 🗑️
+               </button>
+             </div>
+          </div>
+        </div>
+      )}
 
       {/* 5. Shift Session termination - Only visible under settings */}
       {isAuthenticated && onLogout && (

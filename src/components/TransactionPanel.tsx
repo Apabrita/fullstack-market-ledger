@@ -91,7 +91,6 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const [flash, setFlash] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [isNumpadDown, setIsNumpadDown] = useState(false);
 
   // Source editing state variables
   const [isEditingSource, setIsEditingSource] = useState(false);
@@ -665,7 +664,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         <div className="flex gap-1.5 items-center justify-between">
           <button
             onClick={() => setShowPicker(true)}
-            className={`w-[84%] py-1.5 px-2.5 rounded-lg text-center cursor-pointer flex items-center justify-center gap-1 border font-extrabold text-[10px] uppercase tracking-wider select-none selection:hidden transition-all duration-150 focus:outline-none ${
+            className={`w-full py-1.5 px-2.5 rounded-lg text-center cursor-pointer flex items-center justify-center gap-1 border font-extrabold text-[10px] uppercase tracking-wider select-none selection:hidden transition-all duration-150 focus:outline-none ${
               buyer
                 ? "bg-amber-600 text-white border-amber-500 shadow-md"
                 : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900"
@@ -673,19 +672,6 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
           >
             <User className="w-2.5 h-2.5 shrink-0" />
             <span className="truncate">{buyer ? `🧑 ${buyer.nickname}` : "👤 Pick Buyer"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsNumpadDown(!isNumpadDown)}
-            className={`w-[14%] py-1.5 px-1 border rounded-lg font-black text-[9px] uppercase cursor-pointer flex items-center justify-center select-none transition-all ${
-              isNumpadDown
-                ? "bg-slate-950 text-slate-500 border-slate-850 hover:bg-slate-900"
-                : "bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700"
-            }`}
-            title={isNumpadDown ? "Show Custom Keypad" : "Hide Custom Keypad"}
-          >
-            <span>{isNumpadDown ? "⌨️" : "✕ ⌨️"}</span>
           </button>
         </div>
 
@@ -784,8 +770,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
 
         {/* Highly tactile specialized mobile numpad layout */}
-        {!isNumpadDown && (
-          <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
+        <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
             {/* Row 1 */}
             <button
               onClick={() => handleKeyTap("7")}
@@ -892,7 +877,6 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
               <span className="text-[9px] font-bold">{field === "weight" ? "➔" : "✔"}</span>
             </button>
           </div>
-        )}
       </div>
     </div>
   );
