@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">New Fish Center</string>
+    <string name="title_activity_main">New Fish Center</string>
+    <string name="package_name">com.newfishcenter.app</string>
+    <string name="custom_url_scheme">com.newfishcenter.app</string>
+</resources>

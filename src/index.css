@@ -460,3 +460,35 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
 }
+
+@media print {
+  body, .theme-dark body, .theme-light body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .theme-dark *, .theme-light * {
+    background-color: transparent !important;
+    color: black !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Force Light Theme / Black Text for html2canvas PDF Export */
+.pdf-export, .pdf-export * {
+  color: black !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.pdf-export [class*="bg-slate-"], .pdf-export [class*="bg-indigo-"], .pdf-export [class*="bg-teal-"], .pdf-export [class*="bg-amber-"] {
+  background-color: transparent !important;
+}
+
+.pdf-export, .pdf-export body {
+  background-color: white !important;
+}
+
+.pdf-export svg {
+  stroke: black !important;
+}

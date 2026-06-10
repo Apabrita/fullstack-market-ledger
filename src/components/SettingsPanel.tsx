@@ -5,8 +5,8 @@
 
 import React, { useState } from "react";
 import { useData } from "./DataContext";
-import { PlusCircle, Search, KeyRound, User, UserCheck, ShieldAlert, CheckSquare, RefreshCcw, Trash2, Key, Sun, Moon, Sliders, AlertCircle } from "lucide-react";
-import { User as DbUser } from "../db";
+import { PlusCircle, Search, KeyRound, User, UserCheck, ShieldAlert, CheckSquare, RefreshCcw, Trash2, Key, Sun, Moon, Sliders, AlertCircle, Server } from "lucide-react";
+import { User as DbUser, getQueue, saveQueue, isOnline, QueueItem, executeWrite } from "../db";
 
 interface SettingsPanelProps {
   activeUser: DbUser | null;
@@ -15,7 +15,7 @@ interface SettingsPanelProps {
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuthenticated, onLogout }) => {
-  const { data, write, theme, setTheme, activeTheme } = useData();
+  const { data, queue, write, theme, setTheme, activeTheme } = useData();
   const [showAddUserForm, setShowAddUserForm] = useState(false);
 
   // Archive & Database Optimization States
@@ -110,6 +110,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
     setShowAddUserForm(false);
   };
 
+  const handleRemoveUser = async (userToDelete: DbUser) => {
+    if (!isAdmin) {
+      alert("Only admins can remove users.");
+      return;
+    }
+    if (userToDelete.id === activeUser?.id) {
+      alert("You cannot remove your own active session. Please log in as a different admin to remove this account.");
+      return;
+    }
+    if (userToDelete.role === "admin" && users.filter((u) => u.role === "admin").length <= 1) {
+      alert("Cannot remove the last admin.");
+      return;
+    }
+    if (!confirm(`Are you sure you want to remove ${userToDelete.name}?`)) {
+      return;
+    }
+    await write("users", "delete", { id: userToDelete.id });
+  };
+
   const handleUpdateHalkhataPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!halkhataInput) return;
@@ -129,6 +148,48 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
     setTimeout(() => {
       setPinChangeSuccess(false);
     }, 4000);
+  };
+
+  const handleRemoveQueueItem = (timestamp: number) => {
+    if (!isAdmin) {
+      alert("Only an admin can discard operations.");
+      return;
+    }
+    if (!confirm("Are you sure you want to discard this pending offline operation? This may cause data mismatch.")) return;
+    const currentQueue = getQueue();
+    const newQueue = currentQueue.filter(item => item.timestamp !== timestamp);
+    saveQueue(newQueue);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("queue_updated"));
+    }
+  };
+
+  const handleRetryItem = async (item: QueueItem) => {
+    if (!isAdmin) {
+       alert("Only an admin can manually retry offline operations.");
+       return;
+    }
+    if (!isOnline()) {
+       alert("Network offline! Cannot retry.");
+       return;
+    }
+
+    try {
+      const q = getQueue().filter(i => i.timestamp !== item.timestamp);
+      saveQueue(q);
+
+      const result = await executeWrite(item.table, item.action, item.payload);
+      if (result.queued) {
+         alert("Sync failed, operation was placed back in the queue.");
+      } else {
+         alert("Operation successfully verified and synced!");
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("queue_updated"));
+      }
+    } catch(e: any) {
+      alert("Error: " + e.message);
+    }
   };
 
   return (
@@ -267,13 +328,24 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                       </div>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-bold ${
-                    u.role === "admin" ? "bg-purple-100 text-purple-800 border border-purple-200" :
-                    u.role === "auctioneer" ? "bg-blue-100 text-blue-800 border border-blue-205" :
-                    "bg-orange-100 text-orange-800 border border-orange-200"
-                  }`}>
-                    {u.role}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-mono tracking-wider font-bold ${
+                      u.role === "admin" ? "bg-purple-100 text-purple-800 border border-purple-200" :
+                      u.role === "auctioneer" ? "bg-blue-100 text-blue-800 border border-blue-205" :
+                      "bg-orange-100 text-orange-800 border border-orange-200"
+                    }`}>
+                      {u.role}
+                    </span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleRemoveUser(u)}
+                        className="p-1.5 hover:bg-rose-500/10 text-rose-500 rounded transition-colors"
+                        title="Remove user"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -507,6 +579,75 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 5. Offline Operations Sync Queue */}
+      <div className={`border rounded-xl overflow-hidden shadow-md p-5 space-y-4 max-w-xl mx-auto transition-colors duration-200 ${
+        activeTheme === "light" ? "bg-white border-slate-200" : "bg-[#060a15] border-[#1d2d52]"
+      }`}>
+        <div className={`border-b pb-3 flex justify-between items-center ${activeTheme === "light" ? "border-slate-100" : "border-[#1d2d52]"}`}>
+          <h4 className={`font-sans font-black text-xs uppercase tracking-wider flex items-center gap-1.5 ${
+            activeTheme === "light" ? "text-slate-800" : "text-[#f8fafc]"
+          }`}>
+            <Server className="w-4 h-4" /> Offline & Sync Queue
+          </h4>
+          <span className={`text-[9.5px] uppercase font-mono font-extrabold px-3 py-1 rounded-full border ${
+            queue.length > 0 ? "bg-amber-100 text-amber-800 border-amber-300" : "bg-teal-50 text-teal-700 border-teal-200"
+          }`}>
+            {queue.length} Pending
+          </span>
+        </div>
+
+        <p className={`text-[10px] leading-relaxed font-sans ${activeTheme === "light" ? "text-slate-655" : "text-slate-400"}`}>
+          If the system lost connection, records are stored safely in an offline cache. These will automatically synchronize once the internet is restored. You can manually retry or discard operations below.
+        </p>
+
+        {queue.length === 0 ? (
+          <div className="p-4 border border-dashed rounded-xl text-center text-xs font-bold text-slate-400">
+            All operations perfectly synchronized.
+          </div>
+        ) : (
+          <div className="max-h-[300px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+            {[...queue].reverse().map((qItem, index) => (
+              <div key={qItem.timestamp || index} className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                activeTheme === "light" ? "bg-slate-50 border-slate-200 text-slate-800" : "bg-[#020409] border-[#1d2d52] text-slate-300"
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex gap-2 items-center text-[10px] font-mono">
+                    <span className={`px-1.5 py-0.5 rounded uppercase font-bold text-[9px] border ${
+                      qItem.action === "delete" ? "bg-rose-100 text-rose-700 border-rose-200" : 
+                      qItem.action === "update" ? "bg-sky-100 text-sky-700 border-sky-200" :
+                      "bg-emerald-100 text-emerald-700 border-emerald-200"
+                    }`}>
+                      {qItem.action}
+                    </span>
+                    <span className="font-bold text-slate-500">[{qItem.table}]</span>
+                    <span className="text-slate-400">{new Date(qItem.timestamp).toLocaleTimeString()}</span>
+                  </div>
+                  <div className="text-[10px] font-sans opacity-80 break-all pt-0.5">
+                    ID: {qItem.id}
+                  </div>
+                </div>
+                <div className="flex gap-1.5 shrink-0 self-end sm:self-auto">
+                  <button 
+                    onClick={() => handleRetryItem(qItem)}
+                    className="p-1.5 px-3 rounded text-[10px] uppercase font-bold tracking-wider bg-teal-600 hover:bg-teal-700 text-white cursor-pointer transition shadow-sm border border-teal-500"
+                    title="Retry this operation"
+                  >
+                    Sync
+                  </button>
+                  <button 
+                    onClick={() => handleRemoveQueueItem(qItem.timestamp)}
+                    className="p-1.5 rounded bg-slate-200 hover:bg-rose-100 text-slate-500 hover:text-rose-600 cursor-pointer transition border border-slate-300 hover:border-rose-300"
+                    title="Discard (Danger)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Danger Zone: Wipe Database Section */}

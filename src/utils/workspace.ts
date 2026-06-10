@@ -6,126 +6,88 @@
  * This runs directly in the browser using the OAuth access token.
  */
 
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { NFCData, Transaction, DailyCollection, SourcePayment, Buyer, Source } from "../db";
 
-// Memory cache for Google OAuth token
-let cachedToken: string | null = null;
-let customClientId: string = "";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-// Check if workspace authentication is active
-export function isWorkspaceConnected(): boolean {
-  if (cachedToken) return true;
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("google_workspace_token") !== null;
-  }
-  return false;
-}
+const provider = new GoogleAuthProvider();
+provider.addScope("https://www.googleapis.com/auth/spreadsheets");
+provider.addScope("https://www.googleapis.com/auth/drive.file");
+provider.addScope("https://www.googleapis.com/auth/documents");
+provider.addScope("https://www.googleapis.com/auth/calendar.events");
 
-// Get the current active token
-export function getWorkspaceToken(): string | null {
-  if (cachedToken) return cachedToken;
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("google_workspace_token");
-    const expiry = localStorage.getItem("google_workspace_token_expiry");
-    if (token && expiry) {
-      if (Date.now() < Number(expiry)) {
-        cachedToken = token;
-        return token;
-      } else {
-        // Expired
-        clearWorkspaceToken();
+let isSigningIn = false;
+let cachedAccessToken: string | null = null;
+let googleUser: User | null = null;
+
+// Call this from App or useEffect to stay synced
+export const initAuth = (
+  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthFailure?: () => void
+) => {
+  return onAuthStateChanged(auth, async (user: User | null) => {
+    if (user) {
+      if (cachedAccessToken) {
+        googleUser = user;
+        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+      } else if (!isSigningIn) {
+        cachedAccessToken = null;
+        googleUser = null;
+        if (onAuthFailure) onAuthFailure();
       }
+    } else {
+      cachedAccessToken = null;
+      googleUser = null;
+      if (onAuthFailure) onAuthFailure();
     }
-  }
-  return null;
+  });
+};
+
+export function isWorkspaceConnected(): boolean {
+  return cachedAccessToken !== null;
 }
 
-// Save token to memory and localStorage
-export function saveWorkspaceToken(token: string, expiresInSeconds: number = 3600) {
-  cachedToken = token;
-  if (typeof window !== "undefined") {
-    localStorage.setItem("google_workspace_token", token);
-    const expiry = Date.now() + (expiresInSeconds * 1000);
-    localStorage.setItem("google_workspace_token_expiry", String(expiry));
-  }
+export function getWorkspaceToken(): string | null {
+  return cachedAccessToken;
 }
 
-// Clear token
-export function clearWorkspaceToken() {
-  cachedToken = null;
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("google_workspace_token");
-    localStorage.removeItem("google_workspace_token_expiry");
+export const initiateGoogleOAuth = async (): Promise<boolean> => {
+  if (isSigningIn) {
+    console.warn('Sign-in already in progress.');
+    return false;
   }
-}
-
-// Manage custom client ID
-export function getCustomClientId(): string {
-  if (customClientId) return customClientId;
-  if (typeof window !== "undefined") {
-    return localStorage.getItem("google_workspace_client_id") || "954441923225-placeholder-client-id.apps.googleusercontent.com";
-  }
-  return "";
-}
-
-export function saveCustomClientId(clientId: string) {
-  customClientId = clientId;
-  if (typeof window !== "undefined") {
-    localStorage.setItem("google_workspace_client_id", clientId);
-  }
-}
-
-// Initiates standard GIS implicit grant flow popup
-export function initiateGoogleOAuth() {
-  const cliId = getCustomClientId();
-  const redirectUri = window.location.origin + window.location.pathname;
-  const scopes = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/documents",
-    "https://www.googleapis.com/auth/calendar.events"
-  ].join(" ");
-
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-    `client_id=${encodeURIComponent(cliId)}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&response_type=token` +
-    `&scope=${encodeURIComponent(scopes)}` +
-    `&include_granted_scopes=true` +
-    `&state=newfishcenter` +
-    `&login_hint=newfishcenter%45gmail.com`.replace('%45', '@');
-
-  // Open the redirect in a secure popup or within the current window if popup fails
-  const width = 500;
-  const height = 600;
-  const left = window.screen.width / 2 - width / 2;
-  const top = window.screen.height / 2 - height / 2;
-  
-  const popup = window.open(authUrl, "Google Sign-In", `width=${width},height=${height},left=${left},top=${top}`);
-  
-  if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-    // If popup is blocked, redirect the top window
-    window.location.href = authUrl;
-  }
-}
-
-// Process OAuth response parameters in hash code
-export function checkAndParseOAuthHash(): boolean {
-  if (typeof window === "undefined" || !window.location.hash) return false;
-  
-  const hash = window.location.hash.substring(1);
-  const params = new URLSearchParams(hash);
-  const accessToken = params.get("access_token");
-  const expiresIn = params.get("expires_in");
-  
-  if (accessToken) {
-    saveWorkspaceToken(accessToken, expiresIn ? Number(expiresIn) : 3600);
-    // Clear hash cleanly
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  try {
+    isSigningIn = true;
+    const result = await signInWithPopup(auth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+    if (!credential?.accessToken) {
+      throw new Error('Failed to get access token from Firebase Auth');
+    }
+    cachedAccessToken = credential.accessToken;
+    googleUser = result.user;
     return true;
+  } catch (error: any) {
+    console.error('Sign in error:', error);
+    throw error;
+  } finally {
+    isSigningIn = false;
   }
-  return false;
-}
+};
+
+export const clearWorkspaceToken = async () => {
+  await signOut(auth);
+  cachedAccessToken = null;
+  googleUser = null;
+};
+
+// No longer needed
+export function getCustomClientId(): string { return ""; }
+export function saveCustomClientId(cliId: string) {}
+export function checkAndParseOAuthHash(): boolean { return false; }
 
 
 // ===================================

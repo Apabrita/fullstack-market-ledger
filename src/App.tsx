@@ -18,7 +18,7 @@ import { ProfitPanel } from "./components/ProfitPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { PinGate } from "./components/PinGate";
 import { User } from "./db";
-import { checkAndParseOAuthHash } from "./utils/workspace";
+import { initAuth } from "./utils/workspace";
 import {
   Anchor,
   ShoppingBag,
@@ -36,12 +36,13 @@ import {
   Unlock,
   Sliders,
   DollarSign,
-  Bell
+  Bell,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 const MarketDashboard: React.FC = () => {
-  const { data, loading, queue, online, write, activeTheme } = useData();
+  const { data, loading, queue, online, write, activeTheme, appDate, setAppDate } = useData();
   const [activeUser, setActiveUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [deviceMode, setDeviceMode] = useState<"laptop" | "android">("android");
@@ -61,13 +62,42 @@ const MarketDashboard: React.FC = () => {
   const [startupBooting, setStartupBooting] = useState(true);
   const [startupLog, setStartupLog] = useState("⚓ Initializing sonar telemetry vectors...");
   const [startupProgress, setStartupProgress] = useState(10);
+  
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
 
-  // Check and process Google Workspace OAuth hash redirects on startup
   React.useEffect(() => {
-    const parsed = checkAndParseOAuthHash();
-    if (parsed) {
-      console.log("Google Workspace OAuth authentication resolved successfully from URL parameters!");
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setIsInstallable(false);
     }
+    setDeferredPrompt(null);
+  };
+
+  // Check and process Google Workspace OAuth sign in state
+  React.useEffect(() => {
+    const unsubscribe = initAuth(
+      (user, token) => {
+        console.log("Firebase Google OAuth authentication resolved successfully!", user.email);
+      },
+      () => {
+        console.log("Google disconnected or sign in failed");
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
   React.useEffect(() => {
@@ -96,8 +126,7 @@ const MarketDashboard: React.FC = () => {
   const [hasDismissedAlert, setHasDismissedAlert] = useState(false);
 
   const settings = data?.settings || [];
-  const targetDateStr = "2026-06-09";
-  const isDayClosed = settings.find((s) => s.key === `day_closed_${targetDateStr}`)?.value === "true";
+  const isDayClosed = settings.find((s) => s.key === `day_closed_${appDate}`)?.value === "true";
 
   // Check and trigger notification popup if day is not closed
   React.useEffect(() => {
@@ -112,8 +141,24 @@ const MarketDashboard: React.FC = () => {
   }, [loading, data, isDayClosed, hasDismissedAlert]);
 
   const handleNotificationCloseDay = async () => {
-    await write("settings", "upsert", { key: `day_closed_${targetDateStr}`, value: "true" });
+    // Check time first
+    const currentHour = new Date().getHours();
+    let shouldProceed = true;
+    if (currentHour > 6 && currentHour <= 23) {
+      shouldProceed = window.confirm("It's not past 12 AM yet. Are you sure you want to proceed closing the day?");
+    }
+    if (!shouldProceed) return;
+
+    await write("settings", "upsert", { key: `day_closed_${appDate}`, value: "true" });
     setShowNotificationAlert(false);
+
+    // Auto advance to next day
+    const d = new Date(appDate);
+    d.setDate(d.getDate() + 1);
+    const nextDateStr = d.toISOString().split("T")[0];
+    setTimeout(() => {
+      setAppDate(nextDateStr);
+    }, 1500);
   };
 
   const handleNotificationDismiss = () => {
@@ -166,6 +211,15 @@ const MarketDashboard: React.FC = () => {
 
         {/* Viewport switch & sync status */}
         <div className="flex items-center gap-3 flex-wrap justify-end">
+          {isInstallable && (
+            <button
+              onClick={handleInstallClick}
+              className="px-3 py-1.5 text-[11px] font-bold bg-indigo-600 text-white rounded-lg shadow-md flex items-center gap-1.5 animate-pulse cursor-pointer hover:bg-indigo-500 transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Install Android App (APK equivalent)
+            </button>
+          )}
           {/* Mode Switch Panel */}
           <div className={`flex p-1 rounded-xl border ${
             activeTheme === "light" ? "bg-slate-200 border-slate-300" : "bg-slate-900 border-slate-800"
@@ -372,6 +426,14 @@ const MarketDashboard: React.FC = () => {
     <div className="h-[100dvh] w-full overflow-hidden bg-slate-900 bg-radial flex flex-col items-center justify-center p-0 sm:p-6 font-sans">
       {/* Device Mode Selection Bar above Smartphone wrapper (visible only on desktop) */}
       <div className="hidden sm:flex bg-slate-950 border border-slate-850 p-1.5 rounded-2xl mb-4 gap-3 items-center shadow-lg">
+        {isInstallable && (
+          <button
+            onClick={handleInstallClick}
+            className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg shadow-md font-black flex items-center gap-1.5 animate-pulse mr-2 cursor-pointer transition hover:bg-indigo-500"
+          >
+            <Download className="w-4 h-4" /> Install Android App Download
+          </button>
+        )}
         <span className="text-xs text-slate-400 font-bold uppercase pl-2 select-none">Preview Hardware:</span>
         <div className="flex bg-slate-900 p-0.5 rounded-xl border border-slate-800">
           <button
@@ -390,13 +452,13 @@ const MarketDashboard: React.FC = () => {
       </div>
 
       {/* Styled smartphone container with correct aesthetic */}
-      <div className="w-full max-w-[460px] h-[100dvh] sm:h-[820px] sm:min-h-0 sm:max-h-[860px] sm:rounded-[40px] sm:ring-[14px] sm:ring-slate-950 sm:border-[4px] sm:border-slate-800 bg-slate-50 flex flex-col justify-between shadow-2xl relative overflow-hidden text-slate-900">
+      <div className="w-full max-w-[460px] h-[100dvh] sm:h-[820px] sm:min-h-0 sm:max-h-[860px] sm:rounded-[40px] sm:ring-[14px] sm:ring-slate-950 sm:border-[4px] sm:border-slate-800 bg-slate-50 flex flex-col justify-between shadow-2xl relative overflow-hidden text-slate-900 print:max-w-none print:h-auto print:max-h-none print:min-h-0 print:ring-0 print:border-none print:rounded-none print:shadow-none print:overflow-visible">
         
         {/* Smartphone top camera ear notch on desktop screens */}
-        <div className="hidden sm:block absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-slate-950 rounded-b-2xl z-[100] shadow-inner" />
+        <div className="hidden sm:block absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-slate-950 rounded-b-2xl z-[100] shadow-inner print:hidden" />
 
         {/* 1. Android Top Orange Status Bar - Safe spacing from the notification panel / notch */}
-        <div className="bg-[#f27429] text-white px-4 pt-8 pb-2 sm:pt-9 sm:pb-2.5 flex justify-between items-center text-[10px] font-black tracking-widest uppercase select-none z-50 shrink-0 shadow-sm font-sans animate-fadeIn">
+        <div className="bg-[#f27429] text-white px-4 pt-8 pb-2 sm:pt-9 sm:pb-2.5 flex justify-between items-center text-[10px] font-black tracking-widest uppercase select-none z-50 shrink-0 shadow-sm font-sans animate-fadeIn print:hidden">
           {queue.length > 0 ? (
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
@@ -441,9 +503,12 @@ const MarketDashboard: React.FC = () => {
             <span className="text-[9px] bg-sky-200/50 text-sky-800 font-black px-2 py-1 rounded-lg">
               {activeUser?.role?.toUpperCase() || "VISITOR"}
             </span>
-            <span className="text-[9px] font-semibold text-slate-600 font-mono">
-              2026-06-09
-            </span>
+            <input 
+              type="date"
+              value={appDate}
+              onChange={(e) => setAppDate(e.target.value)}
+              className="text-[9px] font-semibold text-slate-600 font-mono bg-transparent outline-none cursor-pointer"
+            />
           </div>
         </header>
 
@@ -492,12 +557,13 @@ const MarketDashboard: React.FC = () => {
         </nav>
 
         {/* 4. Active Module Screen Content (Scrollable Viewport) */}
-        <div className={`flex-grow bg-slate-50 min-h-0 relative ${
+        {/* Subpanel Container */}
+        <div className={`flex-grow bg-slate-50 min-h-0 relative print:h-auto print:min-h-0 print:overflow-visible ${
           activeTab === "transactions" ? "overflow-hidden p-3" : "overflow-y-auto p-4 space-y-4"
         }`}>
           
           {/* Subpanel Container */}
-          <div className={`text-slate-900 ${activeTab === "transactions" ? "h-full pb-0" : "pb-10 space-y-4"}`} id="android-viewport-content">
+          <div className={`text-slate-900 print:h-auto print:overflow-visible print:p-0 ${activeTab === "transactions" ? "h-full pb-0" : "pb-10 space-y-4"}`} id="android-viewport-content">
             {activeTab === "dash" && (
               <DashboardPanel
                 activeUser={activeUser}
@@ -556,11 +622,6 @@ const MarketDashboard: React.FC = () => {
               />
             )}
           </div>
-        </div>
-
-        {/* 5. Android Bottom Safe Chin Navigation Spacer - clears lower physical phone chin */}
-        <div className="flex bg-white h-8 sm:h-12 w-full border-t border-slate-200 items-center justify-center z-50 shrink-0 select-none pb-1.5 sm:pb-0">
-          <div className="w-24 sm:w-32 h-1 bg-slate-300 rounded-full" />
         </div>
       </div>
     </div>
@@ -674,13 +735,13 @@ const MarketDashboard: React.FC = () => {
               <div className="flex-grow space-y-1.5">
                 <div className="text-[10px] font-black tracking-widest uppercase text-amber-205 text-amber-100 flex items-center justify-between">
                   <span>⚠️ PUSH NOTIFICATION</span>
-                  <span className="bg-white/15 px-2 py-0.5 rounded-full text-[8.5px] font-mono">2026-06-09</span>
+                  <span className="bg-white/15 px-2 py-0.5 rounded-full text-[8.5px] font-mono">{appDate}</span>
                 </div>
                 <h5 className="text-sm font-extrabold leading-tight text-white font-sans">
                   হিসাব সমাপ্তি বাকি আছে! (Day Ledger Open)
                 </h5>
                 <p className="text-[11.5px] text-white/90 font-sans leading-relaxed">
-                  The wholesale Arat accounting records for <strong>2026-06-09</strong> remain unclosed and open for entries. Would you like to commit daily reports and lock the day now?
+                  The wholesale Arat accounting records for <strong>{appDate}</strong> remain unclosed and open for entries. Would you like to commit daily reports and lock the day now?
                 </p>
                 
                 <div className="flex gap-2 pt-2">

@@ -41,11 +41,10 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
   activeUser,
   isAuthenticated,
 }) => {
-  const { data, write } = useData();
+  const { data, write, appDate, setAppDate } = useData();
   const [selectedBuyerId, setSelectedBuyerId] = useState("");
   const [isPrinting, setIsPrinting] = useState(false);
   const [showCloseDaySection, setShowCloseDaySection] = useState(false);
-  const [targetDateStr, setTargetDateStr] = useState("2026-06-09");
   const [feedbackMsg, setFeedbackMsg] = useState("");
 
   const [buyerSearchQuery, setBuyerSearchQuery] = useState("");
@@ -87,18 +86,18 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
   const sources = data?.sources || [];
 
   const settings = data?.settings || [];
-  const isDayClosed = settings.find((s) => s.key === `day_closed_${targetDateStr}`)?.value === "true";
+  const isDayClosed = settings.find((s) => s.key === `day_closed_${appDate}`)?.value === "true";
 
   // Calculations for Close Day
-  const sourcePaymentsForDay = data?.source_payments?.filter((p) => p.date === targetDateStr) || [];
+  const sourcePaymentsForDay = data?.source_payments?.filter((p) => p.date === appDate) || [];
   const amountPaidToSources = sourcePaymentsForDay.reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0);
 
-  const collectionsForDay = collections.filter((c) => c.date === targetDateStr);
+  const collectionsForDay = collections.filter((c) => c.date === appDate);
   const amountReceivedFromBuyers = collectionsForDay.reduce((sum, c) => sum + (c.amount_paid || 0), 0);
   const approvedCollectionsForDay = collectionsForDay.filter((c) => c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0);
   const pendingCollectionsForDay = collectionsForDay.filter((c) => !c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0);
 
-  const salesForDay = transactions.filter((t) => t.date === targetDateStr);
+  const salesForDay = transactions.filter((t) => t.date === appDate);
   const totalSalesToday = salesForDay.reduce((sum, t) => sum + (t.total_price || 0), 0);
   const amountOwedToUs = Math.max(0, totalSalesToday - amountReceivedFromBuyers);
 
@@ -107,10 +106,34 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
       alert("Administrator privileges are required to lock or close the business day reporting sheets.");
       return;
     }
-    const nextVal = isDayClosed ? "false" : "true";
-    await write("settings", "upsert", { key: `day_closed_${targetDateStr}`, value: nextVal });
-    setFeedbackMsg(nextVal === "true" ? `🔒 Day ${targetDateStr} successfully committed and closed!` : `🔓 Day ${targetDateStr} reopened for ledger entry modifications!`);
-    setTimeout(() => setFeedbackMsg(""), 4000);
+    
+    if (!isDayClosed) {
+      // Trying to close the day
+      const currentHour = new Date().getHours();
+      let shouldProceed = true;
+      if (currentHour > 6 && currentHour <= 23) { // rough check for "not past 12 AM" (assuming market runs during day and closes late night/early morning)
+        shouldProceed = window.confirm("It's not past 12 AM yet. Are you sure you want to proceed closing the day?");
+      }
+
+      if (!shouldProceed) return;
+
+      await write("settings", "upsert", { key: `day_closed_${appDate}`, value: "true" });
+      setFeedbackMsg(`🔒 Day ${appDate} successfully committed and closed!`);
+      
+      // Auto advance to next day
+      const d = new Date(appDate);
+      d.setDate(d.getDate() + 1);
+      const nextDateStr = d.toISOString().split("T")[0];
+      setTimeout(() => {
+        setAppDate(nextDateStr);
+        setFeedbackMsg("");
+      }, 2000);
+    } else {
+      // Reopen
+      await write("settings", "upsert", { key: `day_closed_${appDate}`, value: "false" });
+      setFeedbackMsg(`🔓 Day ${appDate} reopened for ledger entry modifications!`);
+      setTimeout(() => setFeedbackMsg(""), 4000);
+    }
   };
 
   const handlePrint = () => {
@@ -146,7 +169,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
       timelineItems.push({
         type: "purchase",
         id: tx.id,
-        date: tx.date || "2026-06-09",
+        date: tx.date || appDate,
         description: `Purchased: ${tx.fish_type}`,
         weight: tx.weight,
         pricePerKg: tx.price_per_kg,
@@ -162,7 +185,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
       timelineItems.push({
         type: "payment",
         id: col.id,
-        date: col.date || "2026-06-09",
+        date: col.date || appDate,
         description: "Cash Receipt Payment Received",
         chargeAmount: 0,
         creditAmount: col.amount_paid,
@@ -522,7 +545,32 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
 
       {/* RENDER INVISIBLE BEAUTIFUL INVOICE READY FOR WINDOW.PRINT FOR PHYSICAL ARAT HANDOUTS! */}
       {isPrinting && activeBuyer && (
-        <div className="fixed inset-0 bg-white text-slate-950 z-[200] p-12 flex flex-col justify-between font-sans print:block" id="printable-statement-sheet-view">
+        <div className="fixed inset-0 bg-white text-slate-950 z-[200] p-12 flex flex-col justify-between font-sans print:static print:inset-auto print:w-full print:h-auto print:transform-none" id="printable-statement-sheet-view">
+          <style>{`
+              @media print {
+                @page {
+                  size: A4 portrait;
+                  margin: 10mm;
+                }
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-statement-sheet-view, #printable-statement-sheet-view * {
+                  visibility: visible !important;
+                }
+                #printable-statement-sheet-view {
+                  display: block !important;
+                  position: static !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  background: white !important;
+                  color: black !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                  overflow: visible !important;
+                }
+              }
+          `}</style>
           <div className="space-y-6">
             
             {/* Invoice header */}

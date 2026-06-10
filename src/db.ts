@@ -126,7 +126,7 @@ let firebaseInitialized = false;
 
 try {
   const app = initializeApp(firebaseConfig);
-  db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+  db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
   firebaseInitialized = true;
   console.log("Firebase Firestore Client synchronized perfectly!");
 } catch (err) {
@@ -152,7 +152,9 @@ export function isOnline(): boolean {
 // ==========================================
 const INITIAL_SEED_DATA: NFCData = {
   users: [
-    { id: "u-1", name: "Admin Setup", pin: "2255", role: "admin" }
+    { id: "u-1", name: "Admin Setup", pin: "2255", role: "admin" },
+    { id: "u-2", name: "Auctioneer Setup", pin: "1122", role: "auctioneer" },
+    { id: "u-3", name: "Collector Setup", pin: "3344", role: "collector" }
   ],
   buyers: [],
   sources: [],
@@ -269,6 +271,18 @@ export async function loadAll(): Promise<NFCData> {
         );
       }
 
+      if (!dbData.users || dbData.users.length === 0) {
+        console.log("Firestore users list is empty. Provisioning default station operator accounts...");
+        const defaultUsers = INITIAL_SEED_DATA.users;
+        await Promise.all(
+          defaultUsers.map(async (u) => {
+            const docRef = doc(db, "users", String(u.id));
+            await setDoc(docRef, u);
+          })
+        );
+        dbData.users = defaultUsers;
+      }
+
       fetched = dbData;
       saveLocalCache(fetched);
     } catch (e) {
@@ -277,6 +291,11 @@ export async function loadAll(): Promise<NFCData> {
     }
   } else {
     fetched = getLocalCache();
+  }
+
+  if (!fetched.users || fetched.users.length === 0) {
+    fetched.users = INITIAL_SEED_DATA.users;
+    saveLocalCache(fetched);
   }
 
   // OPTIMISTIC UPDATE: Merge active offline queues
@@ -520,6 +539,8 @@ export async function wipeAllData(): Promise<void> {
 
   // Restore the core admin user so you don't get locked out
   await setDoc(doc(db, "users", "u-1"), { id: "u-1", name: "Admin Setup", pin: "2255", role: "admin" });
+  await setDoc(doc(db, "users", "u-2"), { id: "u-2", name: "Auctioneer Setup", pin: "1122", role: "auctioneer" });
+  await setDoc(doc(db, "users", "u-3"), { id: "u-3", name: "Collector Setup", pin: "3344", role: "collector" });
   await setDoc(doc(db, "settings", "halkhata_pin"), { key: "halkhata_pin", value: "9988" });
   
   window.location.reload();

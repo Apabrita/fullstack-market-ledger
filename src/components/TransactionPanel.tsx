@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from "react";
 import { useData } from "./DataContext";
 import { Anchor, User, Scale, TrendingUp, AlertCircle, Sparkles, Check, Edit2, Play, Lock, Trash2, ArrowRight, X, ChevronRight, UserPlus, CreditCard } from "lucide-react";
-import { User as DbUser } from "../db";
+import { User as DbUser, getLocalCache } from "../db";
 import { motion, AnimatePresence } from "motion/react";
 
 interface TransactionPanelProps {
@@ -18,8 +18,6 @@ interface TransactionPanelProps {
 // ─────────────────────────────────────────────────────────────────────────────
 // SMART LOGIC HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-const todayStr = () => "2026-06-09"; // Keep consistent with application ledger anchor date
-
 const getSmartFishSuggestions = (transactions: any[], sourceId: string | number | null, buyerId: string | number | null) => {
   const counts: { [key: string]: number } = {};
   transactions.forEach((t) => {
@@ -29,11 +27,6 @@ const getSmartFishSuggestions = (transactions: any[], sourceId: string | number 
       const weightBonus = (matchSource ? 5 : 0) + (matchBuyer ? 5 : 0) + 1;
       counts[t.fish_type] = (counts[t.fish_type] || 0) + weightBonus;
     }
-  });
-
-  const defaults = ["Katla", "Tangra", "Hilsha", "Rohu", "Pomfret", "Shrimp", "Crate #1", "Crate #2"];
-  defaults.forEach((f) => {
-    counts[f] = (counts[f] || 0) + 0.1;
   });
 
   return Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 8);
@@ -63,10 +56,10 @@ const fmtKg = (v: number) => v.toFixed(2) + " kg";
 // THE COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, isAuthenticated, deviceMode }) => {
-  const { data, write } = useData();
+  const { data, write, appDate } = useData();
 
   const store = {
-    transactions: data?.transactions || [],
+    transactions: (data?.transactions || []).filter((t: any) => t.date === appDate),
     sources: data?.sources || [],
     buyers: data?.buyers || [],
     source_payments: data?.source_payments || [],
@@ -79,6 +72,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const [activeSourceId, setActiveSourceId] = useState<string | number | null>(null);
   const [buyer, setBuyer] = useState<any>(null);
   const [fishType, setFishType] = useState("");
+  const [isFishInputFocused, setIsFishInputFocused] = useState(false);
   const [weight, setWeight] = useState("");
   const [price, setPrice] = useState("");
   const [field, setField] = useState<"weight" | "price">("weight");
@@ -91,6 +85,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const [flash, setFlash] = useState("");
   const [loading, setLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [isNumpadDown, setIsNumpadDown] = useState(false);
 
   // Source editing state variables
   const [isEditingSource, setIsEditingSource] = useState(false);
@@ -102,7 +97,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   // Derive dynamic entities
   const fishSuggestions = getSmartFishSuggestions(store.transactions, activeSourceId, buyer?.id);
   const buyerSuggestions = getSmartBuyerSuggestions(store.transactions, store.buyers, activeSourceId, fishType);
-  const todaySources = store.sources.filter((s) => s.date === todayStr() && !s.is_archived);
+  const todaySources = store.sources.filter((s) => s.date === appDate && !s.is_archived);
   const activeSrc = store.sources.find((s) => s.id === activeSourceId);
   const activeTxns = store.transactions.filter((t) => t.source_id === activeSourceId);
   const totalKg = activeTxns.reduce((sum, t) => sum + (t.weight || 0), 0);
@@ -142,7 +137,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       id: newId,
       name: srcName.trim(),
       rate_per_kg: parseFloat(srcRate) || 0,
-      date: todayStr(),
+      date: appDate,
       is_completed: false,
       is_archived: false,
     };
@@ -187,7 +182,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       await write("source_payments", "insert", {
         id: `sp_${Date.now()}`,
         source_id: activeSrc.id,
-        date: todayStr(),
+        date: appDate,
         total_kg: totalKg,
         rate_per_kg: activeSrc.rate_per_kg || 0,
         sale_total: totalAmt,
@@ -209,10 +204,13 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   };
 
   const rebuildCollection = async (buyerId: string, date: string) => {
-    const txns = store.transactions.filter((t) => t.buyer_id === buyerId && t.date === date);
+    // To ensure precision immediately after a write, we pull the freshest data from local storage
+    const latestData = getLocalCache();
+    const txns = latestData.transactions.filter((t) => t.buyer_id === buyerId && t.date === date);
     const total = txns.reduce((sum, t) => sum + (t.total_price || 0), 0);
     
-    const dailyCollections = data?.daily_collections || [];
+    // We can still use data?.daily_collections here to find the entity ID structure
+    const dailyCollections = latestData.daily_collections || [];
     const existing = dailyCollections.find((c) => c.buyer_id === buyerId && c.date === date);
 
     if (total > 0) {
@@ -249,42 +247,50 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
     const w = parseFloat(weight);
     const p = parseFloat(price);
     if (isNaN(w) || isNaN(p) || w <= 0 || p <= 0) return;
+    
     setLoading(true);
 
-    const totalNum = w * p;
-    const tempTxId = `tx_${Date.now()}`;
+    try {
+      const totalNum = w * p;
+      const tempTxId = `tx_${Date.now()}`;
 
-    // Insert transaction
-    await write("transactions", "insert", {
-      id: tempTxId,
-      source_id: activeSourceId,
-      buyer_id: buyer.id,
-      weight: w,
-      price_per_kg: p,
-      total_price: totalNum,
-      date: todayStr(),
-      fish_type: fishType.trim() || "Unsorted Lot",
-      timestamp: new Date().toISOString(),
-      added_by: activeUser?.name || "System Staff",
-    });
+      // Insert transaction
+      await write("transactions", "insert", {
+        id: tempTxId,
+        source_id: activeSourceId,
+        buyer_id: buyer.id,
+        weight: w,
+        price_per_kg: p,
+        total_price: totalNum,
+        date: appDate,
+        fish_type: fishType.trim() || "Unsorted Lot",
+        timestamp: new Date().toISOString(),
+        added_by: activeUser?.name || "System Staff",
+      });
 
-    // Cascade update buyer lifetime debt
-    const updatedBuyer = {
-      ...buyer,
-      lifetime_debt: (buyer.lifetime_debt || 0) + totalNum,
-    };
-    await write("buyers", "update", updatedBuyer);
+      // Cascade update buyer lifetime debt
+      const updatedBuyer = {
+        ...buyer,
+        lifetime_debt: (buyer.lifetime_debt || 0) + totalNum,
+      };
+      await write("buyers", "update", updatedBuyer);
 
-    // Rebuild buyer collections statement
-    await rebuildCollection(buyer.id, todayStr());
+      // Rebuild buyer collections statement
+      await rebuildCollection(buyer.id, appDate);
 
-    // Reset loop
-    setWeight("");
-    setPrice("");
-    setField("weight");
-    setBuyer(null);
-    setLoading(false);
-    doFlash("✔ Auction commit recorded successful!");
+      // Reset loop
+      setWeight("");
+      setPrice("");
+      setFishType("");
+      setField("weight");
+      setBuyer(null);
+      doFlash("✔ Auction commit recorded successful!");
+    } catch (err: any) {
+      console.error("Save Txn Error:", err);
+      alert("An error occurred saving the record: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditSave = async (changes: any) => {
@@ -360,12 +366,16 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         buyers={store.buyers}
         onSelect={(b) => {
           setBuyer(b);
+          setWeight("");
+          setPrice("");
           setShowPicker(false);
         }}
         onClose={() => setShowPicker(false)}
         onAddAndSelect={async (name) => {
           const nb = await addBuyer(name);
           setBuyer(nb);
+          setWeight("");
+          setPrice("");
           setShowPicker(false);
         }}
       />
@@ -429,7 +439,11 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
           {!showSrcInput && (
             <button
-              onClick={() => setShowSrcInput(true)}
+              onClick={() => {
+                setSrcName("");
+                setSrcRate("");
+                setShowSrcInput(true);
+              }}
               className="px-4 py-2 text-xs font-bold border-1.5 border-dashed border-amber-600 rounded-full text-amber-500 hover:text-amber-400 hover:bg-amber-500/5 transition cursor-pointer select-none"
             >
               + New Source
@@ -439,7 +453,13 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
         {/* Create Source input elements overlay */}
         {showSrcInput && (
-          <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex flex-col sm:flex-row gap-2.5 items-center animate-slideDown shadow-lg">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              createSource();
+            }}
+            className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl flex flex-col sm:flex-row gap-2.5 items-center animate-slideDown shadow-lg"
+          >
             <input
               type="text"
               value={srcName}
@@ -457,60 +477,63 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
             />
             <div className="flex gap-1.5 w-full sm:w-auto">
               <button
-                type="button"
-                onClick={createSource}
+                type="submit"
                 className="flex-grow sm:flex-none px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-lg text-xs tracking-wider cursor-pointer font-sans"
               >
                 ADD
               </button>
               <button
                 type="button"
-                onClick={() => setShowSrcInput(false)}
+                onClick={() => {
+                  setSrcName("");
+                  setSrcRate("");
+                  setShowSrcInput(false);
+                }}
                 className="px-3 py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-405 text-slate-400 rounded-lg cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </form>
         )}
 
         {/* Source Action controllers (Lock, edit metadata, and settlement triggers) */}
         {todaySources.length > 0 && activeSrc && (
-          <div className="flex flex-wrap gap-2 items-center text-xs text-slate-400 border-t border-slate-900/60 pt-3 select-none">
+          <div className="flex flex-wrap gap-1.5 items-center justify-between text-[10px] text-slate-400 border-t border-slate-900/60 pt-2.5 mt-1 select-none">
             {isEditingSource && canWrite ? (
-              <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 p-1.5 rounded-lg">
+              <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 p-1 rounded-lg w-full sm:w-auto">
                 <input
                   type="text"
                   value={editSourceName}
                   onChange={(e) => setEditSourceName(e.target.value)}
-                  className="bg-slate-900 text-slate-100 text-[10px] px-2 py-1.5 rounded border border-slate-800 font-sans w-32"
+                  className="bg-slate-900 text-slate-100 text-[10px] px-2 py-1 rounded border border-slate-800 font-sans w-28 focus:outline-none focus:border-amber-500"
                   placeholder="Trawler Name"
                 />
                 <input
                   type="text"
                   value={editSourceRate}
                   onChange={(e) => setEditSourceRate(e.target.value.replace(/[^\d.]/g, ""))}
-                  className="bg-slate-900 text-slate-100 text-[10px] px-2 py-1.5 rounded border border-slate-800 font-mono w-16"
+                  className="bg-slate-900 text-slate-100 text-[10px] px-2 py-1 rounded border border-slate-800 font-mono w-16 focus:outline-none focus:border-amber-500"
                   placeholder="Rate/kg"
                 />
                 <button
                   type="button"
                   onClick={saveSourceEdit}
-                  className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-[9.5px] font-bold rounded"
+                  className="px-2 py-1 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded"
                 >
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsEditingSource(false)}
-                  className="px-2.5 py-1.5 bg-slate-800 text-slate-400 text-[9.5px] rounded"
+                  className="px-2 py-1 bg-slate-800 text-slate-400 rounded"
                 >
                   Cancel
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[10.5px]">Managing Unload: <strong className="text-teal-400 font-bold">{activeSrc.name}</strong></span>
+                <span className="font-mono text-[9px] uppercase">Unloading: <strong className="text-teal-400">{activeSrc.name}</strong></span>
                 {canWrite && (
                   <button
                     onClick={() => {
@@ -518,22 +541,22 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
                       setEditSourceRate(String(activeSrc.rate_per_kg || ""));
                       setIsEditingSource(true);
                     }}
-                    className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-white text-[9.5px] transition flex items-center gap-0.5"
+                    className="p-1 rounded bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-white transition flex items-center justify-center"
                     title="Edit name or base rate"
                   >
-                    ✏️ Edit
+                    ✏️
                   </button>
                 )}
               </div>
             )}
             
-            <div className="ml-auto flex gap-2">
+            <div className="flex gap-1.5 ml-auto sm:ml-0">
               {activeSrc && !activeSrc.is_completed && (
                 <button
                   onClick={lockSource}
-                  className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 font-black rounded-lg text-[10.5px] uppercase tracking-wide cursor-pointer transition flex items-center gap-1.5"
+                  className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 hover:text-emerald-300 font-black rounded text-[9.5px] uppercase tracking-wider cursor-pointer transition flex items-center gap-1"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Mark Sold
+                  <Lock className="w-3 h-3" /> Sold
                 </button>
               )}
 
@@ -543,34 +566,35 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
                     await write("sources", "update", { ...activeSrc, is_completed: false });
                     doFlash("🔓 Source Reopened!");
                   }}
-                  className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:text-amber-300 font-black rounded-lg text-[10.5px] uppercase tracking-wide cursor-pointer transition flex items-center gap-1.5"
+                  className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:text-amber-300 font-black rounded text-[9.5px] uppercase tracking-wider cursor-pointer transition flex items-center gap-1"
                   title="Reopen source to add or modify auctions"
                 >
-                  🔓 Reopen / Undo Sold
+                  🔓 Undo
                 </button>
               )}
               
               {!confirmClear ? (
                 <button
                   onClick={() => setConfirmClear(true)}
-                  className="px-3 py-1.5 hover:bg-slate-900 text-slate-400 hover:text-slate-200 rounded-lg text-[10.5px] border border-slate-850/60 font-sans cursor-pointer transition"
+                  className="px-2 py-1 hover:bg-slate-900 text-slate-500 hover:text-slate-300 rounded text-[9.5px] border border-slate-850/60 font-sans cursor-pointer transition uppercase"
+                  title="Archive all sources for today"
                 >
                   Archive All
                 </button>
               ) : (
-                <div className="flex gap-1.5 items-center">
-                  <span className="text-[10px] text-amber-500 animate-pulse font-bold uppercase">Confirm wholesale wipe?</span>
+                <div className="flex gap-1 items-center">
+                  <span className="text-[9px] text-amber-500 animate-pulse font-bold uppercase">Confirm?</span>
                   <button
                     onClick={clearAll}
-                    className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500 border border-rose-900 text-rose-400 hover:text-white rounded-lg text-[10px] font-extrabold cursor-pointer transition"
+                    className="px-2 py-1 bg-rose-500/20 hover:bg-rose-500 border border-rose-900 text-rose-400 hover:text-white rounded text-[9px] font-extrabold cursor-pointer transition"
                   >
-                    Yes, Archive
+                    Yes
                   </button>
                   <button
                     onClick={() => setConfirmClear(false)}
-                    className="px-2.5 py-1.5 hover:bg-slate-900 text-slate-400 rounded-lg text-[10px] font-bold cursor-pointer border border-slate-800"
+                    className="px-2 py-1 hover:bg-slate-900 text-slate-400 rounded text-[9px] font-bold cursor-pointer border border-slate-800"
                   >
-                    Cancel
+                    No
                   </button>
                 </div>
               )}
@@ -664,7 +688,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         <div className="flex gap-1.5 items-center justify-between">
           <button
             onClick={() => setShowPicker(true)}
-            className={`w-full py-1.5 px-2.5 rounded-lg text-center cursor-pointer flex items-center justify-center gap-1 border font-extrabold text-[10px] uppercase tracking-wider select-none selection:hidden transition-all duration-150 focus:outline-none ${
+            className={`w-[84%] py-1.5 px-2.5 rounded-lg text-center cursor-pointer flex items-center justify-center gap-1 border font-extrabold text-[10px] uppercase tracking-wider select-none selection:hidden transition-all duration-150 focus:outline-none ${
               buyer
                 ? "bg-amber-600 text-white border-amber-500 shadow-md"
                 : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-900"
@@ -673,18 +697,33 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
             <User className="w-2.5 h-2.5 shrink-0" />
             <span className="truncate">{buyer ? `🧑 ${buyer.nickname}` : "👤 Pick Buyer"}</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsNumpadDown(!isNumpadDown)}
+            className={`w-[14%] flex-shrink-0 py-1.5 px-1 border rounded-lg font-black text-[10px] uppercase cursor-pointer flex items-center justify-center select-none transition-all ${
+              isNumpadDown
+                ? "bg-slate-950 text-slate-500 border-slate-850 hover:bg-slate-900"
+                : "bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700"
+            }`}
+            title={isNumpadDown ? "Show Custom Keypad" : "Hide Custom Keypad"}
+          >
+            <span>{isNumpadDown ? "⌨️" : "✕ ⌨️"}</span>
+          </button>
         </div>
 
 
 
-        {/* Fish category Variety entry & chip helper row */}
-        <div className="flex flex-col gap-1.5">
+          {/* Crate Name / No. entry & chip helper row */}
+        <div className="flex flex-col gap-1.5 relative">
           <div className="flex gap-2 relative">
             <input
               type="text"
               value={fishType}
               onChange={(e) => setFishType(e.target.value)}
-              placeholder="🐟 Enter species variety, crate, basket #..."
+              onFocus={() => setIsFishInputFocused(true)}
+              onBlur={() => setTimeout(() => setIsFishInputFocused(false), 200)}
+              placeholder="📦 Enter Crate Name / No...."
               className={`w-full text-xs font-semibold bg-slate-950 p-2 text-slate-200 placeholder-slate-650 rounded-lg border outline-none focus:ring-1 focus:ring-sky-500 transition-all font-sans ${
                 fishType ? "border-sky-500/60" : "border-slate-800"
               }`}
@@ -692,35 +731,35 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
             {fishType && (
               <button
                 onClick={() => setFishType("")}
-                className="absolute right-2 top-2 text-rose-500 p-0.5 hover:bg-rose-500/10 rounded cursor-pointer"
+                className="absolute right-2 top-2 text-rose-500 p-0.5 hover:bg-rose-500/10 rounded cursor-pointer z-10"
               >
                 ✕
               </button>
             )}
           </div>
 
-          {/* Species contextual pill tags suggestions */}
-          <div className="flex flex-wrap gap-1.5 overflow-x-auto scrollbar-none py-0.2 select-none">
-            {fishSuggestions
-              .filter((s) => !fishType || s.toLowerCase().startsWith(fishType.toLowerCase()))
-              .map((s) => {
-                const isSelected = fishType === s;
-                return (
+          {/* Crate contextual pill tags suggestions */}
+          {isFishInputFocused && fishSuggestions.length > 0 && !fishSuggestions.some(s => s.toLowerCase() === fishType.toLowerCase()) && (
+            <div className="flex flex-wrap gap-1.5 overflow-x-auto scrollbar-none py-0.5 select-none absolute top-full left-0 right-0 z-20 bg-slate-900 border border-slate-800 p-2 rounded-lg shadow-xl mt-1">
+              {fishSuggestions
+                .filter((s) => !fishType || s.toLowerCase().startsWith(fishType.toLowerCase()))
+                .map((s) => (
                   <button
                     key={s}
-                    onClick={() => setFishType(s)}
-                    className={`px-3 py-1 text-[10.5px] font-extrabold rounded-full border transition flex items-center justify-center cursor-pointer select-none ${
-                      isSelected
-                        ? "bg-sky-500/15 border-sky-500 text-sky-400"
-                        : "bg-slate-950 border-slate-850/70 text-slate-400 hover:bg-slate-900"
-                    }`}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent blur when clicking
+                    }}
+                    onClick={() => {
+                      setFishType(s);
+                      setIsFishInputFocused(false);
+                    }}
+                    className="px-3 py-1.5 text-[10.5px] font-extrabold rounded-full border transition flex items-center justify-center cursor-pointer select-none bg-slate-950 border-slate-850/70 text-slate-400 hover:bg-slate-900 hover:text-slate-200"
                   >
-                    {isSelected && <span className="mr-1 text-[8.5px]">✔</span>}
                     {s}
                   </button>
-                );
-              })}
-          </div>
+                ))}
+            </div>
+          )}
         </div>
 
         {/* Side-by-side WEIGHT (kg) and PRICE/kg box containers */}
@@ -770,7 +809,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
 
         {/* Highly tactile specialized mobile numpad layout */}
-        <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
+        {!isNumpadDown && (
+          <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
             {/* Row 1 */}
             <button
               onClick={() => handleKeyTap("7")}
@@ -877,6 +917,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
               <span className="text-[9px] font-bold">{field === "weight" ? "➔" : "✔"}</span>
             </button>
           </div>
+        )}
       </div>
     </div>
   );
@@ -932,10 +973,7 @@ const BuyerPicker: React.FC<BuyerPickerProps> = ({ buyers, onSelect, onClose, on
         
         {/* Header picker segment */}
         <div className="px-5 py-4 bg-gradient-to-b from-slate-950 to-slate-900 border-b border-slate-800 flex justify-between items-center select-none">
-          <div>
-            <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-205 text-slate-200">Wholesale Buyers Directory</h3>
-            <p className="text-[10px] text-slate-500">Tap nickname to bind instantly to scale POS</p>
-          </div>
+          <h3 className="font-extrabold text-sm uppercase tracking-wider text-slate-205 text-slate-200">Wholesale Buyers Directory</h3>
           <button
             onClick={onClose}
             className="p-1 px-2 text-[10.5px] font-mono font-bold bg-slate-950 border border-slate-805 hover:bg-slate-850 rounded-lg text-slate-400 hover:text-white cursor-pointer select-none"
@@ -943,28 +981,6 @@ const BuyerPicker: React.FC<BuyerPickerProps> = ({ buyers, onSelect, onClose, on
             ✕ CLOSE
           </button>
         </div>
-
-        {/* Add new quick buyer form segment */}
-        <form onSubmit={handleAdd} className="px-5 py-3 border-b border-slate-900 bg-slate-950/40 space-y-2">
-          <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest block">Register New Buyer Nickname</label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newBuyerName}
-              onChange={(e) => setNewBuyerName(e.target.value)}
-              placeholder="e.g. Visakhapatnam Retail Traders"
-              className="w-full text-xs bg-slate-900 text-slate-200 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 font-sans"
-            />
-            <button
-              type="submit"
-              disabled={adding}
-              className="px-4.5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black select-none cursor-pointer flex items-center gap-1 shrink-0"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{adding ? "Saving..." : "Add"}</span>
-            </button>
-          </div>
-        </form>
 
         {/* Directory search filter box */}
         <div className="px-5 py-3 border-b border-slate-900 select-none">
@@ -1164,14 +1180,15 @@ const EditTxnModal: React.FC<EditTxnModalProps> = ({ txn, buyers, onSave, onDele
             </select>
           </div>
 
-          {/* Fish / variety selection */}
+          {/* Crate selection */}
           <div className="space-y-1.5">
-            <label className="text-[10.5px] font-extrabold text-slate-500 uppercase font-sans tracking-wider block">Fish Variety</label>
+            <label className="text-[10.5px] font-extrabold text-slate-500 uppercase font-sans tracking-wider block">Crate Name / No.</label>
             <input
               type="text"
               value={fishType}
               onChange={(e) => setFishType(e.target.value)}
               className="w-full text-xs text-slate-200 bg-slate-950 border border-slate-800 rounded-xl p-3 outline-none focus:ring-1 focus:ring-amber-500"
+              placeholder="Enter Crate Name or Number"
             />
           </div>
 

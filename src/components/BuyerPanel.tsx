@@ -24,7 +24,7 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
   // Selected Buyer details and edit state
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | number | null>(null);
-  const [editFullName, setEditFullName] = useState("");
+  const [editNickname, setEditNickname] = useState("");
   const [editMobile, setEditMobile] = useState("");
   const [editCreditLimit, setEditCreditLimit] = useState("");
 
@@ -139,7 +139,7 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
   const handleSelectBuyer = (b: any) => {
     setSelectedBuyerId(b.id === selectedBuyerId ? null : b.id);
-    setEditFullName(b.full_name || "");
+    setEditNickname(b.nickname || "");
     setEditMobile(b.mobile || "");
     setEditCreditLimit(String(b.credit_limit || 100000));
   };
@@ -152,7 +152,7 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
     const updated = {
       ...b,
-      full_name: editFullName.trim(),
+      nickname: editNickname.trim(),
       mobile: editMobile.trim(),
       credit_limit: parseFloat(editCreditLimit) || 100000,
     };
@@ -175,11 +175,17 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
     ? (data?.daily_collections || []).filter(c => c.buyer_id === selectedBuyer.id)
     : [];
 
+  const { appDate } = useData();
+
   const totalBoughtWeight = buyerTxns.reduce((sum, t) => sum + (t.weight || 0), 0);
   const totalBoughtValue = buyerTxns.reduce((sum, t) => sum + (t.total_price || t.weight * t.price_per_kg || 0), 0);
   const totalPaidApproved = buyerCollections
     .filter(c => c.is_approved)
     .reduce((sum, c) => sum + (c.amount_paid || 0), 0);
+
+  const todayBoughtValue = buyerTxns.filter(t => t.date === appDate).reduce((sum, t) => sum + (t.total_price || t.weight * t.price_per_kg || 0), 0);
+  const todayPaidApproved = buyerCollections.filter(c => c.date === appDate && c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0);
+  const todayOwed = Math.max(0, todayBoughtValue - todayPaidApproved);
 
   const isAdmin = activeUser?.role === "admin" && isAuthenticated;
   const isAuthorizedToCollect = isAuthenticated && (activeUser?.role === "admin" || activeUser?.role === "collector");
@@ -513,12 +519,12 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-sans font-bold text-slate-600 block select-none">
-                      Full Legal Name (ক্রেতার পুরো নাম)
+                      Buyer Name (ক্রেতার নাম)
                     </label>
                     <input
                       type="text"
-                      value={editFullName}
-                      onChange={(e) => setEditFullName(e.target.value)}
+                      value={editNickname}
+                      onChange={(e) => setEditNickname(e.target.value)}
                       placeholder="e.g. Haji Mohammad Ali"
                       className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
                     />
@@ -559,27 +565,15 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               </form>
 
               {/* Statistics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 select-none">
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col justify-between">
-                  <span className="text-[9px] text-slate-500 block font-semibold uppercase tracking-wider font-sans">Bought Total</span>
-                  <span className="text-sm font-bold font-mono text-slate-800 block mt-1">
-                    ₹{Math.round(totalBoughtValue).toLocaleString()}
-                  </span>
-                </div>
-                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col justify-between">
-                  <span className="text-[9px] text-slate-500 block font-semibold uppercase tracking-wider font-sans">Weight Total</span>
-                  <span className="text-sm font-bold font-mono text-slate-800 block mt-1">
-                    {Math.round(totalBoughtWeight).toLocaleString()} kg
-                  </span>
-                </div>
-                <div className="bg-teal-50/10 border border-teal-150 p-3 rounded-xl flex flex-col justify-between">
-                  <span className="text-[9px] text-teal-600 block font-semibold uppercase tracking-wider font-sans">Paid (Approved)</span>
-                  <span className="text-sm font-bold font-mono text-teal-700 block mt-1">
-                    ₹{Math.round(totalPaidApproved).toLocaleString()}
+              <div className="grid grid-cols-2 gap-3 select-none">
+                <div className="bg-rose-50/10 border border-rose-150 p-3 rounded-xl flex flex-col justify-between">
+                  <span className="text-[9px] text-rose-500 block font-semibold uppercase tracking-wider font-sans">Owe Us For Today</span>
+                  <span className="text-sm font-bold font-mono text-rose-650 block mt-1">
+                    ₹{Math.round(todayOwed).toLocaleString()}
                   </span>
                 </div>
                 <div className="bg-rose-50/10 border border-rose-150 p-3 rounded-xl flex flex-col justify-between">
-                  <span className="text-[9px] text-rose-500 block font-semibold uppercase tracking-wider font-sans">Outstanding Debt</span>
+                  <span className="text-[9px] text-rose-500 block font-semibold uppercase tracking-wider font-sans">Outstanding Debt (Ledger)</span>
                   <span className="text-sm font-bold font-mono text-rose-650 block mt-1">
                     ₹{Math.round(selectedBuyer.lifetime_debt || 0).toLocaleString()}
                   </span>
@@ -612,7 +606,8 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 </div>
               </div>
 
-              {/* Collections History */}
+              {/* Collections History HIDDEN AS REQUESTED */}
+              {/*
               <div className="space-y-2">
                 <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 border-b border-slate-150 pb-1.5 flex justify-between items-center font-sans select-none">
                   <span>Receipts & Daily Collections Log</span>
@@ -638,6 +633,7 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                   )}
                 </div>
               </div>
+              */}
 
             </div>
           </div>

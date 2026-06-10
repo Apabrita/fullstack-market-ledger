@@ -4,6 +4,7 @@
  */
 
 import React from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { useData } from "./DataContext";
 import { User as DbUser } from "../db";
@@ -35,10 +36,7 @@ import {
 import {
   isWorkspaceConnected,
   getWorkspaceToken,
-  saveWorkspaceToken,
   clearWorkspaceToken,
-  getCustomClientId,
-  saveCustomClientId,
   initiateGoogleOAuth,
   syncDataToGoogleSheets,
   uploadFileToGoogleDrive,
@@ -66,12 +64,14 @@ interface DashboardPanelProps {
   onNavigate: (tab: any) => void;
 }
 
+import { shareAsPDF } from "../utils/pdf";
+
 export const DashboardPanel: React.FC<DashboardPanelProps> = ({
   activeUser,
   isAuthenticated,
   onNavigate,
 }) => {
-  const { data, queue } = useData();
+  const { data, queue, appDate } = useData();
   const [showPrintView, setShowPrintView] = React.useState(false);
   const [activePdfTab, setActivePdfTab] = React.useState<"auction" | "source_payment" | "collection" | "collection_slip">("auction");
   const [selectedAuctioneerFilter, setSelectedAuctioneerFilter] = React.useState<string>("All");
@@ -80,7 +80,6 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
   // Google Workspace Integration states
   const [googleConnected, setGoogleConnected] = React.useState(isWorkspaceConnected());
   const [googleToken, setGoogleToken] = React.useState<string | null>(getWorkspaceToken());
-  const [customCliId, setCustomCliId] = React.useState(getCustomClientId());
   const [showConfigCliId, setShowConfigCliId] = React.useState(false);
   const [selectedWcReport, setSelectedWcReport] = React.useState<"auction" | "source_payment" | "collection" | "collection_slip">("auction");
   const [masterSpreadsheetId, setMasterSpreadsheetId] = React.useState("");
@@ -106,17 +105,23 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     return () => clearInterval(checkTimer);
   }, [googleConnected]);
 
-  const handleConnectGoogle = () => {
+  const handleConnectGoogle = async () => {
     try {
-      saveCustomClientId(customCliId);
-      initiateGoogleOAuth();
+      const success = await initiateGoogleOAuth();
+      if (success) {
+        setGoogleConnected(true);
+        setGoogleToken(getWorkspaceToken());
+      }
     } catch (err: any) {
+      if (err.code === 'auth/cancelled-popup-request' || err.code === 'auth/popup-closed-by-user') {
+        return;
+      }
       setWcErrorMessage("OAuth connection setup failed: " + err.message);
     }
   };
 
-  const handleDisconnectGoogle = () => {
-    clearWorkspaceToken();
+  const handleDisconnectGoogle = async () => {
+    await clearWorkspaceToken();
     setGoogleConnected(false);
     setGoogleToken(null);
     setWcSuccessMessage("Google account disconnected successfully.");
@@ -146,7 +151,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     setWcSuccessMessage(null);
     try {
       const reportContent = constructPlainReportText(data, selectedWcReport);
-      const filename = `New_Fish_Center_${selectedWcReport.toUpperCase()}_JOURNAL_2026-06-09.txt`;
+      const filename = `New_Fish_Center_${selectedWcReport.toUpperCase()}_JOURNAL_${appDate}.txt`;
       const res = await uploadFileToGoogleDrive(filename, reportContent, "text/plain");
       setWcSuccessMessage(`💾 Document parsed as digital format and loaded to Google Drive! File ID: ${res.fileId}. File Link: ${res.webViewLink}`);
     } catch (err: any) {
@@ -347,7 +352,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               id="btn-trigger-print-summary"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Generate Print-Friendly Daily Sheet</span>
+              <span>Export PDF / Print Records</span>
             </button>
           </div>
         </div>
@@ -517,31 +522,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <div className="flex items-start gap-2 text-amber-400 bg-amber-500/5 p-2 rounded-lg border border-amber-500/10">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
-                <strong>Sandbox Credentials Notice:</strong> Since some Google Workspace scopes are sensitive, is recommended to configure your own Google Cloud Console Client ID for custom workspace projects to avoid authentication restrictions.
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 block font-mono">
-                Google Client ID (web-client):
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customCliId}
-                  onChange={(e) => setCustomCliId(e.target.value)}
-                  placeholder="Paste your client_id from GCP Console"
-                  className="flex-grow bg-slate-950 border border-slate-800 text-slate-200 px-3 py-1.5 rounded-lg focus:outline-none focus:border-teal-500 font-mono text-xs"
-                />
-                <button
-                  onClick={() => {
-                    saveCustomClientId(customCliId);
-                    setWcSuccessMessage("Saved custom Client ID.");
-                    setTimeout(() => setWcSuccessMessage(null), 2500);
-                  }}
-                  className="px-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg cursor-pointer font-bold text-[10px] uppercase font-mono transition"
-                >
-                  Save
-                </button>
+                <strong>Auth Configured Automatically:</strong> The Google Workspace authentication is securely managed by Firebase Auth in the background. Popups are required.
               </div>
             </div>
           </div>
@@ -661,7 +642,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             </div>
             
             <div className="text-[9.5px] text-slate-500 mt-4 leading-relaxed font-mono pt-3 pb-1.5 border-t border-slate-850 text-center">
-              Active Date: 2026-06-09 (Tuesday)
+              Active Date: {appDate}
             </div>
           </div>
 
@@ -1041,18 +1022,30 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
       {/* 🧾 Elegant Print-Friendly Daily Sheet Modal Overlay */}
       <AnimatePresence>
         {showPrintView && (
-          <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3 select-none backdrop-blur-sm">
+          <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-3 select-none backdrop-blur-sm print:static print:inset-auto print:bg-white print:p-0 print:block print:transform-none print:w-full print:h-auto">
             <style>{`
               @media print {
                 @page {
                   size: A4 portrait;
                   margin: 10mm;
                 }
+                html, body, #root {
+                  height: auto !important;
+                  width: auto !important;
+                  overflow: visible !important;
+                  position: static !important;
+                  background: white !important;
+                }
                 body * {
                   visibility: hidden !important;
                 }
                 #print-sheet-canvas, #print-sheet-canvas * {
                   visibility: visible !important;
+                  color: black !important;
+                  background-color: transparent !important;
+                  box-shadow: none !important;
+                  text-shadow: none !important;
+                  border-color: #000 !important;
                 }
                 #print-sheet-canvas {
                   position: absolute !important;
@@ -1060,10 +1053,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   top: 0 !important;
                   width: 100% !important;
                   height: auto !important;
-                  background: white !important;
-                  color: black !important;
+                  display: block !important;
                   padding: 0 !important;
                   margin: 0 !important;
+                  overflow: visible !important;
+                }
+                /* Print specific SVG styles */
+                #print-sheet-canvas svg {
+                  stroke: black !important;
                 }
               }
             `}</style>
@@ -1072,14 +1069,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative"
+              className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative print:max-w-none print:max-h-none print:overflow-visible print:border-none print:shadow-none print:bg-white print:rounded-none"
             >
               {/* Modal control bar */}
               <div className="bg-slate-950 border-b border-slate-850 p-4 flex justify-between items-center shrink-0 print:hidden">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                   <h4 className="text-xs font-black text-slate-250 uppercase tracking-widest font-mono">
-                    Print / Export Daily Sheets
+                    Print / Export To PDF Options
                   </h4>
                 </div>
                 <button
@@ -1146,35 +1143,35 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               {/* Scrollable sheet canvas (targeted by the browser print trigger) */}
               <div
                 id="print-sheet-canvas"
-                className="flex-grow overflow-y-auto p-6 md:p-8 bg-white text-slate-900 space-y-6 font-sans select-text scrollbar-none"
+                className="flex-grow overflow-y-auto p-6 md:p-8 bg-white text-slate-900 space-y-6 font-sans select-text scrollbar-none print:overflow-visible print:p-0 print:h-auto"
               >
                 {/* Official letterhead */}
                 <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-black tracking-tight text-slate-950 uppercase">
-                      NEW FISH CENTER
-                    </h3>
-                    <p className="text-[9px] text-slate-600 font-extrabold tracking-wider font-mono">
-                      PRIMARY WHOLESALE COMMISSIONS • ARAT HARBOR LEDGER
-                    </p>
-                    <p className="text-[9.5px] text-slate-500 mt-0.5">
-                      Arat Harbor Road, Gate #3, South Dock
-                    </p>
-                  </div>
-                  <div className="text-right font-mono">
-                    <div className="bg-slate-950 text-white font-bold text-[8.5px] px-2.5 py-1 rounded tracking-wider uppercase">
-                      {activePdfTab === "auction" && "Auction Purpose PDF"}
-                      {activePdfTab === "source_payment" && "Source Payment PDF"}
-                      {activePdfTab === "collection" && "Collection Purpose PDF"}
-                      {activePdfTab === "collection_slip" && "Buyer Invoice Slip PDF"}
-                    </div>
-                    <div className="text-xs font-bold text-slate-950 mt-1.5">
-                      Session Date: 2026-06-09
-                    </div>
-                    <div className="text-[9px] text-slate-500">
-                      Printed: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
-                    </div>
-                  </div>
+                                  <div>
+                                    <h3 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
+                                      NEW FISH CENTER
+                                    </h3>
+                                    <p className="text-[10px] text-slate-600 font-extrabold tracking-wider font-mono">
+                                      PRIMARY WHOLESALE COMMISSIONS • ARAT HARBOR LEDGER
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">
+                                      Arat Harbor Road, Gate #3, South Dock
+                                    </p>
+                                  </div>
+                                  <div className="text-right font-mono">
+                                    <div className="bg-slate-950 text-white font-bold text-[8.5px] px-2.5 py-1 rounded tracking-wider uppercase">
+                                      {activePdfTab === "auction" && "Auction Purpose PDF"}
+                                      {activePdfTab === "source_payment" && "Source Payment PDF"}
+                                      {activePdfTab === "collection" && "Collection Purpose PDF"}
+                                      {activePdfTab === "collection_slip" && "Buyer Invoice Slip PDF"}
+                                    </div>
+                                    <div className="text-lg font-black text-slate-950 mt-1.5 uppercase">
+                                      DATE: {appDate}
+                                    </div>
+                                    <div className="text-[9px] text-slate-500 mt-1">
+                                      Printed: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                                    </div>
+                                  </div>
                 </div>
 
                 {/* Sub-header stating the PDF's primary intent and device scope */}
@@ -1187,6 +1184,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     Authorized Terminal User: <strong className="text-slate-900">{activeUser?.name || "Apon Das (Admin)"}</strong> | License Scope: {activeUser?.role || "Manager"} Permission
+                    {activePdfTab === "auction" && selectedAuctioneerFilter !== "All" && (
+                      <span className="block mt-1 uppercase text-slate-800 text-[11px] font-bold tracking-wider">
+                        Individual Seller Generated: <span className="text-slate-950 font-black">{selectedAuctioneerFilter}</span>
+                      </span>
+                    )}
                   </p>
                 </div>
 
@@ -1258,7 +1260,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       <span className="font-bold uppercase tracking-wider">
                         Active Filter Scope: {selectedAuctioneerFilter === "All" ? "ALL COMMISSION AGENTS COMBINED" : `INDIVIDUAL AUCTIONEER: ${selectedAuctioneerFilter.toUpperCase()}`}
                       </span>
-                      <span>{filteredPrintedTransactions.length} records found • 2026-06-09</span>
+                      <span>{filteredPrintedTransactions.length} records found • {appDate}</span>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1382,8 +1384,30 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       })}
 
                       {sources.filter(s => transactions.some(t => t.source_id === s.id)).length === 0 && (
-                        <div className="text-center py-6 text-slate-500 italic">
-                          No landings or source trades registered for payment today.
+                        <div className="border border-slate-300 rounded-lg p-3 space-y-2 bg-slate-50/40">
+                          <div className="flex justify-between items-center border-b border-slate-200 pb-1 flex-wrap">
+                            <span className="font-bold text-[11px] text-slate-900 uppercase">
+                              ⚓ Empty Source • Landings Count: 0
+                            </span>
+                          </div>
+                          <table className="w-full text-[10px] text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-300 text-slate-550 font-bold font-mono uppercase text-[8.5px]">
+                                <th className="py-1">Fish Type / Purpose</th>
+                                <th className="py-1 text-center">Trade Weight</th>
+                                <th className="py-1 text-center">Auction Rate</th>
+                                <th className="py-1 text-center">Sale Value</th>
+                                <th className="py-1 text-right">Payout Given (95%)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td colSpan={5} className="py-6 text-center text-slate-500 italic">
+                                  No landings or source trades registered for payment today.
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
@@ -1492,14 +1516,30 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                             <p className="text-[8.5px] text-slate-500 italic">Showing buyers with lifetime outstanding balances owed until today.</p>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {buyerBalancesList.map(({ buyer, currentBalance }) => {
-                              if (currentBalance === 0) return null;
-                              return (
-                                <div 
-                                  key={buyer.id} 
-                                  className="border-2 border-dashed border-slate-300 p-4 rounded-xl bg-slate-50/45 space-y-2 relative"
-                                  style={{ pageBreakInside: "avoid" }}
-                                >
+                            {buyerBalancesList.filter(b => b.currentBalance > 0).length === 0 ? (
+                                <div className="border-2 border-dashed border-slate-300 p-4 rounded-xl bg-slate-50/45 space-y-2 relative" style={{ pageBreakInside: "avoid" }}>
+                                  <div className="absolute top-1 right-2 text-slate-400 text-[8px] uppercase font-mono select-none">Blank Buyer Copy</div>
+                                  <div className="border-b border-slate-200 pb-1.5 flex justify-between items-start">
+                                    <div>
+                                      <h4 className="font-extrabold text-[12px] text-slate-950 uppercase tracking-tight">_______________</h4>
+                                      <p className="text-[8px] text-slate-500 font-mono">ID: _______ • Customer Ledger Dues</p>
+                                    </div>
+                                    <div className="text-[8px] text-slate-500 font-mono text-right font-black">{appDate}</div>
+                                  </div>
+                                  <div className="py-1">
+                                    <div className="text-[8.5px] text-slate-500 font-sans font-bold uppercase tracking-wider">How much has buyer owed until today:</div>
+                                    <div className="text-[18px] font-black text-rose-300 font-mono mt-0.5">₹0</div>
+                                  </div>
+                                </div>
+                            ) : (
+                              buyerBalancesList.map(({ buyer, currentBalance }) => {
+                                if (currentBalance === 0) return null;
+                                return (
+                                  <div 
+                                    key={buyer.id} 
+                                    className="border-2 border-dashed border-slate-300 p-4 rounded-xl bg-slate-50/45 space-y-2 relative"
+                                    style={{ pageBreakInside: "avoid" }}
+                                  >
                                   <div className="absolute top-1 right-2 text-slate-400 text-[8px] uppercase font-mono select-none">
                                     Buyer Copy
                                   </div>
@@ -1513,7 +1553,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                       </p>
                                     </div>
                                     <div className="text-[8px] text-slate-500 font-mono text-right font-black">
-                                      2026-06-09
+                                      {appDate}
                                     </div>
                                   </div>
                                   <div className="py-1">
@@ -1528,7 +1568,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                   </div>
                                 </div>
                               );
-                            })}
+                            }))}
                           </div>
                         </div>
                       ) : (
@@ -1558,8 +1598,34 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                 };
                               });
 
-                              return list.map(({ source, paidToday, oweThemTotal }) => {
-                                if (paidToday === 0 && oweThemTotal === 0) return null;
+                              const activeList = list.filter(({ paidToday, oweThemTotal }) => paidToday > 0 || oweThemTotal > 0);
+                              
+                              if (activeList.length === 0) {
+                                return (
+                                  <div className="border-2 border-dashed border-indigo-200 p-4 rounded-xl bg-indigo-50/20 space-y-2.5 relative" style={{ pageBreakInside: "avoid" }}>
+                                    <div className="absolute top-1 right-2 text-indigo-400 text-[8px] uppercase font-mono select-none">Blank Source Copy</div>
+                                    <div className="border-b border-indigo-100 pb-1.5 flex justify-between items-start">
+                                      <div>
+                                        <h4 className="font-extrabold text-[12px] text-indigo-950 uppercase tracking-tight">_______________</h4>
+                                        <p className="text-[8px] text-indigo-600 font-mono">ID: _______ • Vessel Catch Record</p>
+                                      </div>
+                                      <div className="text-[8px] text-indigo-500 font-mono text-right font-bold">{appDate}</div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 py-1">
+                                      <div>
+                                        <div className="text-[8px] text-slate-500 uppercase font-bold tracking-wide">Paid Out Today:</div>
+                                        <div className="text-[14px] font-black font-mono text-emerald-300">₹0</div>
+                                      </div>
+                                      <div>
+                                        <div className="text-[8px] uppercase font-bold text-slate-500 tracking-wide">We Owe Them (Until Today):</div>
+                                        <div className="text-[14px] font-black font-mono text-indigo-300">₹0</div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return activeList.map(({ source, paidToday, oweThemTotal }) => {
                                 return (
                                   <div 
                                     key={source.id} 
@@ -1579,7 +1645,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                         </p>
                                       </div>
                                       <div className="text-[8px] text-indigo-500 font-mono text-right font-bold">
-                                        2026-06-09
+                                        {appDate}
                                       </div>
                                     </div>
                                     
@@ -1623,9 +1689,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                 </button>
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
-                    onClick={() => {
-                      // Native print handles direct Save to PDF on all mobile, desktop platforms
-                      window.print();
+                    onClick={async () => {
+                      const title = `New Fish Center - ${activePdfTab.toUpperCase()} - ${appDate}`;
+                      const text = `I am sharing the ${activePdfTab.toUpperCase()} ledger sheet from New Fish Center for ${appDate}.`;
+                      const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
+                      await shareAsPDF('print-sheet-canvas', filename, title, text, 'download');
                     }}
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-slate-950/40 cursor-pointer active:scale-95 transition"
                   >
@@ -1633,19 +1701,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                     <span>Save Locally as PDF</span>
                   </button>
                   <button
-                    onClick={() => {
-                      if (navigator.share) {
-                        navigator.share({
-                          title: `New Fish Center - ${activePdfTab.toUpperCase()} - 2026-06-09`,
-                          text: `I am sharing the ${activePdfTab.toUpperCase()} ledger sheet from New Fish Center for 2026-06-09.`,
-                          url: window.location.href
-                        }).catch(() => {
-                          window.print();
-                        });
-                      } else {
-                        // fallback to safe print dialog which includes sharing/saving natively
-                        window.print();
-                      }
+                    onClick={async () => {
+                      const title = `New Fish Center - ${activePdfTab.toUpperCase()} - ${appDate}`;
+                      const text = `I am sharing the ${activePdfTab.toUpperCase()} ledger sheet from New Fish Center for ${appDate}.`;
+                      const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
+                      await shareAsPDF('print-sheet-canvas', filename, title, text, 'share');
                     }}
                     className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-teal-950/40 cursor-pointer active:scale-95 transition"
                   >
@@ -1653,7 +1713,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                     <span>Share PDF</span>
                   </button>
                   <button
-                    onClick={() => window.print()}
+                    onClick={async () => {
+                      const title = `New Fish Center - ${activePdfTab.toUpperCase()} - ${appDate}`;
+                      const text = `I am sharing the ${activePdfTab.toUpperCase()} ledger sheet from New Fish Center for ${appDate}.`;
+                      const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
+                      await shareAsPDF('print-sheet-canvas', filename, title, text, 'download');
+                    }}
                     className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-900/40 cursor-pointer active:scale-95 transition"
                   >
                     <Printer className="w-4 h-4" />

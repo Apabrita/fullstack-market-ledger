@@ -27,6 +27,8 @@ interface DataContextType {
   theme: "light" | "dark" | "system";
   setTheme: (t: "light" | "dark" | "system") => void;
   activeTheme: "light" | "dark";
+  appDate: string;
+  setAppDate: (d: string) => void;
   refreshData: () => Promise<void>;
   write: <K extends keyof NFCData>(
     table: K,
@@ -51,6 +53,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Theme states
   const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
   const [activeTheme, setActiveTheme] = useState<"light" | "dark">("dark");
+  const [appDate, setAppDateState] = useState<string>("2026-06-09");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -58,8 +61,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (savedTheme) {
         setThemeState(savedTheme);
       }
+      const savedDate = localStorage.getItem("nfc_app_date");
+      if (savedDate) {
+        setAppDateState(savedDate);
+      }
     }
   }, []);
+
+  const setAppDate = (d: string) => {
+    setAppDateState(d);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nfc_app_date", d);
+    }
+  };
 
   const setTheme = (t: "light" | "dark" | "system") => {
     setThemeState(t);
@@ -235,6 +249,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         theme,
         setTheme,
         activeTheme,
+        appDate,
+        setAppDate,
         refreshData,
         write,
         toggleNetworkSimulation,
