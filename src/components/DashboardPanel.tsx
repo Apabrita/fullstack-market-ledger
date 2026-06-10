@@ -46,25 +46,13 @@ import {
 } from "../utils/workspace";
 import { bidirectionalSync } from "../utils/sheets_sync";
 import { performDayClosingBackup } from "../utils/BackupService";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Cell,
-  PieChart,
-  Pie
-} from "recharts";
+import { shareAsPDF } from "../utils/pdf";
 
 interface DashboardPanelProps {
   activeUser: DbUser | null;
   isAuthenticated: boolean;
   onNavigate: (tab: any) => void;
 }
-
-import { shareAsPDF } from "../utils/pdf";
 
 export const DashboardPanel: React.FC<DashboardPanelProps> = ({
   activeUser,
@@ -266,8 +254,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
   const pendingCollections = collections.filter((c) => !c.is_approved);
   const totalCollectionsPending = pendingCollections.reduce((sum, c) => sum + (c.amount_paid || 0), 0);
 
-  // Active uncompleted trawlers in harbor
-  const activeTrawlersCount = sources.filter((s) => !s.is_completed).length;
+  // Active uncompleted sources in harbor
+  const activeSourcesCount = sources.filter((s) => !s.is_completed).length;
 
   // Commissions cumulative earnings
   const totalCommissions = sourcePayments.reduce((sum, p) => sum + (p.commission || 0), 0);
@@ -298,30 +286,6 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     };
   });
 
-  // Chart data: Sales volume by fish type
-  const fishSalesMap: Record<string, number> = {};
-  transactions.forEach((tx) => {
-    fishSalesMap[tx.fish_type] = (fishSalesMap[tx.fish_type] || 0) + tx.total_price;
-  });
-
-  const fishSalesData = Object.entries(fishSalesMap).map(([name, value]) => ({
-    name: name.split(" ")[0], // grab first word for sizing
-    value,
-  })).sort((a, b) => b.value - a.value).slice(0, 5);
-
-  // Chart colors
-  const COLORS = ["#0d9488", "#4f46e5", "#06b6d4", "#8b5cf6", "#f59e0b"];
-
-  // Credit Risk Alerts: buyers near or exceeding limit
-  const highRiskBuyers = buyers
-    .map((b) => {
-      const remainingLimit = b.credit_limit - b.lifetime_debt;
-      const usagePercentage = b.credit_limit > 0 ? (b.lifetime_debt / b.credit_limit) * 100 : 0;
-      return { ...b, remainingLimit, usagePercentage };
-    })
-    .filter((b) => b.usagePercentage >= 80)
-    .sort((a, b) => b.usagePercentage - a.usagePercentage);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 15 }}
@@ -331,7 +295,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
       className="space-y-6"
     >
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border border-slate-800 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-zinc-950 via-zinc-900 to-indigo-950 border border-zinc-800 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-2xl shadow-black/10 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_120%,rgba(6,182,212,0.15),transparent_40%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_-20%,rgba(99,102,241,0.1),transparent_40%)]" />
         
@@ -342,13 +306,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           <h2 className="text-xl font-extrabold text-white font-sans uppercase">
             Market Dashboard
           </h2>
-          <p className="text-xs text-slate-400">
-            Real-time visual monitoring of fish trawlers, buyer debts, and cash collection vaults.
+          <p className="text-xs text-zinc-400">
+            Real-time visual monitoring of fish sources, buyer debts, and cash collection vaults.
           </p>
           <div className="pt-1.5 flex justify-center md:justify-start">
             <button
               onClick={() => setShowPrintView(true)}
-              className="px-4 py-2 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-605 hover:to-indigo-605 text-white text-[11px] font-black uppercase tracking-wider rounded-xl shadow-lg cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-150 flex items-center gap-1.5 shrink-0 select-none border border-white/10"
+              className="px-4 py-2 bg-gradient-to-r from-teal-500 to-indigo-600 hover:from-teal-605 hover:to-indigo-605 text-white text-[11px] font-black uppercase tracking-wider rounded-2xl shadow-lg cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] duration-150 flex items-center gap-1.5 shrink-0 select-none border border-white/10"
               id="btn-trigger-print-summary"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -358,7 +322,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         </div>
 
         {activeUser && (
-          <div className="bg-slate-950/60 border border-indigo-900/40 rounded-xl px-4 py-3 text-center md:text-right font-sans z-10 shrink-0">
+          <div className="bg-zinc-950/60 border border-indigo-900/40 rounded-2xl px-4 py-3 text-center md:text-right font-sans z-10 shrink-0">
             <div className="text-[10px] text-indigo-400 uppercase tracking-widest font-mono font-bold">
               Authenticated Session
             </div>
@@ -366,7 +330,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               {activeUser.name}
             </div>
-            <div className="text-[9.5px] uppercase font-mono text-slate-550 tracking-wider">
+            <div className="text-[9.5px] uppercase font-mono text-zinc-550 tracking-wider">
               System permission: {activeUser.role}
             </div>
           </div>
@@ -374,17 +338,17 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
       </div>
 
       {/* 🖨️ Direct Journal PDF Prints Control Section */}
-      <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl shadow-xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-850">
+      <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl shadow-2xl shadow-black/10 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
           <div>
             <h3 className="text-xs font-sans font-extrabold uppercase tracking-widest text-[#0d9488]">
               🖨️ Authorized Harbor PDF Generation Portal (A4 FORMAT)
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-zinc-400 mt-0.5">
               Click any purpose button to construct the dynamic data cache, compile the paper ledger, and trigger the system A4 Print PDF pipeline.
             </p>
           </div>
-          <div className="bg-slate-900 border border-slate-800 font-mono text-[9px] font-bold px-2.5 py-1 rounded tracking-wide uppercase text-teal-400">
+          <div className="bg-zinc-900 border border-zinc-800 font-mono text-[9px] font-bold px-2.5 py-1 rounded tracking-wide uppercase text-teal-400">
             Apon Das (Primary Operator)
           </div>
         </div>
@@ -393,15 +357,15 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           {/* Button 1: Auction Journal */}
           <button
             onClick={() => handleDirectPrint("auction")}
-            className="flex flex-col items-start p-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-teal-500/35 rounded-xl cursor-pointer transition text-left h-full select-none"
+            className="flex flex-col items-start p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-teal-500/35 rounded-2xl cursor-pointer transition text-left h-full select-none"
           >
-            <div className="p-2 bg-teal-500/10 text-teal-400 rounded-lg mb-2 flex items-center justify-center">
+            <div className="p-2 bg-teal-500/10 text-teal-400 rounded-2xl mb-2 flex items-center justify-center">
               <FileText className="w-4 h-4" />
             </div>
-            <span className="text-[11.5px] font-bold text-slate-100 uppercase tracking-wide">
+            <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
               1. Auction Log
             </span>
-            <span className="text-[10px] text-slate-450 text-slate-400 mt-1 pb-1">
+            <span className="text-[10px] text-zinc-500 text-zinc-400 mt-1 pb-1">
               Daily Auction Dispatch Journal. Lists each fish crate logged, weights, custom rates, unloads, and trade handlers.
             </span>
             <span className="text-[9.5px] text-teal-400 font-bold font-mono tracking-wider mt-auto pt-2.5 uppercase">
@@ -412,16 +376,16 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           {/* Button 2: Source Commission & Payout Journal */}
           <button
             onClick={() => handleDirectPrint("source_payment")}
-            className="flex flex-col items-start p-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-indigo-500/35 rounded-xl cursor-pointer transition text-left h-full select-none"
+            className="flex flex-col items-start p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-indigo-500/35 rounded-2xl cursor-pointer transition text-left h-full select-none"
           >
-            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg mb-2 flex items-center justify-center">
+            <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-2xl mb-2 flex items-center justify-center">
               <Anchor className="w-4 h-4" />
             </div>
-            <span className="text-[11.5px] font-bold text-slate-100 uppercase tracking-wide">
+            <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
               2. Source Payouts
             </span>
-            <span className="text-[10px] text-slate-450 text-slate-400 mt-1 pb-1">
-              Trawler Commission & Net Payout Settlement. Prints final payouts made to landings sources after standard 5% fee deductions.
+            <span className="text-[10px] text-zinc-500 text-zinc-400 mt-1 pb-1">
+              Source Commission & Net Payout Settlement. Prints final payouts made to landings sources after standard 5% fee deductions.
             </span>
             <span className="text-[9.5px] text-indigo-400 font-bold font-mono tracking-wider mt-auto pt-2.5 uppercase">
               Generate PDF →
@@ -431,15 +395,15 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           {/* Button 3: Collection Journal */}
           <button
             onClick={() => handleDirectPrint("collection")}
-            className="flex flex-col items-start p-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-emerald-500/35 rounded-xl cursor-pointer transition text-left h-full select-none"
+            className="flex flex-col items-start p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-emerald-500/35 rounded-2xl cursor-pointer transition text-left h-full select-none"
           >
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg mb-2 flex items-center justify-center">
+            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-2xl mb-2 flex items-center justify-center">
               <Landmark className="w-4 h-4" />
             </div>
-            <span className="text-[11.5px] font-bold text-slate-100 uppercase tracking-wide">
+            <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
               3. Collections Ledger
             </span>
-            <span className="text-[10px] text-slate-455 text-slate-400 mt-1 pb-1">
+            <span className="text-[10px] text-zinc-455 text-zinc-400 mt-1 pb-1">
               Daily Revenue Collection Journal. Vault cash balances, approved drafts, and detailed previous rollover debt breakdown.
             </span>
             <span className="text-[9.5px] text-emerald-400 font-bold font-mono tracking-wider mt-auto pt-2.5 uppercase">
@@ -450,15 +414,15 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           {/* Button 4: Individual Customer Slips */}
           <button
             onClick={() => handleDirectPrint("collection_slip")}
-            className="flex flex-col items-start p-3 bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/35 rounded-xl cursor-pointer transition text-left h-full select-none"
+            className="flex flex-col items-start p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-500/35 rounded-2xl cursor-pointer transition text-left h-full select-none"
           >
-            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg mb-2 flex items-center justify-center">
+            <div className="p-2 bg-amber-500/10 text-amber-400 rounded-2xl mb-2 flex items-center justify-center">
               <Printer className="w-4 h-4" />
             </div>
-            <span className="text-[11.5px] font-bold text-slate-100 uppercase tracking-wide">
+            <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
               4. Individual Slips
             </span>
-            <span className="text-[10px] text-slate-450 text-slate-400 mt-1 pb-1">
+            <span className="text-[10px] text-zinc-500 text-zinc-400 mt-1 pb-1">
               Buyer Balance Collection Slips. Dynamic individual customer receipt tiles with scissor cut lines, starting debts, and cash received.
             </span>
             <span className="text-[9.5px] text-amber-400 font-bold font-mono tracking-wider mt-auto pt-2.5 uppercase">
@@ -469,13 +433,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
       </div>
 
       {/* 🌌 Smart Google Workspace Cloud Portal */}
-      <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl shadow-xl space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-slate-850 gap-2">
+      <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl shadow-2xl shadow-black/10 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-zinc-800 gap-2">
           <div>
-            <h3 className="text-xs font-sans font-extrabold uppercase tracking-widest text-sky-450 text-sky-400 flex items-center gap-1.5 animate-pulse">
+            <h3 className="text-xs font-sans font-extrabold uppercase tracking-widest text-sky-500 text-sky-400 flex items-center gap-1.5 animate-pulse">
               <Cloud className="w-4 h-4" /> 🌌 Smart Google Workspace Cloud Portal
             </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <p className="text-[11px] text-zinc-400 mt-0.5">
               Securely synchronize wholesale ledger data into Live Google Sheets, save formatted logs to Google Drive, draft meeting sessions in Google Docs, and schedule landings in Google Calendar.
             </p>
           </div>
@@ -483,24 +447,24 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           <div className="flex items-center gap-2">
             {googleConnected ? (
               <div className="flex items-center gap-2">
-                <span className="text-[9.5px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider flex items-center gap-1">
+                <span className="text-[9.5px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold px-2.5 py-1 rounded-2xl uppercase tracking-wider flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Authenticated
                 </span>
                 <button
                   onClick={handleDisconnectGoogle}
-                  className="px-2.5 py-1 text-[9.5px] font-sans font-bold uppercase tracking-wider bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-900/35 rounded-lg cursor-pointer transition select-none"
+                  className="px-2.5 py-1 text-[9.5px] font-sans font-bold uppercase tracking-wider bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-900/35 rounded-2xl cursor-pointer transition select-none"
                 >
                   Disconnect
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-[9.5px] bg-slate-900 border border-slate-800 text-slate-400 font-mono font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider">
+                <span className="text-[9.5px] bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono font-bold px-2.5 py-1 rounded-2xl uppercase tracking-wider">
                   Not Connected
                 </span>
                 <button
                   onClick={handleConnectGoogle}
-                  className="px-3.5 py-1 text-[9.5px] font-sans font-black uppercase tracking-wider bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/10 rounded-lg cursor-pointer transition flex items-center gap-1 select-none"
+                  className="px-3.5 py-1 text-[9.5px] font-sans font-black uppercase tracking-wider bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/10 rounded-2xl cursor-pointer transition flex items-center gap-1 select-none"
                 >
                   Connect Google
                 </button>
@@ -509,7 +473,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             
             <button
               onClick={() => setShowConfigCliId(!showConfigCliId)}
-              className="px-2 py-1 text-[9.5px] font-mono text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg cursor-pointer transition select-none"
+              className="px-2 py-1 text-[9.5px] font-mono text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl cursor-pointer transition select-none"
             >
               Credentials ⚙️
             </button>
@@ -518,8 +482,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
 
         {/* Client ID Configuration Panel */}
         {showConfigCliId && (
-          <div className="bg-slate-910 bg-slate-900/40 p-3.5 border border-slate-850 rounded-xl space-y-2.5 text-[11px]">
-            <div className="flex items-start gap-2 text-amber-400 bg-amber-500/5 p-2 rounded-lg border border-amber-500/10">
+          <div className="bg-zinc-910 bg-zinc-900/40 p-3.5 border border-zinc-800 rounded-2xl space-y-2.5 text-[11px]">
+            <div className="flex items-start gap-2 text-amber-400 bg-amber-500/5 p-2 rounded-2xl border border-amber-500/10">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
                 <strong>Auth Configured Automatically:</strong> The Google Workspace authentication is securely managed by Firebase Auth in the background. Popups are required.
@@ -529,13 +493,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         )}
 
         {/* Master Bidirectional Sync Section */}
-        <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+        <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
           <div className="mb-2">
              <h4 className="text-[11px] font-sans font-bold uppercase tracking-wide text-fuchsia-400 flex items-center gap-1.5">
                <RefreshCcw className="w-4 h-4" /> BI-DIRECTIONAL MASTER SYNC
              </h4>
-             <p className="text-[10.5px] text-slate-400 mt-1">
-               Connect a designated Master Google Sheet to pull real-time database updates and export local Firebase states simultaneously. Useful for accounting departments modifying credit limits or trawler metrics directly from Google Sheets.
+             <p className="text-[10.5px] text-zinc-400 mt-1">
+               Connect a designated Master Google Sheet to pull real-time database updates and export local Firebase states simultaneously. Useful for accounting departments modifying credit limits or source metrics directly from Google Sheets.
              </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 items-stretch">
@@ -544,15 +508,15 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               value={masterSpreadsheetId}
               onChange={(e) => setMasterSpreadsheetId(e.target.value)}
               placeholder="Paste Google Sheet ID (e.g. 1BxiMVs0XRYFa...)"
-              className="flex-grow bg-slate-950 border border-slate-800 text-slate-200 px-3 py-1.5 rounded-lg focus:outline-none focus:border-fuchsia-500 font-mono text-xs"
+              className="flex-grow bg-zinc-950 border border-zinc-800 text-zinc-200 px-3 py-1.5 rounded-2xl focus:outline-none focus:border-fuchsia-500 font-mono text-xs"
               disabled={!googleConnected}
             />
             <button
               onClick={handleMasterSync}
               disabled={!googleConnected || isMasterSyncing || !masterSpreadsheetId.trim()}
-              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition shrink-0 ${
+              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-2xl transition shrink-0 ${
                 !googleConnected || isMasterSyncing || !masterSpreadsheetId.trim()
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                   : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/20 cursor-pointer"
               }`}
             >
@@ -566,12 +530,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         </div>
 
         {/* Day Closing Backup Section */}
-        <div className="bg-slate-900 border border-slate-800 p-3 rounded-xl">
+        <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
           <div className="mb-2">
              <h4 className="text-[11px] font-sans font-bold uppercase tracking-wide text-rose-400 flex items-center gap-1.5">
                <HardDrive className="w-4 h-4" /> DAY CLOSING SNAPSHOT
              </h4>
-             <p className="text-[10.5px] text-slate-400 mt-1">
+             <p className="text-[10.5px] text-zinc-400 mt-1">
                Generate a complete database snapshot (.json) and archive it securely on Google Drive. This acts as a reliable rollback point to finish operations for the day.
              </p>
           </div>
@@ -579,9 +543,9 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <button
               onClick={handleDayClosingBackup}
               disabled={!googleConnected || isDayClosing}
-              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-lg transition ${
+              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-2xl transition ${
                 !googleConnected || isDayClosing
-                  ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                   : "bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 cursor-pointer"
               }`}
             >
@@ -598,29 +562,29 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
           
           {/* Left Column: Data Source Picker */}
-          <div className="md:col-span-4 bg-slate-900 border border-slate-850 p-3.5 rounded-xl flex flex-col justify-between">
+          <div className="md:col-span-4 bg-zinc-900 border border-zinc-800 p-3.5 rounded-2xl flex flex-col justify-between">
             <div className="space-y-2">
-              <h4 className="text-[10.5px] font-sans font-black uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+              <h4 className="text-[10.5px] font-sans font-black uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
                 🎯 Choose Source Ledger
               </h4>
-              <p className="text-[10px] text-slate-400 leading-relaxed font-sans">
+              <p className="text-[10px] text-zinc-400 leading-relaxed font-sans">
                 Determine which specific harbor document or print cache ledger data point you want to synchronize.
               </p>
               
               <div className="space-y-1.5 pt-1.5 font-sans">
                 {[
                   { id: "auction", label: "1. Daily Auction Journal" },
-                  { id: "source_payment", label: "2. Trawler Net payout Settlement" },
+                  { id: "source_payment", label: "2. Source Net payout Settlement" },
                   { id: "collection", label: "3. Cash Collections Journal" },
                   { id: "collection_slip", label: "4. Buyer Balance Invoice Slips" }
                 ].map((r) => (
                   <label
                     key={r.id}
                     onClick={() => setSelectedWcReport(r.id as any)}
-                    className={`flex items-center gap-2.5 p-2 rounded-lg border text-[11px] cursor-pointer select-none transition ${
+                    className={`flex items-center gap-2.5 p-2 rounded-2xl border text-[11px] cursor-pointer select-none transition ${
                       selectedWcReport === r.id
                         ? "bg-sky-500/10 border-sky-500/50 text-sky-400 font-bold"
-                        : "bg-slate-950 border-slate-850 hover:bg-slate-850 text-slate-300"
+                        : "bg-zinc-950 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
                     }`}
                   >
                     <input
@@ -631,7 +595,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       className="hidden"
                     />
                     <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                      selectedWcReport === r.id ? "border-sky-400" : "border-slate-700"
+                      selectedWcReport === r.id ? "border-sky-400" : "border-zinc-700"
                     }`}>
                       {selectedWcReport === r.id && <div className="w-1.5 h-1.5 rounded-full bg-sky-400" />}
                     </div>
@@ -641,7 +605,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               </div>
             </div>
             
-            <div className="text-[9.5px] text-slate-500 mt-4 leading-relaxed font-mono pt-3 pb-1.5 border-t border-slate-850 text-center">
+            <div className="text-[9.5px] text-zinc-500 mt-4 leading-relaxed font-mono pt-3 pb-1.5 border-t border-zinc-800 text-center">
               Active Date: {appDate}
             </div>
           </div>
@@ -653,14 +617,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <button
               disabled={!googleConnected || isSyncingSheets}
               onClick={handleSyncSheets}
-              className={`flex flex-col items-start p-3 border rounded-xl text-left transition select-none h-full relative ${
+              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
                 googleConnected
-                  ? "bg-slate-900 border-slate-850 hover:border-emerald-500/40 hover:bg-slate-850 cursor-pointer text-slate-100"
-                  : "bg-slate-950/40 border-slate-900 text-slate-550 cursor-not-allowed opacity-50"
+                  ? "bg-zinc-900 border-zinc-800 hover:border-emerald-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
+                  : "bg-zinc-950/40 border-zinc-900 text-zinc-550 cursor-not-allowed opacity-50"
               }`}
             >
               <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-lg ${googleConnected ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-800 text-slate-550"}`}>
+                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-550"}`}>
                   <FileSpreadsheet className="w-4 h-4" />
                 </div>
                 {isSyncingSheets && <Loader className="w-3.5 h-3.5 animate-spin text-emerald-400" />}
@@ -668,11 +632,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wide">
                 Sync Google Sheets
               </span>
-              <span className="text-[9.5px] text-slate-400 mt-1 font-sans">
+              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
                 Compiles the chosen dataset and creates a synchronized, editable tabular sheet within your Google Sheets.
               </span>
               <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-emerald-400" : "text-slate-550"
+                googleConnected ? "text-emerald-400" : "text-zinc-550"
               }`}>
                 {isSyncingSheets ? "Syncing..." : "Export Sheets →"}
               </span>
@@ -682,14 +646,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <button
               disabled={!googleConnected || isUploadingDrive}
               onClick={handleSaveDrive}
-              className={`flex flex-col items-start p-3 border rounded-xl text-left transition select-none h-full relative ${
+              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
                 googleConnected
-                  ? "bg-slate-900 border-slate-850 hover:border-blue-500/40 hover:bg-slate-850 cursor-pointer text-slate-100"
-                  : "bg-slate-950/40 border-slate-900 text-slate-550 cursor-not-allowed opacity-50"
+                  ? "bg-zinc-900 border-zinc-800 hover:border-blue-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
+                  : "bg-zinc-950/40 border-zinc-900 text-zinc-550 cursor-not-allowed opacity-50"
               }`}
             >
               <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-lg ${googleConnected ? "bg-blue-500/10 text-blue-400" : "bg-slate-800 text-slate-550"}`}>
+                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-blue-500/10 text-blue-400" : "bg-zinc-800 text-zinc-550"}`}>
                   <HardDrive className="w-4 h-4" />
                 </div>
                 {isUploadingDrive && <Loader className="w-3.5 h-3.5 animate-spin text-blue-400" />}
@@ -697,11 +661,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wide">
                 Archive to Drive
               </span>
-              <span className="text-[9.5px] text-slate-400 mt-1 font-sans">
+              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
                 Safely uploads a raw print-journal compatible text document version of the ledger directly to Google Drive storage.
               </span>
               <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-blue-400" : "text-slate-550"
+                googleConnected ? "text-blue-400" : "text-zinc-550"
               }`}>
                 {isUploadingDrive ? "Uploading..." : "Save Log File →"}
               </span>
@@ -711,14 +675,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <button
               disabled={!googleConnected || isCreatingDocs}
               onClick={handleDraftDocs}
-              className={`flex flex-col items-start p-3 border rounded-xl text-left transition select-none h-full relative ${
+              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
                 googleConnected
-                  ? "bg-slate-900 border-slate-850 hover:border-sky-500/40 hover:bg-slate-850 cursor-pointer text-slate-100"
-                  : "bg-slate-950/40 border-slate-900 text-slate-550 cursor-not-allowed opacity-50"
+                  ? "bg-zinc-900 border-zinc-800 hover:border-sky-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
+                  : "bg-zinc-950/40 border-zinc-900 text-zinc-550 cursor-not-allowed opacity-50"
               }`}
             >
               <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-lg ${googleConnected ? "bg-sky-500/10 text-sky-400" : "bg-slate-800 text-slate-550"}`}>
+                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-sky-500/10 text-sky-400" : "bg-zinc-800 text-zinc-550"}`}>
                   <FileText className="w-4 h-4" />
                 </div>
                 {isCreatingDocs && <Loader className="w-3.5 h-3.5 animate-spin text-sky-400" />}
@@ -726,11 +690,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wide">
                 Draft Google Docs
               </span>
-              <span className="text-[9.5px] text-slate-400 mt-1 font-sans">
+              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
                 Constructs a beautifully sectioned, rich text summary meeting file ready to print/share inside Google Docs.
               </span>
               <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-sky-400" : "text-slate-550"
+                googleConnected ? "text-sky-400" : "text-zinc-550"
               }`}>
                 {isCreatingDocs ? "Drafting..." : "Write Draft →"}
               </span>
@@ -740,14 +704,14 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <button
               disabled={!googleConnected || isLoggingCalendar}
               onClick={handleLogCalendar}
-              className={`flex flex-col items-start p-3 border rounded-xl text-left transition select-none h-full relative ${
+              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
                 googleConnected
-                  ? "bg-slate-900 border-slate-850 hover:border-indigo-500/40 hover:bg-slate-850 cursor-pointer text-slate-100"
-                  : "bg-slate-950/40 border-slate-900 text-slate-550 cursor-not-allowed opacity-50"
+                  ? "bg-zinc-900 border-zinc-800 hover:border-indigo-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
+                  : "bg-zinc-950/40 border-zinc-900 text-zinc-550 cursor-not-allowed opacity-50"
               }`}
             >
               <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-lg ${googleConnected ? "bg-indigo-500/10 text-indigo-400" : "bg-slate-800 text-slate-550"}`}>
+                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-indigo-500/10 text-indigo-400" : "bg-zinc-800 text-zinc-550"}`}>
                   <Calendar className="w-4 h-4" />
                 </div>
                 {isLoggingCalendar && <Loader className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
@@ -755,11 +719,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wide">
                 Sync Calendar Landings
               </span>
-              <span className="text-[9.5px] text-slate-400 mt-1 font-sans">
+              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
                 Schedules arrivals and land bidding shifts for each landing vessel directly onto your Google Calendar.
               </span>
               <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-indigo-400" : "text-slate-550"
+                googleConnected ? "text-indigo-400" : "text-zinc-550"
               }`}>
                 {isLoggingCalendar ? "Scheduling..." : "Schedule Landings →"}
               </span>
@@ -771,12 +735,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         {(wcSuccessMessage || wcErrorMessage) && (
           <div className="pt-2 font-sans">
             {wcSuccessMessage && (
-              <div className="bg-emerald-500/5 text-emerald-400 border border-emerald-500/15 p-3 rounded-xl text-xs break-all selection:bg-emerald-900 selection:text-white leading-relaxed">
+              <div className="bg-emerald-500/5 text-emerald-400 border border-emerald-500/15 p-3 rounded-2xl text-xs break-all selection:bg-emerald-900 selection:text-white leading-relaxed">
                 🎉 <strong>Operations Complete:</strong> {wcSuccessMessage}
               </div>
             )}
             {wcErrorMessage && (
-              <div className="bg-rose-500/5 text-rose-400 border border-rose-500/15 p-3 rounded-xl text-xs break-all selection:bg-rose-900 selection:text-white leading-relaxed">
+              <div className="bg-rose-500/5 text-rose-400 border border-rose-500/15 p-3 rounded-2xl text-xs break-all selection:bg-rose-900 selection:text-white leading-relaxed">
                 ⚠️ <strong>Connection Error:</strong> {wcErrorMessage}
               </div>
             )}
@@ -790,18 +754,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         {/* KPI 1: Gross Sales */}
         <motion.div
           whileHover={{ y: -3 }}
-          className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
+          className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
         >
-          <div className="absolute top-2 right-2 p-1.5 bg-teal-500/10 text-teal-400 rounded-lg group-hover:scale-110 transition duration-150">
+          <div className="absolute top-2 right-2 p-1.5 bg-teal-500/10 text-teal-400 rounded-2xl group-hover:scale-110 transition duration-150">
             <TrendingUp className="w-4 h-4" />
           </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-sans">
             Gross Auctions
           </p>
-          <h3 className="text-base md:text-lg font-black font-mono text-slate-100 mt-2">
+          <h3 className="text-base md:text-lg font-black font-mono text-zinc-100 mt-2">
             ₹ {totalSalesVolume.toLocaleString()}
           </h3>
-          <p className="text-[9px] text-slate-500 font-mono mt-1">
+          <p className="text-[9px] text-zinc-500 font-mono mt-1">
             {totalWeightSold.toLocaleString()} KGs Registered
           </p>
         </motion.div>
@@ -809,12 +773,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         {/* KPI 2: Collections Approved */}
         <motion.div
           whileHover={{ y: -3 }}
-          className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
+          className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
         >
-          <div className="absolute top-2 right-2 p-1.5 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition duration-150">
+          <div className="absolute top-2 right-2 p-1.5 bg-indigo-500/10 text-indigo-400 rounded-2xl group-hover:scale-110 transition duration-150">
             <Landmark className="w-4 h-4" />
           </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-sans">
             Collections Received
           </p>
           <h3 className="text-base md:text-lg font-black font-mono text-emerald-400 mt-2">
@@ -825,21 +789,21 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           </p>
         </motion.div>
 
-        {/* KPI 3: Harbor Trawlers */}
+        {/* KPI 3: Harbor Sources */}
         <motion.div
           whileHover={{ y: -3 }}
-          className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
+          className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
         >
-          <div className="absolute top-2 right-2 p-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition duration-150">
+          <div className="absolute top-2 right-2 p-1.5 bg-cyan-500/10 text-cyan-400 rounded-2xl group-hover:scale-110 transition duration-150">
             <Anchor className="w-4 h-4" />
           </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
-            Active Trawlers
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-sans">
+            Active Sources
           </p>
-          <h3 className="text-base md:text-lg font-black font-sans text-slate-100 mt-2">
-            {activeTrawlersCount} in Harbor
+          <h3 className="text-base md:text-lg font-black font-sans text-zinc-100 mt-2">
+            {activeSourcesCount} in Harbor
           </h3>
-          <p className="text-[9px] text-slate-500 font-mono mt-1">
+          <p className="text-[9px] text-zinc-500 font-mono mt-1">
             {sources.length} Total Registered Ships
           </p>
         </motion.div>
@@ -847,142 +811,21 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         {/* KPI 4: Arat Comm Profits */}
         <motion.div
           whileHover={{ y: -3 }}
-          className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
+          className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl shadow-lg relative overflow-hidden group"
         >
-          <div className="absolute top-2 right-2 p-1.5 bg-orange-500/10 text-orange-400 rounded-lg group-hover:scale-110 transition duration-150">
+          <div className="absolute top-2 right-2 p-1.5 bg-orange-500/10 text-orange-400 rounded-2xl group-hover:scale-110 transition duration-150">
             <Award className="w-4 h-4" />
           </div>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-sans">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider font-sans">
             Commissions Profit
           </p>
           <h3 className="text-base md:text-lg font-black font-mono text-indigo-300 mt-2">
             ₹ {totalCommissions.toLocaleString()}
           </h3>
-          <p className="text-[9px] text-slate-500 font-mono mt-1">
-            From settled trawlers (5% arat rate)
+          <p className="text-[9px] text-zinc-500 font-mono mt-1">
+            From settled sources (5% arat rate)
           </p>
         </motion.div>
-
-      </div>
-
-      {/* Analytics chart and Risk center panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Sales by Fish Type Card - 7 cols */}
-        <div className="lg:col-span-7 bg-slate-950/80 border border-slate-850 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-850">
-              <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <Activity className="w-4 h-4 text-teal-400" /> Sales Demands by Fish Type (INR Value)
-              </h3>
-              <span className="text-[9.5px] font-mono text-slate-500">
-                Top 5 Categories
-              </span>
-            </div>
-
-            {fishSalesData.length === 0 ? (
-              <div className="h-56 flex flex-col items-center justify-center text-slate-600 text-xs text-center border border-dashed border-slate-850 rounded-xl mt-4">
-                No arat transaction data logged today yet.
-              </div>
-            ) : (
-              <div className="h-56 mt-4 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={fishSalesData} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: "#94a3b8", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fill: "#94a3b8", fontSize: 9 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#020617",
-                        borderColor: "#1e293b",
-                        borderRadius: "12px",
-                        color: "#f8fafc",
-                        fontSize: "11px",
-                      }}
-                      cursor={{ fill: "rgba(255,255,255,0.03)" }}
-                    />
-                    <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={32}>
-                      {fishSalesData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          <div className="text-[10px] text-slate-500 leading-tight flex items-center gap-1.5 pt-3 border-t border-slate-850 mt-3">
-            <span className="w-2 h-2 rounded-full bg-teal-500"></span> Hilsha & Tiger Prawns represent primary arat flow drivers.
-          </div>
-        </div>
-
-        {/* Credit Risk Watch - 5 cols */}
-        <div className="lg:col-span-5 bg-slate-950/80 border border-slate-850 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-850">
-              <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <BadgeAlert className="w-4 h-4 text-rose-450 text-rose-400" /> Buyer Debt Capacity Monitor
-              </h3>
-              <span className="text-[10px] text-rose-400 font-mono bg-rose-950/30 px-1.5 py-0.5 rounded border border-rose-900/30">
-                Risk View
-              </span>
-            </div>
-
-            <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
-              {highRiskBuyers.length === 0 ? (
-                <div className="p-4 bg-slate-900/20 border border-slate-850 rounded-xl text-[10.5px] text-slate-500 leading-relaxed text-center">
-                  ✅ Excellent: All wholesale buyers operating safely within credit parameters of their respective agreements.
-                </div>
-              ) : (
-                highRiskBuyers.map((b) => (
-                  <div key={b.id} className="bg-slate-950 border border-slate-850/80 p-2.5 rounded-xl space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-200 truncate pr-2">{b.nickname}</span>
-                      <span className="text-slate-450 font-semibold text-[10px] shrink-0 text-slate-400">
-                        {Math.round(b.usagePercentage)}% limit used
-                      </span>
-                    </div>
-
-                    <div className="h-2 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-850">
-                      <div
-                        className={`h-full rounded-full transition-all duration-300 ${
-                          b.usagePercentage >= 100 ? "bg-rose-600 animate-pulse" : "bg-amber-500"
-                        }`}
-                        style={{ width: `${Math.min(100, b.usagePercentage)}%` }}
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center text-[9.5px] text-slate-500 font-mono">
-                      <span>Owed: ₹{b.lifetime_debt.toLocaleString()}</span>
-                      <span className={b.remainingLimit <= 0 ? "text-rose-400 font-bold" : "text-slate-405"}>
-                        {b.remainingLimit <= 0
-                          ? `Exceeded by ₹${Math.abs(b.remainingLimit).toLocaleString()}`
-                          : `Left: ₹${b.remainingLimit.toLocaleString()}`}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={() => onNavigate("buyers")}
-            className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-white text-[10.5px] font-semibold rounded-xl border border-slate-850 transition flex items-center justify-center gap-1 mt-4 cursor-pointer"
-          >
-            <span>Lock Credit Lines / Receipts Ledger</span>
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
 
       </div>
 
@@ -990,12 +833,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* Quick arat helper details */}
-        <div className="p-4 bg-slate-950 text-slate-500 rounded-xl border border-slate-850 text-[10.5px] leading-relaxed space-y-1.5 shadow-sm">
-          <div className="font-sans font-bold text-slate-350 text-[11px] uppercase tracking-wider text-slate-400">
+        <div className="p-4 bg-zinc-950 text-zinc-500 rounded-2xl border border-zinc-800 text-[10.5px] leading-relaxed space-y-1.5 shadow-sm">
+          <div className="font-sans font-bold text-zinc-350 text-[11px] uppercase tracking-wider text-zinc-400">
             📊 Operational Arat Guidelines
           </div>
           <p>
-            Wholesale transactions operate offline-optimistically under severe weather. Always finalize Trawler settlements under <strong>Trawlers Harbor</strong> page to automatically calculate the standard 5% commission cut.
+            Wholesale transactions operate offline-optimistically under severe weather. Always finalize Source settlements under <strong>Sources Harbor</strong> page to automatically calculate the standard 5% commission cut.
           </p>
           <div className="text-[10px] text-indigo-400 font-mono">
             * Automatic real-time backend resync is fully protected against voltage brownouts.
@@ -1003,12 +846,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         </div>
 
         {/* Live offline queue monitor alert */}
-        <div className="p-4 bg-slate-950 text-slate-500 rounded-xl border border-slate-850 text-[10.5px] leading-relaxed space-y-1.5 shadow-sm flex flex-col justify-between">
+        <div className="p-4 bg-zinc-950 text-zinc-500 rounded-2xl border border-zinc-800 text-[10.5px] leading-relaxed space-y-1.5 shadow-sm flex flex-col justify-between">
           <div className="flex justify-between items-center">
-            <span className="font-sans font-bold text-slate-450 text-[11px] uppercase tracking-wider text-slate-450">
+            <span className="font-sans font-bold text-zinc-500 text-[11px] uppercase tracking-wider text-zinc-500">
               🛠️ Local Cache Buffering
             </span>
-            <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800 text-teal-400">
+            <span className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-teal-400">
               Active Storage
             </span>
           </div>
@@ -1069,37 +912,37 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative print:max-w-none print:max-h-none print:overflow-visible print:border-none print:shadow-none print:bg-white print:rounded-none"
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative print:max-w-none print:max-h-none print:overflow-visible print:border-none print:shadow-none print:bg-white print:rounded-none"
             >
               {/* Modal control bar */}
-              <div className="bg-slate-950 border-b border-slate-850 p-4 flex justify-between items-center shrink-0 print:hidden">
+              <div className="bg-zinc-950 border-b border-zinc-800 p-4 flex justify-between items-center shrink-0 print:hidden">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <h4 className="text-xs font-black text-slate-250 uppercase tracking-widest font-mono">
+                  <h4 className="text-xs font-black text-zinc-200 uppercase tracking-widest font-mono">
                     Print / Export To PDF Options
                   </h4>
                 </div>
                 <button
                   onClick={() => setShowPrintView(false)}
-                  className="p-1.5 bg-slate-900 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850 cursor-pointer transition"
+                  className="p-1.5 bg-zinc-900 rounded-2xl text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* PDF Type Toggle Bar (print:hidden) */}
-              <div className="bg-slate-950 border-b border-slate-850 px-4 py-2.5 flex flex-wrap gap-2 items-center justify-between shrink-0 print:hidden">
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">
+              <div className="bg-zinc-950 border-b border-zinc-800 px-4 py-2.5 flex flex-wrap gap-2 items-center justify-between shrink-0 print:hidden">
+                <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider font-mono">
                   Select Print Type:
                 </div>
                 <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={() => setActivePdfTab("auction")}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
                       activePdfTab === "auction"
                         ? "bg-teal-600 text-white shadow-md shadow-teal-950/40"
-                        : "bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     📊 Select Auction Log
@@ -1107,10 +950,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActivePdfTab("source_payment")}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
                       activePdfTab === "source_payment"
                         ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/40"
-                        : "bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     ⚓ Select Source Payouts
@@ -1118,10 +961,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActivePdfTab("collection")}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
                       activePdfTab === "collection"
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40"
-                        : "bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     💰 Select Collections Ledger
@@ -1129,10 +972,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setActivePdfTab("collection_slip")}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
                       activePdfTab === "collection_slip"
                         ? "bg-amber-605 bg-amber-600 text-white shadow-md shadow-amber-950/40"
-                        : "bg-slate-900 text-slate-400 hover:text-slate-200"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
                     }`}
                   >
                     🧾 Select Individual Slips
@@ -1143,50 +986,50 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               {/* Scrollable sheet canvas (targeted by the browser print trigger) */}
               <div
                 id="print-sheet-canvas"
-                className="flex-grow overflow-y-auto p-6 md:p-8 bg-white text-slate-900 space-y-6 font-sans select-text scrollbar-none print:overflow-visible print:p-0 print:h-auto"
+                className="flex-grow overflow-y-auto p-6 md:p-8 bg-white text-zinc-900 space-y-6 font-sans select-text scrollbar-none print:overflow-visible print:p-0 print:h-auto"
               >
                 {/* Official letterhead */}
-                <div className="border-b-2 border-slate-900 pb-4 flex justify-between items-start">
+                <div className="border-b-2 border-zinc-900 pb-4 flex justify-between items-start">
                                   <div>
-                                    <h3 className="text-3xl font-black tracking-tight text-slate-950 uppercase">
+                                    <h3 className="text-3xl font-black tracking-tight text-zinc-950 uppercase">
                                       NEW FISH CENTER
                                     </h3>
-                                    <p className="text-[10px] text-slate-600 font-extrabold tracking-wider font-mono">
-                                      PRIMARY WHOLESALE COMMISSIONS • ARAT HARBOR LEDGER
+                                    <p className="text-[10px] text-zinc-600 font-extrabold tracking-wider font-mono uppercase">
+                                      Commission Agent and Wholesaler • Proprietor: Chanchal Das
                                     </p>
-                                    <p className="text-[10px] text-slate-500 mt-0.5">
-                                      Arat Harbor Road, Gate #3, South Dock
+                                    <p className="text-[10px] text-zinc-500 mt-0.5 uppercase">
+                                      BALIA, Chakdaha, Nadia
                                     </p>
                                   </div>
                                   <div className="text-right font-mono">
-                                    <div className="bg-slate-950 text-white font-bold text-[8.5px] px-2.5 py-1 rounded tracking-wider uppercase">
+                                    <div className="bg-zinc-950 text-white font-bold text-[8.5px] px-2.5 py-1 rounded tracking-wider uppercase">
                                       {activePdfTab === "auction" && "Auction Purpose PDF"}
                                       {activePdfTab === "source_payment" && "Source Payment PDF"}
                                       {activePdfTab === "collection" && "Collection Purpose PDF"}
                                       {activePdfTab === "collection_slip" && "Buyer Invoice Slip PDF"}
                                     </div>
-                                    <div className="text-lg font-black text-slate-950 mt-1.5 uppercase">
+                                    <div className="text-lg font-black text-zinc-950 mt-1.5 uppercase">
                                       DATE: {appDate}
                                     </div>
-                                    <div className="text-[9px] text-slate-500 mt-1">
+                                    <div className="text-[9px] text-zinc-500 mt-1">
                                       Printed: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
                                     </div>
                                   </div>
                 </div>
 
                 {/* Sub-header stating the PDF's primary intent and device scope */}
-                <div className="border-l-4 border-slate-900 pl-3.5 py-1 text-xs">
-                  <p className="font-bold text-slate-950 uppercase tracking-wide">
+                <div className="border-l-4 border-zinc-900 pl-3.5 py-1 text-xs">
+                  <p className="font-bold text-zinc-950 uppercase tracking-wide">
                     {activePdfTab === "auction" && "Daily Auction Dispatch Journal (Auction Log)"}
-                    {activePdfTab === "source_payment" && "Trawler Commission & Net Payout Settlement (Source Payout)"}
+                    {activePdfTab === "source_payment" && "Source Commission & Net Payout Settlement (Source Payout)"}
                     {activePdfTab === "collection" && "Daily Revenue Collections & Cashier Vault Logs (Collection Journal)"}
                     {activePdfTab === "collection_slip" && "Buyer Balance Collection Slips (Scissor Cut-Out Invoice Cards)"}
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    Authorized Terminal User: <strong className="text-slate-900">{activeUser?.name || "Apon Das (Admin)"}</strong> | License Scope: {activeUser?.role || "Manager"} Permission
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    Authorized Terminal User: <strong className="text-zinc-900">{activeUser?.name || "Apon Das (Admin)"}</strong> | License Scope: {activeUser?.role || "Manager"} Permission
                     {activePdfTab === "auction" && selectedAuctioneerFilter !== "All" && (
-                      <span className="block mt-1 uppercase text-slate-800 text-[11px] font-bold tracking-wider">
-                        Individual Seller Generated: <span className="text-slate-950 font-black">{selectedAuctioneerFilter}</span>
+                      <span className="block mt-1 uppercase text-zinc-800 text-[11px] font-bold tracking-wider">
+                        Individual Seller Generated: <span className="text-zinc-950 font-black">{selectedAuctioneerFilter}</span>
                       </span>
                     )}
                   </p>
@@ -1195,18 +1038,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                 {activePdfTab === "auction" && (
                   <div className="space-y-4">
                     {/* Auctioneer selection options (print:hidden) */}
-                    <div className="bg-slate-50 border border-slate-205 p-3 rounded-xl space-y-2 print:hidden">
-                      <div className="text-[10px] font-sans font-black uppercase text-slate-500 tracking-wide flex items-center gap-1.5">
+                    <div className="bg-zinc-50 border border-zinc-200 p-3 rounded-2xl space-y-2 print:hidden">
+                      <div className="text-[10px] font-sans font-black uppercase text-zinc-500 tracking-wide flex items-center gap-1.5">
                         <span>👥 Filter by Active Auctioneer Option (Select "What they sold today"):</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
                           onClick={() => setSelectedAuctioneerFilter("All")}
-                          className={`px-3 py-1.5 rounded-lg text-[9.5px] font-bold uppercase transition duration-150 cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-2xl text-[9.5px] font-bold uppercase transition duration-150 cursor-pointer ${
                             selectedAuctioneerFilter === "All"
-                              ? "bg-slate-900 border border-slate-900 text-white"
-                              : "bg-slate-200 hover:bg-slate-350 text-slate-700"
+                              ? "bg-zinc-900 border border-zinc-900 text-white"
+                              : "bg-zinc-200 hover:bg-zinc-350 text-zinc-700"
                           }`}
                         >
                           All ({transactions.length} entries)
@@ -1218,10 +1061,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                               type="button"
                               key={auctioneer}
                               onClick={() => setSelectedAuctioneerFilter(auctioneer)}
-                              className={`px-3 py-1.5 rounded-lg text-[9.5px] font-bold uppercase transition duration-150 cursor-pointer ${
+                              className={`px-3 py-1.5 rounded-2xl text-[9.5px] font-bold uppercase transition duration-150 cursor-pointer ${
                                 selectedAuctioneerFilter === auctioneer
                                   ? "bg-teal-600 border border-teal-700 text-white"
-                                  : "bg-slate-200 hover:bg-slate-350 text-slate-700"
+                                  : "bg-zinc-200 hover:bg-zinc-350 text-zinc-700"
                               }`}
                             >
                               👤 Option: {auctioneer} ({count} sold)
@@ -1237,26 +1080,26 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       const fWeight = filteredPrintedTransactions.reduce((sum, tx) => sum + (tx.weight || 0), 0);
                       return (
                         <div className="grid grid-cols-3 gap-2.5 text-center">
-                          <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                            <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">
+                          <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                            <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">
                               {selectedAuctioneerFilter === "All" ? "Gross Auctions" : `Sales by ${selectedAuctioneerFilter}`}
                             </span>
-                            <div className="text-xs font-black text-slate-950 font-mono">₹{Math.round(fSales).toLocaleString()}</div>
+                            <div className="text-xs font-black text-zinc-950 font-mono">₹{Math.round(fSales).toLocaleString()}</div>
                           </div>
-                          <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                            <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Selected Weight</span>
-                            <div className="text-xs font-black text-slate-950 font-mono">{fWeight.toFixed(2)} kg</div>
+                          <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                            <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Selected Weight</span>
+                            <div className="text-xs font-black text-zinc-950 font-mono">{fWeight.toFixed(2)} kg</div>
                           </div>
-                          <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                            <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Selected Trades</span>
-                            <div className="text-xs font-black text-slate-950 font-mono">{filteredPrintedTransactions.length} sales</div>
+                          <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                            <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Selected Trades</span>
+                            <div className="text-xs font-black text-zinc-950 font-mono">{filteredPrintedTransactions.length} sales</div>
                           </div>
                         </div>
                       );
                     })()}
 
                     {/* Active filter stamp printed in the ledger header */}
-                    <div className="flex justify-between items-center text-[9px] font-mono text-slate-600 border-b border-dashed border-slate-200 pb-1.5 pt-0.5">
+                    <div className="flex justify-between items-center text-[9px] font-mono text-zinc-600 border-b border-dashed border-zinc-200 pb-1.5 pt-0.5">
                       <span className="font-bold uppercase tracking-wider">
                         Active Filter Scope: {selectedAuctioneerFilter === "All" ? "ALL COMMISSION AGENTS COMBINED" : `INDIVIDUAL AUCTIONEER: ${selectedAuctioneerFilter.toUpperCase()}`}
                       </span>
@@ -1266,11 +1109,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                     <div className="space-y-1.5">
                       <table className="w-full text-left text-[10.5px] border-collapse">
                         <thead>
-                          <tr className="border-b border-slate-400 text-slate-650 font-bold bg-slate-100/60 text-[9.5px] uppercase font-mono">
+                          <tr className="border-b border-zinc-400 text-zinc-600 font-bold bg-zinc-100/60 text-[9.5px] uppercase font-mono">
                             <th className="py-1 px-1">#</th>
                             <th className="py-1">Auctioneer Agent</th>
                             <th className="py-1">Fish Type</th>
-                            <th className="py-1">Source / Trawler</th>
+                            <th className="py-1">Source / Source</th>
                             <th className="py-1 text-center">Weight</th>
                             <th className="py-1 text-center">Rate/KG</th>
                             <th className="py-1 text-center">To Buyer</th>
@@ -1279,25 +1122,25 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                         </thead>
                         <tbody>
                           {filteredPrintedTransactions.map((tx, idx) => {
-                            const trawlerName = sources.find((s) => s.id === tx.source_id)?.name || "Unknown Source";
+                            const sourceName = sources.find((s) => s.id === tx.source_id)?.name || "Unknown Source";
                             const buyerNick = buyers.find((b) => b.id === tx.buyer_id)?.nickname || tx.buyer_id;
                             const clerkName = tx.added_by || activeUser?.name || "Apon Das (Admin)";
                             return (
-                              <tr key={tx.id || idx} className="border-b border-slate-200">
-                                <td className="py-1.5 px-1 font-mono font-bold text-slate-500">#{idx + 1}</td>
-                                <td className="py-1.5 font-bold text-slate-950">{clerkName}</td>
-                                <td className="py-1.5 font-semibold text-teal-850">{tx.fish_type}</td>
-                                <td className="py-1.5 text-slate-700">{trawlerName}</td>
+                              <tr key={tx.id || idx} className="border-b border-zinc-200">
+                                <td className="py-1.5 px-1 font-mono font-bold text-zinc-500">#{idx + 1}</td>
+                                <td className="py-1.5 font-bold text-zinc-950">{clerkName}</td>
+                                <td className="py-1.5 font-semibold text-teal-800">{tx.fish_type}</td>
+                                <td className="py-1.5 text-zinc-700">{sourceName}</td>
                                 <td className="py-1.5 text-center font-mono font-bold">{tx.weight} kg</td>
                                 <td className="py-1.5 text-center font-mono">₹{tx.price_per_kg}</td>
-                                <td className="py-1.5 text-center font-semibold text-indigo-905">{buyerNick}</td>
-                                <td className="py-1.5 text-right font-bold text-slate-950 font-mono">₹{Math.round(tx.total_price).toLocaleString()}</td>
+                                <td className="py-1.5 text-center font-semibold text-indigo-900">{buyerNick}</td>
+                                <td className="py-1.5 text-right font-bold text-zinc-950 font-mono">₹{Math.round(tx.total_price).toLocaleString()}</td>
                               </tr>
                             );
                           })}
                           {filteredPrintedTransactions.length === 0 && (
                             <tr>
-                              <td colSpan={8} className="py-6 text-center text-slate-500 italic">
+                              <td colSpan={8} className="py-6 text-center text-zinc-500 italic">
                                 No active fish auctions found under this filter/user today.
                               </td>
                             </tr>
@@ -1313,22 +1156,22 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   <div className="space-y-4">
                     {/* Summary micro KPIs */}
                     <div className="grid grid-cols-3 gap-2.5 text-center">
-                      <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                        <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Gross Sales</span>
-                        <div className="text-xs font-black text-slate-950 font-mono">₹{Math.round(totalSalesVolume).toLocaleString()}</div>
+                      <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                        <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Gross Sales</span>
+                        <div className="text-xs font-black text-zinc-950 font-mono">₹{Math.round(totalSalesVolume).toLocaleString()}</div>
                       </div>
-                      <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                        <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Arat Agency Fee (5%)</span>
-                        <div className="text-xs font-black text-slate-950 font-mono">₹{Math.round(totalSalesVolume * 0.05).toLocaleString()}</div>
+                      <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                        <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Arat Agency Fee (5%)</span>
+                        <div className="text-xs font-black text-zinc-950 font-mono">₹{Math.round(totalSalesVolume * 0.05).toLocaleString()}</div>
                       </div>
-                      <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                        <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Net Payout Scheduled</span>
-                        <div className="text-xs font-black text-slate-950 font-mono font-bold text-indigo-700">₹{Math.round(totalSalesVolume * 0.95).toLocaleString()}</div>
+                      <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                        <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Net Payout Scheduled</span>
+                        <div className="text-xs font-black text-zinc-950 font-mono font-bold text-indigo-700">₹{Math.round(totalSalesVolume * 0.95).toLocaleString()}</div>
                       </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-505 text-slate-500 italic">
-                      Below lists exactly how much fish was auctioned per trawler in each discrete trade weight landing, the respective auction values gained per kg, and the net payout allocated to the source after the standard 5% agency commission.
+                    <p className="text-[10px] text-zinc-500 text-zinc-500 italic">
+                      Below lists exactly how much fish was auctioned per source in each discrete trade weight landing, the respective auction values gained per kg, and the net payout allocated to the source after the standard 5% agency commission.
                     </p>
 
                     <div className="space-y-4">
@@ -1341,12 +1184,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                         const srcNet = srcGross - srcComm;
 
                         return (
-                          <div key={src.id} className="border border-slate-300 rounded-lg p-3 space-y-2 bg-slate-50/40">
-                            <div className="flex justify-between items-center border-b border-slate-200 pb-1 flex-wrap">
-                              <span className="font-bold text-[11px] text-slate-900 uppercase">
+                          <div key={src.id} className="border border-zinc-300 rounded-2xl p-3 space-y-2 bg-zinc-50/40">
+                            <div className="flex justify-between items-center border-b border-zinc-200 pb-1 flex-wrap">
+                              <span className="font-bold text-[11px] text-zinc-900 uppercase">
                                 ⚓ {src.name} • Landings Count: {txs.length}
                               </span>
-                              <div className="text-[10.5px] font-mono flex gap-3 text-slate-650 font-bold">
+                              <div className="text-[10.5px] font-mono flex gap-3 text-zinc-600 font-bold">
                                 <span>Gross: ₹{Math.round(srcGross).toLocaleString()}</span>
                                 <span className="text-rose-700">Fee: ₹{Math.round(srcComm).toLocaleString()}</span>
                                 <span className="text-teal-700">Payout: ₹{Math.round(srcNet).toLocaleString()}</span>
@@ -1355,7 +1198,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
 
                             <table className="w-full text-[10px] text-left border-collapse">
                               <thead>
-                                <tr className="border-b border-slate-300 text-slate-550 font-bold font-mono uppercase text-[8.5px]">
+                                <tr className="border-b border-zinc-300 text-zinc-550 font-bold font-mono uppercase text-[8.5px]">
                                   <th className="py-1">Fish Type / Purpose</th>
                                   <th className="py-1 text-center">Trade Weight</th>
                                   <th className="py-1 text-center">Auction Rate</th>
@@ -1368,12 +1211,12 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                   const commVal = t.total_price * 0.05;
                                   const netVal = t.total_price - commVal;
                                   return (
-                                    <tr key={t.id || tIdx} className="border-b border-slate-100 font-mono text-slate-800">
-                                      <td className="py-1.5 font-sans font-semibold text-slate-900">{t.fish_type}</td>
+                                    <tr key={t.id || tIdx} className="border-b border-zinc-100 font-mono text-zinc-800">
+                                      <td className="py-1.5 font-sans font-semibold text-zinc-900">{t.fish_type}</td>
                                       <td className="py-1.5 text-center font-bold">{t.weight} kg</td>
                                       <td className="py-1.5 text-center">₹{t.price_per_kg}/kg</td>
                                       <td className="py-1.5 text-center">₹{Math.round(t.total_price).toLocaleString()}</td>
-                                      <td className="py-1.5 text-right font-bold text-slate-950">₹{Math.round(netVal).toLocaleString()}</td>
+                                      <td className="py-1.5 text-right font-bold text-zinc-950">₹{Math.round(netVal).toLocaleString()}</td>
                                     </tr>
                                   );
                                 })}
@@ -1384,15 +1227,15 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       })}
 
                       {sources.filter(s => transactions.some(t => t.source_id === s.id)).length === 0 && (
-                        <div className="border border-slate-300 rounded-lg p-3 space-y-2 bg-slate-50/40">
-                          <div className="flex justify-between items-center border-b border-slate-200 pb-1 flex-wrap">
-                            <span className="font-bold text-[11px] text-slate-900 uppercase">
+                        <div className="border border-zinc-300 rounded-2xl p-3 space-y-2 bg-zinc-50/40">
+                          <div className="flex justify-between items-center border-b border-zinc-200 pb-1 flex-wrap">
+                            <span className="font-bold text-[11px] text-zinc-900 uppercase">
                               ⚓ Empty Source • Landings Count: 0
                             </span>
                           </div>
                           <table className="w-full text-[10px] text-left border-collapse">
                             <thead>
-                              <tr className="border-b border-slate-300 text-slate-550 font-bold font-mono uppercase text-[8.5px]">
+                              <tr className="border-b border-zinc-300 text-zinc-550 font-bold font-mono uppercase text-[8.5px]">
                                 <th className="py-1">Fish Type / Purpose</th>
                                 <th className="py-1 text-center">Trade Weight</th>
                                 <th className="py-1 text-center">Auction Rate</th>
@@ -1402,7 +1245,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                             </thead>
                             <tbody>
                               <tr>
-                                <td colSpan={5} className="py-6 text-center text-slate-500 italic">
+                                <td colSpan={5} className="py-6 text-center text-zinc-500 italic">
                                   No landings or source trades registered for payment today.
                                 </td>
                               </tr>
@@ -1419,23 +1262,23 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   <div className="space-y-4">
                     {/* Summary micro KPIs */}
                     <div className="grid grid-cols-3 gap-2.5 text-center">
-                      <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                        <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Approved Cash</span>
-                        <div className="text-xs font-black text-slate-950 font-mono">₹{Math.round(totalCollectionsReceived).toLocaleString()}</div>
+                      <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                        <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Approved Cash</span>
+                        <div className="text-xs font-black text-zinc-950 font-mono">₹{Math.round(totalCollectionsReceived).toLocaleString()}</div>
                       </div>
-                      <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                        <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Pending verification</span>
-                        <div className="text-xs font-black text-slate-950 font-mono text-amber-700">₹{Math.round(totalCollectionsPending).toLocaleString()}</div>
+                      <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                        <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Pending verification</span>
+                        <div className="text-xs font-black text-zinc-950 font-mono text-amber-700">₹{Math.round(totalCollectionsPending).toLocaleString()}</div>
                       </div>
-                      <div className="border border-slate-300 p-2 rounded-lg bg-slate-50/50">
-                        <span className="text-[8.5px] text-slate-500 font-extrabold uppercase font-sans tracking-wide">Total Cleared</span>
-                        <div className="text-xs font-black text-slate-950 font-mono font-bold text-teal-700">₹{Math.round(totalCollectionsReceived + totalCollectionsPending).toLocaleString()}</div>
+                      <div className="border border-zinc-300 p-2 rounded-2xl bg-zinc-50/50">
+                        <span className="text-[8.5px] text-zinc-500 font-extrabold uppercase font-sans tracking-wide">Total Cleared</span>
+                        <div className="text-xs font-black text-zinc-950 font-mono font-bold text-teal-700">₹{Math.round(totalCollectionsReceived + totalCollectionsPending).toLocaleString()}</div>
                       </div>
                     </div>
 
                     <table className="w-full text-left text-[10.5px] border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-400 text-slate-655 font-bold bg-slate-100/60 uppercase font-mono text-[9px]">
+                        <tr className="border-b border-zinc-400 text-zinc-655 font-bold bg-zinc-100/60 uppercase font-mono text-[9px]">
                           <th className="py-1 px-1">Buyer Nickname</th>
                           <th className="py-1 text-center font-mono">Start Rollover</th>
                           <th className="py-1 text-center font-mono">Today's Purchases</th>
@@ -1448,23 +1291,23 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                         {buyerBalancesList.map(({ buyer, prevRollover, todayPurchases, todayPaid, currentBalance }, idx) => {
                           const netDelta = todayPurchases - todayPaid;
                           return (
-                            <tr key={buyer.id || idx} className="border-b border-slate-200">
-                              <td className="py-1.5 px-1 font-bold text-slate-950 font-sans">{buyer.nickname}</td>
-                              <td className="py-1.5 text-center font-mono text-slate-600">₹{Math.round(prevRollover).toLocaleString()}</td>
+                            <tr key={buyer.id || idx} className="border-b border-zinc-200">
+                              <td className="py-1.5 px-1 font-bold text-zinc-950 font-sans">{buyer.nickname}</td>
+                              <td className="py-1.5 text-center font-mono text-zinc-600">₹{Math.round(prevRollover).toLocaleString()}</td>
                               <td className="py-1.5 text-center font-mono text-rose-800">+₹{Math.round(todayPurchases).toLocaleString()}</td>
-                              <td className="py-1.5 text-center font-mono font-bold text-emerald-850 text-emerald-800">-₹{Math.round(todayPaid).toLocaleString()}</td>
-                              <td className="py-1.5 text-center font-mono font-black text-slate-950 bg-amber-50">₹{Math.round(currentBalance).toLocaleString()}</td>
+                              <td className="py-1.5 text-center font-mono font-bold text-emerald-800 text-emerald-800">-₹{Math.round(todayPaid).toLocaleString()}</td>
+                              <td className="py-1.5 text-center font-mono font-black text-zinc-950 bg-amber-50">₹{Math.round(currentBalance).toLocaleString()}</td>
                               <td className="py-1.5 text-right font-mono text-[8.5px] uppercase">
                                 {netDelta > 0 && <span className="text-rose-700 font-extrabold">📈 Grew (+₹{Math.round(netDelta).toLocaleString()})</span>}
                                 {netDelta < 0 && <span className="text-emerald-700 font-extrabold">📉 Reduced (-₹{Math.round(Math.abs(netDelta)).toLocaleString()})</span>}
-                                {netDelta === 0 && <span className="text-slate-500 font-medium">Stable</span>}
+                                {netDelta === 0 && <span className="text-zinc-500 font-medium">Stable</span>}
                               </td>
                             </tr>
                           );
                         })}
                         {buyerBalancesList.length === 0 && (
                           <tr>
-                            <td colSpan={6} className="py-6 text-center text-slate-500 italic font-sans">
+                            <td colSpan={6} className="py-6 text-center text-zinc-500 italic font-sans">
                               No active wholesale customer accounts in ledger today.
                             </td>
                           </tr>
@@ -1478,18 +1321,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                 {activePdfTab === "collection_slip" && (
                   <div className="space-y-4">
                     {/* Toggle button row (print:hidden) */}
-                    <div className="bg-slate-50 border border-slate-205 p-3 rounded-xl space-y-2.5 print:hidden">
-                      <div className="text-[10px] font-sans font-black uppercase text-slate-500 tracking-wide">
+                    <div className="bg-zinc-50 border border-zinc-200 p-3 rounded-2xl space-y-2.5 print:hidden">
+                      <div className="text-[10px] font-sans font-black uppercase text-zinc-500 tracking-wide">
                         Select Individual Slip Sub-section (Recorded as internal business files):
                       </div>
                       <div className="flex gap-2 max-w-sm">
                         <button
                           type="button"
                           onClick={() => setSlipCategory("buyers")}
-                          className={`flex-1 py-1.5 text-center rounded-lg text-[10px] font-black transition-all cursor-pointer uppercase border ${
+                          className={`flex-1 py-1.5 text-center rounded-2xl text-[10px] font-black transition-all cursor-pointer uppercase border ${
                             slipCategory === "buyers"
-                              ? "bg-amber-600 border-amber-700 text-white shadow-md shadow-amber-950/20"
-                              : "bg-slate-250 hover:bg-slate-300 text-slate-700 border-slate-300"
+                              ? "bg-amber-600 border-amber-700 text-white shadow-md shadow-amber-900/20"
+                              : "bg-zinc-200 hover:bg-zinc-300 text-zinc-700 border-zinc-300"
                           }`}
                         >
                           👥 Buyers (Owes Us)
@@ -1497,10 +1340,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => setSlipCategory("sources")}
-                          className={`flex-1 py-1.5 text-center rounded-lg text-[10px] font-black transition-all cursor-pointer uppercase border ${
+                          className={`flex-1 py-1.5 text-center rounded-2xl text-[10px] font-black transition-all cursor-pointer uppercase border ${
                             slipCategory === "sources"
-                              ? "bg-indigo-600 border-indigo-700 text-white shadow-md shadow-indigo-950/40"
-                              : "bg-slate-250 hover:bg-slate-300 text-slate-700 border-slate-300"
+                              ? "bg-indigo-600 border-indigo-700 text-white shadow-md shadow-indigo-900/40"
+                              : "bg-zinc-200 hover:bg-zinc-300 text-zinc-700 border-zinc-300"
                           }`}
                         >
                           ⚓ Sources (We Owe Them)
@@ -1511,23 +1354,23 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                     <div className="font-sans">
                       {slipCategory === "buyers" ? (
                         <div className="space-y-4">
-                          <div className="border-b border-slate-200 pb-1 print:hidden">
-                            <h4 className="text-[10px] font-bold text-slate-600 uppercase">👥 Individual Buyer Outstanding Slips</h4>
-                            <p className="text-[8.5px] text-slate-500 italic">Showing buyers with lifetime outstanding balances owed until today.</p>
+                          <div className="border-b border-zinc-200 pb-1 print:hidden">
+                            <h4 className="text-[10px] font-bold text-zinc-600 uppercase">👥 Individual Buyer Outstanding Slips</h4>
+                            <p className="text-[8.5px] text-zinc-500 italic">Showing buyers with lifetime outstanding balances owed until today.</p>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {buyerBalancesList.filter(b => b.currentBalance > 0).length === 0 ? (
-                                <div className="border-2 border-dashed border-slate-300 p-4 rounded-xl bg-slate-50/45 space-y-2 relative" style={{ pageBreakInside: "avoid" }}>
-                                  <div className="absolute top-1 right-2 text-slate-400 text-[8px] uppercase font-mono select-none">Blank Buyer Copy</div>
-                                  <div className="border-b border-slate-200 pb-1.5 flex justify-between items-start">
+                                <div className="border-2 border-dashed border-zinc-300 p-4 rounded-2xl bg-zinc-50/45 space-y-2 relative" style={{ pageBreakInside: "avoid" }}>
+                                  <div className="absolute top-1 right-2 text-zinc-400 text-[8px] uppercase font-mono select-none">Blank Buyer Copy</div>
+                                  <div className="border-b border-zinc-200 pb-1.5 flex justify-between items-start">
                                     <div>
-                                      <h4 className="font-extrabold text-[12px] text-slate-950 uppercase tracking-tight">_______________</h4>
-                                      <p className="text-[8px] text-slate-500 font-mono">ID: _______ • Customer Ledger Dues</p>
+                                      <h4 className="font-extrabold text-[12px] text-zinc-950 uppercase tracking-tight">_______________</h4>
+                                      <p className="text-[8px] text-zinc-500 font-mono">ID: _______ • Customer Ledger Dues</p>
                                     </div>
-                                    <div className="text-[8px] text-slate-500 font-mono text-right font-black">{appDate}</div>
+                                    <div className="text-[8px] text-zinc-500 font-mono text-right font-black">{appDate}</div>
                                   </div>
                                   <div className="py-1">
-                                    <div className="text-[8.5px] text-slate-500 font-sans font-bold uppercase tracking-wider">How much has buyer owed until today:</div>
+                                    <div className="text-[8.5px] text-zinc-500 font-sans font-bold uppercase tracking-wider">How much has buyer owed until today:</div>
                                     <div className="text-[18px] font-black text-rose-300 font-mono mt-0.5">₹0</div>
                                   </div>
                                 </div>
@@ -1537,32 +1380,32 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                 return (
                                   <div 
                                     key={buyer.id} 
-                                    className="border-2 border-dashed border-slate-300 p-4 rounded-xl bg-slate-50/45 space-y-2 relative"
+                                    className="border-2 border-dashed border-zinc-300 p-4 rounded-2xl bg-zinc-50/45 space-y-2 relative"
                                     style={{ pageBreakInside: "avoid" }}
                                   >
-                                  <div className="absolute top-1 right-2 text-slate-400 text-[8px] uppercase font-mono select-none">
+                                  <div className="absolute top-1 right-2 text-zinc-400 text-[8px] uppercase font-mono select-none">
                                     Buyer Copy
                                   </div>
-                                  <div className="border-b border-slate-200 pb-1.5 flex justify-between items-start">
+                                  <div className="border-b border-zinc-200 pb-1.5 flex justify-between items-start">
                                     <div>
-                                      <h4 className="font-extrabold text-[12px] text-slate-950 uppercase tracking-tight">
+                                      <h4 className="font-extrabold text-[12px] text-zinc-950 uppercase tracking-tight">
                                         {buyer.nickname}
                                       </h4>
-                                      <p className="text-[8px] text-slate-500 font-mono">
+                                      <p className="text-[8px] text-zinc-500 font-mono">
                                         ID: {buyer.id} • Customer Ledger Dues
                                       </p>
                                     </div>
-                                    <div className="text-[8px] text-slate-500 font-mono text-right font-black">
+                                    <div className="text-[8px] text-zinc-500 font-mono text-right font-black">
                                       {appDate}
                                     </div>
                                   </div>
                                   <div className="py-1">
-                                    <div className="text-[8.5px] text-slate-500 font-sans font-bold uppercase tracking-wider">How much has buyer owed until today:</div>
+                                    <div className="text-[8.5px] text-zinc-500 font-sans font-bold uppercase tracking-wider">How much has buyer owed until today:</div>
                                     <div className="text-[18px] font-black text-rose-800 font-mono mt-0.5">
                                       ₹{Math.round(currentBalance).toLocaleString()}
                                     </div>
                                   </div>
-                                  <div className="border-t border-slate-200 pt-1.5 text-[7.5px] text-slate-400 font-mono flex justify-between">
+                                  <div className="border-t border-zinc-200 pt-1.5 text-[7.5px] text-zinc-400 font-mono flex justify-between">
                                     <span>Timestamp: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</span>
                                     <span>Internal Record Copy</span>
                                   </div>
@@ -1573,9 +1416,9 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="border-b border-slate-200 pb-1 print:hidden">
-                            <h4 className="text-[10px] font-bold text-slate-650 uppercase">⚓ Individual Source Vessel Settlement Slips</h4>
-                            <p className="text-[8.5px] text-slate-500 italic">Showing trawlers & landing sources net catch payouts paid today and outstandings.</p>
+                          <div className="border-b border-zinc-200 pb-1 print:hidden">
+                            <h4 className="text-[10px] font-bold text-zinc-600 uppercase">⚓ Individual Source Vessel Settlement Slips</h4>
+                            <p className="text-[8.5px] text-zinc-500 italic">Showing sources & landing sources net catch payouts paid today and outstandings.</p>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {(() => {
@@ -1602,7 +1445,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                               
                               if (activeList.length === 0) {
                                 return (
-                                  <div className="border-2 border-dashed border-indigo-200 p-4 rounded-xl bg-indigo-50/20 space-y-2.5 relative" style={{ pageBreakInside: "avoid" }}>
+                                  <div className="border-2 border-dashed border-indigo-200 p-4 rounded-2xl bg-indigo-50/20 space-y-2.5 relative" style={{ pageBreakInside: "avoid" }}>
                                     <div className="absolute top-1 right-2 text-indigo-400 text-[8px] uppercase font-mono select-none">Blank Source Copy</div>
                                     <div className="border-b border-indigo-100 pb-1.5 flex justify-between items-start">
                                       <div>
@@ -1613,11 +1456,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                     </div>
                                     <div className="grid grid-cols-2 gap-3 py-1">
                                       <div>
-                                        <div className="text-[8px] text-slate-500 uppercase font-bold tracking-wide">Paid Out Today:</div>
+                                        <div className="text-[8px] text-zinc-500 uppercase font-bold tracking-wide">Paid Out Today:</div>
                                         <div className="text-[14px] font-black font-mono text-emerald-300">₹0</div>
                                       </div>
                                       <div>
-                                        <div className="text-[8px] uppercase font-bold text-slate-500 tracking-wide">We Owe Them (Until Today):</div>
+                                        <div className="text-[8px] uppercase font-bold text-zinc-500 tracking-wide">We Owe Them (Until Today):</div>
                                         <div className="text-[14px] font-black font-mono text-indigo-300">₹0</div>
                                       </div>
                                     </div>
@@ -1629,7 +1472,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                 return (
                                   <div 
                                     key={source.id} 
-                                    className="border-2 border-dashed border-indigo-200 p-4 rounded-xl bg-indigo-50/20 space-y-2.5 relative"
+                                    className="border-2 border-dashed border-indigo-200 p-4 rounded-2xl bg-indigo-50/20 space-y-2.5 relative"
                                     style={{ pageBreakInside: "avoid" }}
                                   >
                                     <div className="absolute top-1 right-2 text-indigo-400 text-[8px] uppercase font-mono select-none">
@@ -1651,13 +1494,13 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                     
                                     <div className="grid grid-cols-2 gap-3 py-1">
                                       <div>
-                                        <div className="text-[8px] text-slate-500 uppercase font-bold tracking-wide">Paid Out Today:</div>
+                                        <div className="text-[8px] text-zinc-500 uppercase font-bold tracking-wide">Paid Out Today:</div>
                                         <div className="text-[14px] font-black font-mono text-emerald-800">
                                           ₹{Math.round(paidToday).toLocaleString()}
                                         </div>
                                       </div>
                                       <div>
-                                        <div className="text-[8px] uppercase font-bold text-slate-500 tracking-wide">We Owe Them (Until Today):</div>
+                                        <div className="text-[8px] uppercase font-bold text-zinc-500 tracking-wide">We Owe Them (Until Today):</div>
                                         <div className="text-[14px] font-black font-mono text-indigo-950">
                                           ₹{Math.round(oweThemTotal).toLocaleString()}
                                         </div>
@@ -1680,10 +1523,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               </div>
 
               {/* Action operations footer row (print:hidden) */}
-              <div className="bg-slate-950 border-t border-slate-850 p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 select-none print:hidden">
+              <div className="bg-zinc-950 border-t border-zinc-800 p-4 flex flex-col sm:flex-row justify-between items-center gap-3 shrink-0 select-none print:hidden">
                 <button
                   onClick={() => setShowPrintView(false)}
-                  className="px-4 py-2 w-full sm:w-auto bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-white rounded-xl text-xs font-bold cursor-pointer transition duration-150 text-center"
+                  className="px-4 py-2 w-full sm:w-auto bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-white rounded-2xl text-xs font-bold cursor-pointer transition duration-150 text-center"
                 >
                   Dismiss Sheet
                 </button>
@@ -1695,7 +1538,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
                       await shareAsPDF('print-sheet-canvas', filename, title, text, 'download');
                     }}
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-slate-950/40 cursor-pointer active:scale-95 transition"
+                    className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-slate-950/40 cursor-pointer active:scale-95 transition"
                   >
                     <Download className="w-4 h-4" />
                     <span>Save Locally as PDF</span>
@@ -1707,7 +1550,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
                       await shareAsPDF('print-sheet-canvas', filename, title, text, 'share');
                     }}
-                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-teal-950/40 cursor-pointer active:scale-95 transition"
+                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-teal-950/40 cursor-pointer active:scale-95 transition"
                   >
                     <Share2 className="w-4 h-4" />
                     <span>Share PDF</span>
@@ -1719,7 +1562,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                       const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
                       await shareAsPDF('print-sheet-canvas', filename, title, text, 'download');
                     }}
-                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-900/40 cursor-pointer active:scale-95 transition"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-900/40 cursor-pointer active:scale-95 transition"
                   >
                     <Printer className="w-4 h-4" />
                     <span>Print Sheet</span>

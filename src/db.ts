@@ -219,7 +219,7 @@ export async function loadAll(): Promise<NFCData> {
       const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
       const dbData = {} as NFCData;
 
-      await Promise.all(
+      const fetchCloud = Promise.all(
         keys.map(async (key) => {
           const colRef = collection(db, key);
           const snapshot = await getDocs(colRef);
@@ -232,6 +232,9 @@ export async function loadAll(): Promise<NFCData> {
           dbData[key] = list as any;
         })
       );
+
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 1000));
+      await Promise.race([fetchCloud, timeout]);
 
       // Verify if database was empty setup to write seed
       let totalDocCount = 0;

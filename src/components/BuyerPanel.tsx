@@ -194,27 +194,27 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
     <div className="space-y-6" id="buyers-collections-panel">
       {/* Dynamic stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 p-5 rounded-xl flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-teal-50 text-teal-600 rounded-lg">
+            <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl">
               <DollarSign className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs text-slate-500 font-medium font-sans">Total Outstanding Buyer Debts</div>
-              <div className="text-lg font-bold font-mono text-slate-800">
+              <div className="text-xs text-zinc-500 font-medium font-sans">Total Outstanding Buyer Debts</div>
+              <div className="text-lg font-bold font-mono text-zinc-800">
                 ₹ {buyers.reduce((sum, b) => sum + (b.lifetime_debt || 0), 0).toLocaleString()}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-5 rounded-xl flex items-center justify-between shadow-sm">
+        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
               <ShieldAlert className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-xs text-slate-500 font-medium font-sans">Pending Approvals</div>
+              <div className="text-xs text-zinc-500 font-medium font-sans">Pending Approvals</div>
               <div className="text-lg font-bold font-mono text-amber-700">
                 {dailyCollections.filter((c) => !c.is_approved).length} Receipts
               </div>
@@ -224,15 +224,15 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
       </div>
 
       {/* Buyer actions block */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50 border border-slate-200 p-4 rounded-xl">
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-2xl">
         <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
           <input
             type="text"
             placeholder="Search buyers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-4 py-2 w-full text-xs text-slate-700 bg-white border border-slate-250 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="pl-9 pr-4 py-2 w-full text-xs text-zinc-700 bg-white border border-zinc-200 rounded-2xl focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
         </div>
 
@@ -247,10 +247,10 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               setShowCollectionForm(!showCollectionForm);
               setShowAddBuyerForm(false);
             }}
-            className={`flex-grow sm:flex-grow-0 px-4 py-2 text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
+            className={`flex-grow sm:flex-grow-0 px-4 py-2 text-xs font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
               isAuthorizedToCollect
-                ? "bg-amber-600 hover:bg-amber-750 text-white"
-                : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed"
+                ? "bg-amber-600 hover:bg-amber-700 text-white"
+                : "bg-zinc-200 text-zinc-400 border border-zinc-300 cursor-not-allowed"
             }`}
             id="btn-log-collection"
           >
@@ -268,10 +268,10 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               setShowAddBuyerForm(!showAddBuyerForm);
               setShowCollectionForm(false);
             }}
-            className={`flex-grow sm:flex-grow-0 px-4 py-2 text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
+            className={`flex-grow sm:flex-grow-0 px-4 py-2 text-xs font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
               isAdmin
-                ? "bg-teal-650 hover:bg-teal-700 text-white"
-                : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed"
+                ? "bg-teal-600 hover:bg-teal-700 text-white"
+                : "bg-zinc-200 text-zinc-400 border border-zinc-300 cursor-not-allowed"
             }`}
             id="btn-add-buyer"
           >
@@ -283,16 +283,16 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
       {/* Forms Drawer: Add Buyer */}
       {showAddBuyerForm && (
-        <form onSubmit={handleAddBuyer} className="bg-slate-50 border border-slate-200 p-5 rounded-xl space-y-4 animate-slideDown shadow-inner">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+        <form onSubmit={handleAddBuyer} className="bg-zinc-50 border border-zinc-200 p-5 rounded-2xl space-y-4 animate-slideDown shadow-inner">
+          <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
             <PlusCircle className="w-4 h-4 text-teal-655" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-sans">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 font-sans">
               Register New Wholesale buyer (Arat Client)
             </h4>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Buyer Nickname <span className="text-red-500">*</span>
               </label>
               <input
@@ -301,12 +301,12 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 onChange={(e) => setBuyerNickname(e.target.value)}
                 placeholder="e.g. Moni Fish Co."
                 required
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-teal-500"
                 id="form-buyer-name"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Allowed Credit Limit (INR) <span className="text-red-500">*</span>
               </label>
               <input
@@ -315,22 +315,22 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 onChange={(e) => setCreditLimit(e.target.value)}
                 placeholder="e.g. 150000"
                 required
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-teal-500"
                 id="form-buyer-credit"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-205">
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200">
             <button
               type="button"
               onClick={() => setShowAddBuyerForm(false)}
-              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
+              className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-teal-650 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg shadow cursor-pointer"
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-2xl shadow cursor-pointer"
               id="btn-save-buyer"
             >
               Create Buyer
@@ -341,23 +341,23 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
       {/* Forms Drawer: Log Daily Collection Payment */}
       {showCollectionForm && (
-        <form onSubmit={handleAddCollection} className="bg-slate-50 border border-slate-200 p-5 rounded-xl space-y-4 animate-slideDown shadow-inner">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+        <form onSubmit={handleAddCollection} className="bg-zinc-50 border border-zinc-200 p-5 rounded-2xl space-y-4 animate-slideDown shadow-inner">
+          <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
             <PlusCircle className="w-4 h-4 text-amber-600" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-sans">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 font-sans">
               Log Daily Cash Payment Received (Halkhata Draft)
             </h4>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Select Arat Buyer <span className="text-red-500">*</span>
               </label>
               <select
                 value={collectBuyerId}
                 onChange={(e) => setCollectBuyerId(e.target.value)}
                 required
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
                 id="form-collect-buyer-select"
               >
                 <option value="">-- CHOOSE BUYER --</option>
@@ -369,7 +369,7 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Amount Collected (INR) <span className="text-red-500">*</span>
               </label>
               <input
@@ -378,33 +378,33 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 onChange={(e) => setCollectAmount(e.target.value)}
                 placeholder="e.g. 25000"
                 required
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
                 id="form-collect-amount"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Collection Session Date
               </label>
               <input
                 type="date"
                 value={collectDate}
                 onChange={(e) => setCollectDate(e.target.value)}
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-205">
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200">
             <button
               type="button"
               onClick={() => setShowCollectionForm(false)}
-              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
+              className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg shadow cursor-pointer"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-2xl shadow cursor-pointer"
               id="btn-save-collection"
             >
               Log Collection & Review
@@ -416,15 +416,15 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
       {/* Main Content stacked */}
       <div className="flex flex-col gap-6 w-full">
         {/* Buyer List Panel - Full width */}
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col w-full">
-          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700">
+        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm flex flex-col w-full">
+          <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200">
+            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
               Arat Buyers Accounts
             </h4>
           </div>
-          <div className="divide-y divide-slate-100 flex-grow max-h-[500px] overflow-y-auto">
+          <div className="divide-y divide-zinc-100 flex-grow max-h-[500px] overflow-y-auto">
             {filteredBuyers.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">
+              <div className="p-8 text-center text-zinc-400 text-xs">
                 No buyers found.
               </div>
             ) : (
@@ -440,31 +440,31 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                     className={`p-4 transition duration-150 space-y-2 cursor-pointer border-l-4 ${
                       isSelected
                         ? "bg-teal-50/40 border-teal-600 font-semibold"
-                        : "hover:bg-slate-50 border-l-transparent"
+                        : "hover:bg-zinc-50 border-l-transparent"
                     }`}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 bg-teal-50 text-teal-600 rounded-lg flex items-center justify-center font-bold text-xs">
+                        <div className="w-7 h-7 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center font-bold text-xs">
                           {b.nickname.charAt(0)}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-slate-800">{b.nickname}</div>
-                          <div className="text-[10px] text-slate-500 font-mono">ID: {String(b.id).substring(0, 8)}</div>
+                          <div className="text-xs font-bold text-zinc-800">{b.nickname}</div>
+                          <div className="text-[10px] text-zinc-500 font-mono">ID: {String(b.id).substring(0, 8)}</div>
                         </div>
                       </div>
-                      <span className="text-xs font-bold text-slate-800 font-mono">
+                      <span className="text-xs font-bold text-zinc-800 font-mono">
                         ₹ {b.lifetime_debt.toLocaleString()}
                       </span>
                     </div>
 
                     {/* Credit Gauge bar */}
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[9px] text-slate-500 uppercase tracking-wider font-semibold">
+                      <div className="flex justify-between text-[9px] text-zinc-500 uppercase tracking-wider font-semibold">
                         <span>Debt Ratio: {percentage}%</span>
                         <span>Limit: ₹{b.credit_limit.toLocaleString()}</span>
                       </div>
-                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
                         <div
                           style={{ width: `${percentage}%` }}
                           className={`h-full rounded-full transition-all duration-300 ${
@@ -488,19 +488,19 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
         {/* Conditional stacked detail view vs selected buyer ledger */}
         {selectedBuyerId && selectedBuyer ? (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col animate-scaleUp w-full">
+          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm flex flex-col animate-scaleUp w-full">
             {/* Dossier Header */}
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center select-none">
+            <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center select-none">
               <div>
-                <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700">
+                <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
                   Client Profile: {selectedBuyer.nickname}
                 </h4>
-                <p className="text-[10px] text-slate-400 font-mono">Member ID: {selectedBuyer.id}</p>
+                <p className="text-[10px] text-zinc-400 font-mono">Member ID: {selectedBuyer.id}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedBuyerId(null)}
-                className="px-3 py-1.5 text-[10.5px] uppercase font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg transition shrink-0 select-none cursor-pointer flex items-center gap-1"
+                className="px-3 py-1.5 text-[10.5px] uppercase font-bold bg-zinc-200 hover:bg-zinc-300 text-zinc-700 rounded-2xl transition shrink-0 select-none cursor-pointer flex items-center gap-1"
               >
                 ← Back to ledger
               </button>
@@ -508,17 +508,17 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
             <div className="p-5 space-y-6 overflow-y-auto max-h-[600px] custom-scrollbar">
               {/* Profile Fields form for Admin info */}
-              <form onSubmit={handleSaveBuyerDetails} className="bg-slate-50 border border-slate-200 p-4.5 rounded-xl space-y-4">
-                <div className="border-b border-slate-200 pb-2 flex justify-between items-center select-none">
+              <form onSubmit={handleSaveBuyerDetails} className="bg-zinc-50 border border-zinc-200 p-4.5 rounded-2xl space-y-4">
+                <div className="border-b border-zinc-200 pb-2 flex justify-between items-center select-none">
                   <h5 className="text-[11px] font-extrabold uppercase tracking-widest text-teal-800 flex items-center gap-1">
                     <User className="w-3.5 h-3.5" /> Buyer Information (অতিরিক্ত তথ্য)
                   </h5>
-                  <span className="text-[9px] font-mono text-slate-400 bg-slate-100 px-1 py-0.2 rounded border font-sans">Admin Config</span>
+                  <span className="text-[9px] font-mono text-zinc-400 bg-zinc-100 px-1 py-0.2 rounded border font-sans">Admin Config</span>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-sans font-bold text-slate-600 block select-none">
+                    <label className="text-[10px] font-sans font-bold text-zinc-600 block select-none">
                       Buyer Name (ক্রেতার নাম)
                     </label>
                     <input
@@ -526,11 +526,11 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                       value={editNickname}
                       onChange={(e) => setEditNickname(e.target.value)}
                       placeholder="e.g. Haji Mohammad Ali"
-                      className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+                      className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-sans font-bold text-slate-600 block select-none">
+                    <label className="text-[10px] font-sans font-bold text-zinc-600 block select-none">
                       Mobile Number (মোবাইল নম্বর)
                     </label>
                     <input
@@ -538,26 +538,26 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                       value={editMobile}
                       onChange={(e) => setEditMobile(e.target.value)}
                       placeholder="e.g. +880 1888-999000"
-                      className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+                      className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end pt-2">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-sans font-bold text-slate-600 block select-none">
+                    <label className="text-[10px] font-sans font-bold text-zinc-600 block select-none">
                       Credit Ceiling Limit (ঋণ সীমা)
                     </label>
                     <input
                       type="number"
                       value={editCreditLimit}
                       onChange={(e) => setEditCreditLimit(e.target.value)}
-                      className="w-full text-xs font-mono text-slate-700 bg-white border border-slate-300 rounded-lg p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+                      className="w-full text-xs font-mono text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm transition h-9.5 text-center flex items-center justify-center gap-1 select-none"
+                    className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl text-xs font-semibold cursor-pointer shadow-sm transition h-9.5 text-center flex items-center justify-center gap-1 select-none"
                   >
                     Save Changes
                   </button>
@@ -566,15 +566,15 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
               {/* Statistics Grid */}
               <div className="grid grid-cols-2 gap-3 select-none">
-                <div className="bg-rose-50/10 border border-rose-150 p-3 rounded-xl flex flex-col justify-between">
+                <div className="bg-rose-50/10 border border-rose-150 p-3 rounded-2xl flex flex-col justify-between">
                   <span className="text-[9px] text-rose-500 block font-semibold uppercase tracking-wider font-sans">Owe Us For Today</span>
-                  <span className="text-sm font-bold font-mono text-rose-650 block mt-1">
+                  <span className="text-sm font-bold font-mono text-rose-600 block mt-1">
                     ₹{Math.round(todayOwed).toLocaleString()}
                   </span>
                 </div>
-                <div className="bg-rose-50/10 border border-rose-150 p-3 rounded-xl flex flex-col justify-between">
+                <div className="bg-rose-50/10 border border-rose-150 p-3 rounded-2xl flex flex-col justify-between">
                   <span className="text-[9px] text-rose-500 block font-semibold uppercase tracking-wider font-sans">Outstanding Debt (Ledger)</span>
-                  <span className="text-sm font-bold font-mono text-rose-650 block mt-1">
+                  <span className="text-sm font-bold font-mono text-rose-600 block mt-1">
                     ₹{Math.round(selectedBuyer.lifetime_debt || 0).toLocaleString()}
                   </span>
                 </div>
@@ -582,23 +582,23 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
               {/* Purchase History */}
               <div className="space-y-2">
-                <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 border-b border-slate-150 pb-1.5 flex justify-between items-center font-sans select-none">
+                <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-700 border-b border-zinc-150 pb-1.5 flex justify-between items-center font-sans select-none">
                   <span>Recent Auction Records</span>
-                  <span className="text-[9px] text-slate-400 font-normal select-none">Total {buyerTxns.length} entries</span>
+                  <span className="text-[9px] text-zinc-400 font-normal select-none">Total {buyerTxns.length} entries</span>
                 </h5>
-                <div className="max-h-[160px] overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 custom-scrollbar">
+                <div className="max-h-[160px] overflow-y-auto border border-zinc-200 rounded-2xl divide-y divide-zinc-100 custom-scrollbar">
                   {buyerTxns.length === 0 ? (
-                    <div className="p-6 text-center text-slate-400 text-xs py-8 select-none">No fish purchased in recent auctions.</div>
+                    <div className="p-6 text-center text-zinc-400 text-xs py-8 select-none">No fish purchased in recent auctions.</div>
                   ) : (
                     [...buyerTxns].reverse().map((t) => (
-                      <div key={t.id} className="p-2.5 px-3 flex justify-between items-center text-xs font-sans hover:bg-slate-50/50">
+                      <div key={t.id} className="p-2.5 px-3 flex justify-between items-center text-xs font-sans hover:bg-zinc-50/50">
                         <div>
-                          <div className="font-bold text-slate-800 font-sans">{t.fish_type}</div>
-                          <div className="text-[9.5px] text-slate-500 font-mono">Date: {t.date}</div>
+                          <div className="font-bold text-zinc-800 font-sans">{t.fish_type}</div>
+                          <div className="text-[9.5px] text-zinc-500 font-mono">Date: {t.date}</div>
                         </div>
                         <div className="text-right font-mono">
-                          <div className="font-mono font-bold text-slate-800">₹{t.total_price.toLocaleString()}</div>
-                          <div className="text-[9.5px] text-slate-500 font-mono">{t.weight} kg @ ₹{t.price_per_kg}/kg</div>
+                          <div className="font-mono font-bold text-zinc-800">₹{t.total_price.toLocaleString()}</div>
+                          <div className="text-[9.5px] text-zinc-500 font-mono">{t.weight} kg @ ₹{t.price_per_kg}/kg</div>
                         </div>
                       </div>
                     ))
@@ -609,24 +609,24 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               {/* Collections History HIDDEN AS REQUESTED */}
               {/*
               <div className="space-y-2">
-                <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 border-b border-slate-150 pb-1.5 flex justify-between items-center font-sans select-none">
+                <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-700 border-b border-zinc-150 pb-1.5 flex justify-between items-center font-sans select-none">
                   <span>Receipts & Daily Collections Log</span>
-                  <span className="text-[9px] text-slate-400 font-normal select-none font-sans font-sans">Total {buyerCollections.length} pays</span>
+                  <span className="text-[9px] text-zinc-400 font-normal select-none font-sans font-sans">Total {buyerCollections.length} pays</span>
                 </h5>
-                <div className="max-h-[160px] overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 custom-scrollbar font-sans">
+                <div className="max-h-[160px] overflow-y-auto border border-zinc-200 rounded-2xl divide-y divide-zinc-100 custom-scrollbar font-sans">
                   {buyerCollections.length === 0 ? (
-                    <div className="p-6 text-center text-slate-400 text-xs py-8 font-sans select-none">No collections registered for this buyer.</div>
+                    <div className="p-6 text-center text-zinc-400 text-xs py-8 font-sans select-none">No collections registered for this buyer.</div>
                   ) : (
                     [...buyerCollections].reverse().map((col) => (
-                      <div key={col.id} className="p-2.5 px-3 flex justify-between items-center text-xs hover:bg-slate-50/50 font-sans">
+                      <div key={col.id} className="p-2.5 px-3 flex justify-between items-center text-xs hover:bg-zinc-50/50 font-sans">
                         <div>
-                          <span className="text-[9.5px] text-slate-400 font-mono block select-none">{col.date}</span>
-                          <span className={`text-[10px] font-bold block ${col.is_approved ? "text-teal-600" : col.is_rolled_over ? "text-amber-500" : "text-slate-500"}`}>
+                          <span className="text-[9.5px] text-zinc-400 font-mono block select-none">{col.date}</span>
+                          <span className={`text-[10px] font-bold block ${col.is_approved ? "text-teal-600" : col.is_rolled_over ? "text-amber-500" : "text-zinc-500"}`}>
                             {col.is_approved ? "✅ Approved by Admin" : col.is_rolled_over ? "🔁 Rolled Over in Session" : "⏳ Pending review"}
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold font-mono text-slate-800 text-emerald-800">₹{col.amount_paid.toLocaleString()}</span>
+                          <span className="font-bold font-mono text-zinc-800 text-emerald-800">₹{col.amount_paid.toLocaleString()}</span>
                         </div>
                       </div>
                     ))
@@ -639,9 +639,9 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
           </div>
         ) : (
           /* Collections Ledger - Full width stack aspect */
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col w-full">
-            <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700">
+          <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm flex flex-col w-full">
+            <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center">
+              <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
                 Daily collections Ledger (Halkhata Receipts)
               </h4>
               <span className="text-[10px] bg-amber-500/10 text-amber-700 border border-amber-500/20 px-2 py-0.5 rounded-full font-medium">
@@ -649,9 +649,9 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               </span>
             </div>
 
-            <div className="divide-y divide-slate-100 flex-grow max-h-[500px] overflow-y-auto">
+            <div className="divide-y divide-zinc-100 flex-grow max-h-[500px] overflow-y-auto">
               {dailyCollections.length === 0 ? (
-                <div className="p-12 text-center text-slate-400 text-xs">
+                <div className="p-12 text-center text-zinc-400 text-xs">
                   No collections logged. Write a collection payment above to review ledger entries.
                 </div>
               ) : (
@@ -665,20 +665,20 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                         ? "border-emerald-500 bg-emerald-50/5" 
                         : col.is_rolled_over 
                         ? "border-amber-500 bg-amber-50/5" 
-                        : "border-slate-300 bg-white"
+                        : "border-zinc-300 bg-white"
                     }`}>
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-800">
+                          <span className="text-xs font-bold text-zinc-800">
                             {buyer ? buyer.nickname : `Buyer (#${col.buyer_id})`}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
+                          <span className="text-[10px] text-zinc-400 font-mono">
                             {col.date}
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-4 text-[11px] font-mono text-slate-600">
+                        <div className="grid grid-cols-2 gap-x-4 text-[11px] font-mono text-zinc-600">
                           <div>Owed today: ₹{col.total_owed_today.toLocaleString()}</div>
-                          <div className="font-bold text-teal-850">Paid: ₹{(col.amount_paid || 0).toLocaleString()}</div>
+                          <div className="font-bold text-teal-800">Paid: ₹{(col.amount_paid || 0).toLocaleString()}</div>
                         </div>
                         {isTemp && (
                           <span className="text-[8px] bg-amber-100 text-amber-700 border border-amber-200 px-1.5 py-0.2 rounded font-sans uppercase font-bold tracking-wider">
@@ -692,10 +692,10 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                         {/* Rollover Toggle */}
                         <button
                           onClick={() => handleRolloverCollection(col.id)}
-                          className={`p-2.5 rounded-lg border text-xs font-semibold flex items-center gap-1 cursor-pointer transition ${
+                          className={`p-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-1 cursor-pointer transition ${
                             col.is_rolled_over
                               ? "bg-amber-950/15 border-amber-900/30 text-amber-700"
-                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                              : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
                           }`}
                           title="Toggle Rollover (Transfer outstanding to next segment)"
                         >
@@ -707,17 +707,17 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
                         {/* Admin Approve badge or Action */}
                         {col.is_approved ? (
-                          <div className="bg-emerald-50 border border-emerald-250 text-emerald-700 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1">
+                          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl px-3 py-1.5 text-xs font-bold flex items-center gap-1">
                             <Check className="w-4 h-4 text-emerald-600" />
                             <span>Approved</span>
                           </div>
                         ) : (
                           <button
                             onClick={() => handleApproveCollection(col.id)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer flex items-center gap-1 shadow-sm transition border ${
+                            className={`px-3 py-1.5 text-xs font-bold rounded-2xl cursor-pointer flex items-center gap-1 shadow-sm transition border ${
                               isAdmin
-                                ? "bg-emerald-600 border-emerald-750 text-white hover:bg-emerald-700"
-                                : "bg-slate-50 border-slate-200 text-slate-405 hover:bg-slate-100 cursor-help"
+                                ? "bg-emerald-600 border-emerald-700 text-white hover:bg-emerald-700"
+                                : "bg-zinc-50 border-zinc-200 text-zinc-405 hover:bg-zinc-100 cursor-help"
                             }`}
                             title={isAdmin ? "Approve & update buyers credit totals" : "Approved status requires Admin Operator authentication."}
                           >

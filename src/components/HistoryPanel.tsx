@@ -106,7 +106,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   // 3. Gather source payments settlements
   sourcePayments.forEach((p) => {
     const source = sources.find((s) => s.id === p.source_id);
-    const sourceName = source ? source.name : `Trawler ID: ${p.source_id}`;
+    const sourceName = source ? source.name : `Source ID: ${p.source_id}`;
 
     const isQueued = queue.some((q) => q.table === "source_payments" && q.id === p.id);
 
@@ -117,7 +117,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         : new Date(p.date).getTime() || Date.now() - 7200000,
       date: p.date || "2026-06-09",
       category: "settlements",
-      title: "Trawler Outflow Settled",
+      title: "Source Outflow Settled",
       detail: `Settled ship account ${sourceName} for total ${p.total_kg}kg sales. Commission deducted: ₹${p.commission}`,
       operator: "Admin Auditor",
       amount: p.amount_paid_to_source,
@@ -176,14 +176,14 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     if (!sp.amount_paid_to_source) return;
     const dateStr = sp.date || "2026-06-09";
     const source = sources.find((s) => s.id === sp.source_id);
-    const name = source ? source.name : "Trawler";
+    const name = source ? source.name : "Source";
 
     if (!dayWiseCashbook[dateStr]) {
       dayWiseCashbook[dateStr] = { totalInflows: 0, totalOutflows: 0, collectionsCount: 0, settlementsCount: 0, details: [] };
     }
     dayWiseCashbook[dateStr].totalOutflows += sp.amount_paid_to_source;
     dayWiseCashbook[dateStr].settlementsCount += 1;
-    dayWiseCashbook[dateStr].details.push(`Outflow: Settled trawler ${name} with payout of ₹${sp.amount_paid_to_source.toLocaleString()}`);
+    dayWiseCashbook[dateStr].details.push(`Outflow: Settled source ${name} with payout of ₹${sp.amount_paid_to_source.toLocaleString()}`);
   });
 
   const sortedCashbookDays = Object.keys(dayWiseCashbook).sort((a, b) => b.localeCompare(a));
@@ -216,18 +216,18 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       className="space-y-6"
     >
       {/* Day-by-Day Cashbook Balance Audit Card */}
-      <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl shadow-xl space-y-4">
+      <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl shadow-2xl shadow-black/10 space-y-4">
         <div>
-          <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+          <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
             <Landmark className="w-4 h-4 text-emerald-400" /> Day-Wise Ledger Cashbook Journal ({sortedCashbookDays.length} Days)
           </h3>
-          <p className="text-[10px] text-slate-500 font-sans mt-0.5">
-            Automatic chronological aggregate of trawler payments and buyer collection receipts
+          <p className="text-[10px] text-zinc-500 font-sans mt-0.5">
+            Automatic chronological aggregate of source payments and buyer collection receipts
           </p>
         </div>
 
         {sortedCashbookDays.length === 0 ? (
-          <div className="text-center py-6 text-slate-600 text-[11px] font-mono">
+          <div className="text-center py-6 text-zinc-600 text-[11px] font-mono">
             No payments or collection receipts settled on this device yet.
           </div>
         ) : (
@@ -236,8 +236,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
               const day = dayWiseCashbook[dateStr];
               const netBalance = day.totalInflows - day.totalOutflows;
               return (
-                <div key={dateStr} className="p-3 bg-slate-900/50 border border-slate-800 rounded-xl space-y-2.5">
-                  <div className="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                <div key={dateStr} className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-2xl space-y-2.5">
+                  <div className="flex justify-between items-center border-b border-zinc-800 pb-1.5">
                     <span className="text-xs font-bold font-mono text-emerald-400 flex items-center gap-1">
                       📅 Date: {dateStr}
                     </span>
@@ -257,10 +257,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     </div>
                   </div>
 
-                  <div className="text-[8.5px] text-slate-450 text-slate-500 divide-y divide-slate-850 bg-slate-950/40 p-2 rounded">
-                    <div className="font-bold text-slate-400 uppercase tracking-wider pb-1">Historical Line Items:</div>
+                  <div className="text-[8.5px] text-zinc-500 text-zinc-500 divide-y divide-zinc-800 bg-zinc-950/40 p-2 rounded">
+                    <div className="font-bold text-zinc-400 uppercase tracking-wider pb-1">Historical Line Items:</div>
                     {day.details.map((item, index) => (
-                      <div key={index} className="py-1 font-mono text-slate-400 flex items-center gap-1">
+                      <div key={index} className="py-1 font-mono text-zinc-400 flex items-center gap-1">
                         • {item}
                       </div>
                     ))}
@@ -273,50 +273,50 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       </div>
 
       {/* Search Filter Head Segment */}
-      <div className="bg-slate-950 border border-slate-850 p-5 rounded-2xl shadow-lg flex flex-col md:flex-row items-center gap-4">
+      <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl shadow-lg flex flex-col md:flex-row items-center gap-4">
         
         {/* Search Field */}
         <div className="relative w-full md:flex-grow">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-zinc-500" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search master logs by fish type, buyers name, or operator stamps..."
-            className="w-full text-xs text-slate-100 bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+            className="w-full text-xs text-zinc-100 bg-zinc-900 border border-zinc-800 rounded-2xl py-3 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-teal-500 font-sans"
           />
         </div>
 
         {/* Category toggles */}
-        <div className="flex border border-slate-800 bg-slate-900 p-1 rounded-xl gap-1 shrink-0 text-xs w-full md:w-auto overflow-x-auto scrollbar-none">
+        <div className="flex border border-zinc-800 bg-zinc-900 p-1 rounded-2xl gap-1 shrink-0 text-xs w-full md:w-auto overflow-x-auto scrollbar-none">
           <button
             onClick={() => setCategoryFilter("all")}
-            className={`px-3 py-1.5 rounded-lg select-none font-bold cursor-pointer transition ${
-              categoryFilter === "all" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1.5 rounded-2xl select-none font-bold cursor-pointer transition ${
+              categoryFilter === "all" ? "bg-teal-600 text-white" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             All Logs
           </button>
           <button
             onClick={() => setCategoryFilter("purchases")}
-            className={`px-3 py-1.5 rounded-lg select-none font-bold cursor-pointer transition ${
-              categoryFilter === "purchases" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1.5 rounded-2xl select-none font-bold cursor-pointer transition ${
+              categoryFilter === "purchases" ? "bg-teal-600 text-white" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             Auctions
           </button>
           <button
             onClick={() => setCategoryFilter("collections")}
-            className={`px-3 py-1.5 rounded-lg select-none font-bold cursor-pointer transition ${
-              categoryFilter === "collections" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1.5 rounded-2xl select-none font-bold cursor-pointer transition ${
+              categoryFilter === "collections" ? "bg-teal-600 text-white" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             Collections
           </button>
           <button
             onClick={() => setCategoryFilter("settlements")}
-            className={`px-3 py-1.5 rounded-lg select-none font-bold cursor-pointer transition ${
-              categoryFilter === "settlements" ? "bg-teal-600 text-white" : "text-slate-400 hover:text-slate-200"
+            className={`px-3 py-1.5 rounded-2xl select-none font-bold cursor-pointer transition ${
+              categoryFilter === "settlements" ? "bg-teal-600 text-white" : "text-zinc-400 hover:text-zinc-200"
             }`}
           >
             Source Payments
@@ -326,23 +326,23 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       </div>
 
       {/* History table log stream */}
-      <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 shadow-xl space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-850">
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 shadow-2xl shadow-black/10 space-y-4">
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
           <div className="space-y-0.5">
-            <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+            <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
               <Activity className="w-4.5 h-4.5 text-teal-400" /> Chronological System Audit Timeline
             </h3>
-            <p className="text-[10px] text-slate-500 font-sans">
+            <p className="text-[10px] text-zinc-500 font-sans">
               Decentralized offline-first transaction security tracking stream
             </p>
           </div>
-          <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
+          <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
             Yielded: {filteredLog.length} ledger history rows
           </span>
         </div>
 
         {filteredLog.length === 0 ? (
-          <div className="text-center py-20 text-slate-600 text-xs font-sans border border-dashed border-slate-850 rounded-xl">
+          <div className="text-center py-20 text-zinc-600 text-xs font-sans border border-dashed border-zinc-800 rounded-2xl">
             No operations matches found inside the physical database audit.
           </div>
         ) : (
@@ -354,11 +354,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="bg-slate-950/40 border border-slate-850 p-5 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-slate-800 transition duration-150 font-sans"
+                  className="bg-zinc-950/40 border border-zinc-800 p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-zinc-800 transition duration-150 font-sans"
                 >
                   <div className="flex items-start gap-3">
                     {/* Category icon */}
-                    <div className={`p-2 rounded-lg mt-0.5 shrink-0 ${
+                    <div className={`p-2 rounded-2xl mt-0.5 shrink-0 ${
                       log.category === "purchases" ? "bg-blue-500/10 text-blue-400" :
                       log.category === "collections" ? "bg-emerald-500/10 text-emerald-400" :
                       log.category === "settlements" ? "bg-indigo-500/10 text-indigo-400" :
@@ -372,7 +372,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-black text-slate-200">
+                        <span className="text-xs font-black text-zinc-200">
                           {log.title}
                         </span>
                         {log.localQueued && (
@@ -381,9 +381,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-400 leading-relaxed font-sans">{log.detail}</p>
+                      <p className="text-xs text-zinc-400 leading-relaxed font-sans">{log.detail}</p>
                       
-                      <div className="text-[10px] text-slate-500 font-mono flex flex-wrap gap-x-2">
+                      <div className="text-[10px] text-zinc-500 font-mono flex flex-wrap gap-x-2">
                         <span>Stamp Date: {log.date}</span>
                         <span>•</span>
                         <span>Operator Stamp: {log.operator}</span>
@@ -395,7 +395,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
                   {log.amount !== undefined && (
                     <div className="text-right shrink-0">
-                      <span className="text-xs font-mono font-bold text-slate-200 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-850">
+                      <span className="text-xs font-mono font-bold text-zinc-200 bg-zinc-900 px-3 py-1.5 rounded-2xl border border-zinc-800">
                         ₹ {log.amount.toLocaleString()}
                       </span>
                     </div>

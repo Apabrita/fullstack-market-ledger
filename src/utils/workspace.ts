@@ -7,7 +7,7 @@
  */
 
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { NFCData, Transaction, DailyCollection, SourcePayment, Buyer, Source } from "../db";
 
@@ -29,6 +29,17 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  getRedirectResult(auth).then((result) => {
+    if (result) {
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        cachedAccessToken = credential.accessToken;
+        googleUser = result.user;
+        if (onAuthSuccess) onAuthSuccess(result.user, credential.accessToken);
+      }
+    }
+  }).catch(err => console.error("Redirect Error:", err));
+
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
       if (cachedAccessToken) {
@@ -62,13 +73,9 @@ export const initiateGoogleOAuth = async (): Promise<boolean> => {
   }
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
-    const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
-    }
-    cachedAccessToken = credential.accessToken;
-    googleUser = result.user;
+    await signInWithRedirect(auth, provider);
+    // In a redirect flow, the page will reload. 
+    // It returns true theoretically but usually never reaches here.
     return true;
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -168,7 +175,7 @@ export async function syncDataToGoogleSheets(data: NFCData, reportType: "auction
 
   if (reportType === "auction") {
     sheetName = "Auction Journal";
-    headers = ["Trade Time/Date", "Transaction ID", "Fish Type Species", "Source Trawler ID", "Wholesale Buyer ID", "Weight (KG)", "Rate per KG (৳)", "Calculated Total (৳)", "Operator/Auctioneer"];
+    headers = ["Trade Time/Date", "Transaction ID", "Fish Type Species", "Source Source ID", "Wholesale Buyer ID", "Weight (KG)", "Rate per KG (৳)", "Calculated Total (৳)", "Operator/Auctioneer"];
     
     const transactions = data.transactions || [];
     rows = transactions.map(tx => [
@@ -183,8 +190,8 @@ export async function syncDataToGoogleSheets(data: NFCData, reportType: "auction
       tx.added_by || "Apon Das"
     ]);
   } else if (reportType === "source_payment") {
-    sheetName = "Trawler Landings";
-    headers = ["Settlement Date", "Payment ID", "Source Trawler ID", "Delivered Weight (KG)", "Agreed Landing Rate (৳)", "Estimated Sales Total (৳)", "Broker Fee 5% Commission (৳)", "Net Share Settled Cash (৳)", "Status"];
+    sheetName = "Source Landings";
+    headers = ["Settlement Date", "Payment ID", "Source Source ID", "Delivered Weight (KG)", "Agreed Landing Rate (৳)", "Estimated Sales Total (৳)", "Broker Fee 5% Commission (৳)", "Net Share Settled Cash (৳)", "Status"];
     
     const payments = data.source_payments || [];
     rows = payments.map(p => [
@@ -319,8 +326,9 @@ export async function uploadFileToGoogleDrive(
 export function constructPlainReportText(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip"): string {
   const dateStr = "2026-06-09";
   let txt = `========================================================================\n`;
-  txt += `                      NEW FISH CENTER WHOLESALE ARAT                     \n`;
-  txt += `                PORT AUTHORITIES TRADE LEDGER REPORT SERVICES            \n`;
+  txt += `                      NEW FISH CENTER                     \n`;
+  txt += `        Commission Agent and Wholesaler • Proprietor: Chanchal Das       \n`;
+  txt += `                       BALIA, Chakdaha, Nadia                       \n`;
   txt += `========================================================================\n`;
   txt += `Report Type: ${reportType.toUpperCase()} JOURNAL\n`;
   txt += `Log Date: ${dateStr}\n`;
@@ -329,7 +337,7 @@ export function constructPlainReportText(data: NFCData, reportType: "auction" | 
 
   if (reportType === "auction") {
     txt += `DAILY AUCTION DISPATCH ENTRIES:\n`;
-    txt += `ID          | TRAWLER   | BUYER COMPANY         | FISH SPECIES        | KG   | RATE | TOTAL\n`;
+    txt += `ID          | SOURCE   | BUYER COMPANY         | FISH SPECIES        | KG   | RATE | TOTAL\n`;
     txt += `------------+-----------+-----------------------+---------------------+------+------+---------\n`;
     const transactions = data.transactions || [];
     transactions.forEach(tx => {
@@ -345,7 +353,7 @@ export function constructPlainReportText(data: NFCData, reportType: "auction" | 
     txt += `TOTAL WEIGHT METRICS : ${totalWeight} KG\n`;
     txt += `TOTAL SALES REVENUE  : ৳${totalVolume}\n`;
   } else if (reportType === "source_payment") {
-    txt += `TRAWLER commission & NET PAYOUT SETTLEMENTS:\n`;
+    txt += `SOURCE commission & NET PAYOUT SETTLEMENTS:\n`;
     txt += `ID          | VESSEL SOURCE NAME            | TOTAL WEIGHT | SALE SUM | COMM (5%) | NET PAYOUT\n`;
     txt += `------------+-------------------------------+--------------+----------+-----------+------------\n`;
     const payments = data.source_payments || [];
@@ -468,7 +476,7 @@ export async function syncReportToGoogleDocs(data: NFCData, reportType: "auction
   const formattedText = constructPlainReportText(data, reportType);
   const titles = {
     auction: "New Fish Center - Daily Auction Log [2026-06-09]",
-    source_payment: "New Fish Center - Trawler Commission settlements [2026-06-09]",
+    source_payment: "New Fish Center - Source Commission settlements [2026-06-09]",
     collection: "New Fish Center - Daily Revenue & Cash Logs [2026-06-09]",
     collection_slip: "New Fish Center - Buyer Invoices [2026-06-09]"
   };

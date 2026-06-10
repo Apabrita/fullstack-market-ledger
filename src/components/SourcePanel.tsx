@@ -3,15 +3,227 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useData } from "./DataContext";
-import { PlusCircle, Search, Anchor, Scale, Landmark, Percent, Receipt, Lock, CheckCircle2, ChevronRight, Calculator, Archive, Trash2, Calendar, TrendingUp } from "lucide-react";
+import { PlusCircle, Search, Anchor, Scale, Landmark, Percent, Receipt, Lock, CheckCircle2, ChevronRight, Calculator, Archive, Trash2, Calendar, TrendingUp, Printer } from "lucide-react";
 import { User as DbUser } from "../db";
+import { shareAsPDF } from "../utils/pdf";
 
 interface SourcePanelProps {
   activeUser: DbUser | null;
   isAuthenticated: boolean;
 }
+
+const SourceBillGenerator: React.FC<{
+  source: any;
+  transactions: any[];
+  appDate: string;
+  payment?: any;
+}> = ({ source, transactions, appDate, payment }) => {
+  const [items, setItems] = useState<{ id: string; fishType: string; weight: string; rate: string; }[]>([]);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+
+  useEffect(() => {
+    const rawItems: { id: string; fishType: string; weight: string; rate: string }[] = [];
+    const fishTypes = Array.from(new Set(transactions.map((t: any) => t.fish_type || "Unsorted"))) as string[];
+    
+    fishTypes.forEach((ft, idx) => {
+      const fTx = transactions.filter(t => (t.fish_type || "Unsorted") === ft);
+      const wt = fTx.reduce((sum, t) => sum + (t.weight || 0), 0);
+      rawItems.push({
+        id: idx.toString(),
+        fishType: ft,
+        weight: wt.toString(),
+        rate: source.rate_per_kg.toString()
+      });
+    });
+
+    if (rawItems.length === 0) {
+       rawItems.push({ id: '0', fishType: 'Unsorted Catch', weight: '0', rate: source.rate_per_kg.toString() });
+    }
+    
+    setItems(rawItems);
+  }, [source, transactions]);
+  
+  const totalGrossP = items.reduce((sum, it) => sum + (parseFloat(it.weight) || 0) * (parseFloat(it.rate) || 0), 0);
+  const commissionDeducted = payment?.commission_amount || 0;
+  // We deduce advance paid backward if we know net_paid and commission, since net_paid = total - commission - advance.
+  const advanceDeducted = payment ? (totalGrossP - commissionDeducted - payment.net_paid) : 0;
+  const netDueP = payment ? payment.net_paid : totalGrossP;
+
+  const handlePrint = async () => {
+    setLoadingPdf(true);
+    setIsPrinting(true);
+    // Let react render the print version briefly
+    setTimeout(async () => {
+      try {
+        await shareAsPDF(
+          `source-bill-${source.id}`,
+          `Payout_Bill_${source.name.replace(/\s+/g, '_')}_${appDate}.pdf`,
+          `Source Payout Invoice: ${source.name}`,
+          `Generated electronic payout invoice for ${source.name} on ${appDate}.`,
+          'download'
+        );
+      } catch (err) {
+        console.error("PDF generation failed", err);
+        alert("Warning: Could not create PDF. Falling back to native print.");
+        window.print();
+      } finally {
+        setIsPrinting(false);
+        setLoadingPdf(false);
+      }
+    }, 150);
+  };
+
+  return (
+    <div className="mt-3 p-3 bg-white border-2 border-zinc-200 shadow-sm rounded-2xl space-y-4">
+      <div className="flex justify-between items-center mb-2">
+         <h4 className="font-black text-zinc-800 uppercase text-xs">🧾 Source Payout Bill</h4>
+      </div>
+      
+      {/* Read-Only Views */}
+      <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+        {items.map((item) => (
+          <div key={item.id} className="grid grid-cols-12 gap-1.5 p-2 bg-zinc-50 border border-zinc-200 rounded-2xl text-[10px]">
+             <div className="col-span-6">
+               <span className="text-[8px] font-bold text-zinc-500 uppercase block mb-0.5">Item/Fish Type</span>
+               <div className="font-sans font-bold text-zinc-800">{item.fishType}</div>
+             </div>
+             <div className="col-span-3">
+               <span className="text-[8px] font-bold text-zinc-500 uppercase block mb-0.5">Weight (KG)</span>
+               <div className="font-mono text-zinc-800">{parseFloat(item.weight).toLocaleString()} kg</div>
+             </div>
+             <div className="col-span-3">
+               <span className="text-[8px] font-bold text-zinc-500 uppercase block mb-0.5">Rate/KG (₹)</span>
+               <div className="font-mono text-zinc-800">₹{parseFloat(item.rate).toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+             </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 pt-2">
+         <div className="bg-zinc-50 p-3 rounded-2xl border border-zinc-200 shadow-sm text-xs space-y-1">
+             <div className="flex justify-between text-zinc-600">
+               <span>Gross Purchase Value:</span>
+               <span className="font-mono text-zinc-800 font-bold">₹{totalGrossP.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+             </div>
+             {commissionDeducted > 0 && (
+               <div className="flex justify-between text-rose-600">
+                 <span>Less - Commission Deducted:</span>
+                 <span className="font-mono">- ₹{commissionDeducted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+               </div>
+             )}
+             {advanceDeducted > 0 && (
+               <div className="flex justify-between text-rose-600">
+                 <span>Less - Advance Paid:</span>
+                 <span className="font-mono">- ₹{advanceDeducted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+               </div>
+             )}
+             <div className="flex justify-between font-black text-emerald-800 pt-2 border-t border-zinc-200 mt-2">
+               <span>Net Paid To Source:</span>
+               <span className="font-mono">₹{netDueP.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+             </div>
+         </div>
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <button 
+          onClick={handlePrint} 
+          disabled={loadingPdf}
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-2 px-4 rounded-2xl text-xs flex items-center justify-center gap-1.5 w-full shadow"
+        >
+          {loadingPdf ? <span className="animate-pulse">Building PDF...</span> : <><Printer className="w-3.5 h-3.5" /> Generates PDF Invoice</>}
+        </button>
+      </div>
+
+      {/* Hidden Print Canvas Area */}
+      <div className="fixed -left-[4000px] top-0 opacity-0 pointer-events-none">
+        <div id={`source-bill-${source.id}`} className="bg-white p-8 space-y-6 font-sans w-[800px] max-w-none print:w-full select-text text-zinc-900 border-2 border-transparent">
+          <div className="border-b-2 border-zinc-900 pb-4 flex justify-between items-start">
+            <div>
+              <h3 className="text-3xl font-black tracking-tight text-zinc-950 uppercase">NEW FISH CENTER</h3>
+              <p className="text-[10px] text-zinc-800 font-extrabold tracking-wider font-mono uppercase">Commission Agent and Wholesaler • Proprietor: Chanchal Das</p>
+              <p className="text-[10px] text-zinc-600 mt-0.5 uppercase">BALIA, Chakdaha, Nadia</p>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-black text-zinc-950 font-mono tracking-wider">PAYOUT BILL</div>
+              <div className="text-xs text-zinc-600 font-semibold font-mono mt-1">Date: {appDate}</div>
+              <div className="text-[10px] text-zinc-500 font-mono">Invoice #: S-{source.id.toString().slice(-6)}</div>
+            </div>
+          </div>
+          
+          <div className="bg-zinc-100 p-3 rounded-2xl border border-zinc-200 flex justify-between items-center">
+             <div>
+               <div className="text-[10px] uppercase font-bold text-zinc-500">Source / Vessel Name</div>
+               <div className="text-lg font-black text-indigo-900">{source.name}</div>
+             </div>
+          </div>
+
+          <table className="w-full text-sm border-collapse font-sans mt-4">
+            <thead>
+              <tr className="bg-zinc-900 text-white uppercase text-[10px] font-bold tracking-wider">
+                 <th className="text-left py-2 px-3">Fish Type / Details</th>
+                 <th className="text-right py-2 px-3">Weight (KG)</th>
+                 <th className="text-right py-2 px-3">Rate/KG (₹)</th>
+                 <th className="text-right py-2 px-3">Total Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => {
+                const w = parseFloat(it.weight) || 0;
+                const r = parseFloat(it.rate) || 0;
+                return (
+                  <tr key={it.id} className={`border-b ${i % 2 === 0 ? "bg-zinc-50" : "bg-white"} border-zinc-200 text-[11px] font-bold text-zinc-800`}>
+                    <td className="py-2.5 px-3 uppercase">{it.fishType}</td>
+                    <td className="text-right py-2.5 px-3 font-mono">{w.toLocaleString()}</td>
+                    <td className="text-right py-2.5 px-3 font-mono">{r.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td className="text-right py-2.5 px-3 font-mono text-zinc-900">₹{(w * r).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          <div className="flex justify-end pt-4">
+             <div className="w-1/2 space-y-2 text-xs">
+                <div className="flex justify-between items-center font-bold text-zinc-700 py-1">
+                  <span className="uppercase text-[9px] tracking-wider">Gross Purchase Value:</span>
+                  <span className="font-mono">₹{totalGrossP.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+                {commissionDeducted > 0 && (
+                  <div className="flex justify-between items-center font-bold text-red-600 py-1">
+                    <span className="uppercase text-[9px] tracking-wider">Less - Commission Deducted:</span>
+                    <span className="font-mono">- ₹{commissionDeducted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center font-bold text-red-600 py-1 border-b border-zinc-300 pb-2">
+                  <span className="uppercase text-[9px] tracking-wider">Less - Advance Paid:</span>
+                  <span className="font-mono">- ₹{advanceDeducted.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+                <div className="flex justify-between items-center font-black text-lg text-emerald-800 py-2">
+                  <span className="uppercase text-[12px] tracking-wider">Total Net Paid:</span>
+                  <span className="font-mono">₹{netDueP.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                </div>
+             </div>
+          </div>
+
+          <div className="mt-12 mb-4 pt-16 flex justify-between items-end border-t-2 border-zinc-100 px-6">
+             <div className="text-center">
+                <div className="w-32 border-b border-zinc-400 mb-1"></div>
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Receiver Signature</div>
+             </div>
+             <div className="text-center">
+                <div className="text-sm font-black text-zinc-800 italic font-mono">Chanchal Das</div>
+                <div className="w-32 border-b border-zinc-400 my-1 mx-auto"></div>
+                <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Authorized Signatory</div>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenticated }) => {
   const { data, write } = useData();
@@ -33,132 +245,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
   const [commissionType, setCommissionType] = useState<"percent" | "flat">("flat");
   const [commissionPercent, setCommissionPercent] = useState("5");
 
-  // States for unified Margin Analyst Panel
-  const [analystDateFilter, setAnalystDateFilter] = useState<string>("all");
-  const [analystSourceFilter, setAnalystSourceFilter] = useState<string>("all");
-  const [analystFishFilter, setAnalystFishFilter] = useState<string>("all");
-
   const sources = data?.sources || [];
   const transactions = data?.transactions || [];
   const sourcePayments = data?.source_payments || [];
-
-  // Group transactions by date, source, and fish type for administrative margin analysis
-  const marginAnalysisRows = React.useMemo(() => {
-    const map: { [key: string]: {
-      date: string;
-      sourceId: string | number;
-      sourceName: string;
-      sourceRate: number;
-      fishType: string;
-      totalKg: number;
-      totalRevenue: number;
-      totalCost: number;
-      meanPrice: number;
-      profit: number;
-      profitPercent: number;
-      transactionsCount: number;
-    }} = {};
-
-    transactions.forEach((tx) => {
-      const srcId = tx.source_id;
-      const src = sources.find((s) => s.id === srcId);
-      if (!src) return;
-
-      const dateStr = src.date || tx.date || "2026-06-09";
-      const fType = tx.fish_type || "Unsorted Lot";
-      const key = `${dateStr}__${srcId}__${fType}`;
-
-      if (!map[key]) {
-        map[key] = {
-          date: dateStr,
-          sourceId: srcId,
-          sourceName: src.name,
-          sourceRate: src.rate_per_kg || 0,
-          fishType: fType,
-          totalKg: 0,
-          totalRevenue: 0,
-          totalCost: 0,
-          meanPrice: 0,
-          profit: 0,
-          profitPercent: 0,
-          transactionsCount: 0,
-        };
-      }
-
-      const kg = tx.weight || 0;
-      const rev = tx.total_price || 0;
-
-      map[key].totalKg += kg;
-      map[key].totalRevenue += rev;
-      map[key].transactionsCount += 1;
-    });
-
-    // Solve calculations
-    Object.keys(map).forEach((k) => {
-      const item = map[k];
-      item.totalCost = item.totalKg * item.sourceRate;
-      item.meanPrice = item.totalKg > 0 ? item.totalRevenue / item.totalKg : 0;
-      item.profit = item.totalRevenue - item.totalCost;
-      item.profitPercent = item.totalCost > 0 ? (item.profit / item.totalCost) * 100 : 0;
-    });
-
-    return Object.values(map).sort((a, b) => b.date.localeCompare(a.date) || a.sourceName.localeCompare(b.sourceName) || a.fishType.localeCompare(b.fishType));
-  }, [transactions, sources]);
-
-  // Get unique filters
-  const uniqueDates = React.useMemo(() => {
-    return (Array.from(new Set(marginAnalysisRows.map((r) => r.date))) as string[]).sort((a, b) => b.localeCompare(a));
-  }, [marginAnalysisRows]);
-
-  const uniqueSourceIdsAndNames = React.useMemo(() => {
-    const seen = new Set();
-    const result: { id: string | number; name: string }[] = [];
-    marginAnalysisRows.forEach((r) => {
-      if (!seen.has(r.sourceId)) {
-        seen.add(r.sourceId);
-        result.push({ id: r.sourceId, name: r.sourceName });
-      }
-    });
-    return result.sort((a, b) => a.name.localeCompare(b.name));
-  }, [marginAnalysisRows]);
-
-  const uniqueFishTypes = React.useMemo(() => {
-    return (Array.from(new Set(marginAnalysisRows.map((r) => r.fishType))) as string[]).sort((a, b) => a.localeCompare(b));
-  }, [marginAnalysisRows]);
-
-  const filteredAnalysisRows = React.useMemo(() => {
-    return marginAnalysisRows.filter((r) => {
-      const matchesDate = analystDateFilter === "all" || r.date === analystDateFilter;
-      const matchesSource = analystSourceFilter === "all" || String(r.sourceId) === analystSourceFilter;
-      const matchesFish = analystFishFilter === "all" || r.fishType.toLowerCase() === analystFishFilter.toLowerCase();
-      return matchesDate && matchesSource && matchesFish;
-    });
-  }, [marginAnalysisRows, analystDateFilter, analystSourceFilter, analystFishFilter]);
-
-  const analysisSummary = React.useMemo(() => {
-    let totalKg = 0;
-    let totalRevenue = 0;
-    let totalCost = 0;
-
-    filteredAnalysisRows.forEach((r) => {
-      totalKg += r.totalKg;
-      totalRevenue += r.totalRevenue;
-      totalCost += r.totalCost;
-    });
-
-    const totalProfit = totalRevenue - totalCost;
-    const profitMarginPercent = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
-    const overallMeanPrice = totalKg > 0 ? totalRevenue / totalKg : 0;
-
-    return {
-      totalKg,
-      totalRevenue,
-      totalCost,
-      totalProfit,
-      profitMarginPercent,
-      overallMeanPrice,
-    };
-  }, [filteredAnalysisRows]);
+  const appDate = "2026-06-09";
 
   const handleAddSource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,7 +279,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
     await write("sources", "update", updated);
   };
 
-  // Run Settle Calculation on a Trawler
+  // Run Settle Calculation on a Source
   const handleInitiateSettle = (srcId: string | number) => {
     const src = sources.find((s) => s.id === srcId);
     if (!src) return;
@@ -211,6 +301,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
     setCommissionType("flat");
     setCommissionPercent("5");
     setActiveSettleSourceId(srcId);
+    
+    setTimeout(() => {
+      document.getElementById("settlement-panel-box")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   };
 
   const handleSaveSettlement = async (e: React.FormEvent) => {
@@ -271,37 +365,37 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
     <div className="space-y-6" id="sources-logistics-panel">
       {/* 1. Header and Quick Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 p-5 rounded-xl flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center space-x-4 shadow-sm">
+          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
             <Anchor className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium font-sans">Active Trawlers Today</div>
-            <div className="text-xl font-bold text-slate-800">
+            <div className="text-xs text-zinc-500 font-medium font-sans">Active Sources Today</div>
+            <div className="text-xl font-bold text-zinc-800">
               {sources.filter((s) => !s.is_completed).length} In Harbor
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-5 rounded-xl flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-teal-50 text-teal-600 rounded-lg font-sans">
+        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center space-x-4 shadow-sm">
+          <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl font-sans">
             <Receipt className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium font-sans">Market Commissions (Total)</div>
+            <div className="text-xs text-zinc-500 font-medium font-sans">Market Commissions (Total)</div>
             <div className="text-xl font-bold text-emerald-800 font-mono">
               ₹ {sourcePayments.reduce((sum, p) => sum + (p.commission || 0), 0).toLocaleString()}
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 p-5 rounded-xl flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center space-x-4 shadow-sm">
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
             <Percent className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-xs text-slate-500 font-medium font-sans">Total Settled Outflow</div>
-            <div className="text-xl font-bold text-slate-800 font-mono">
+            <div className="text-xs text-zinc-500 font-medium font-sans">Total Settled Outflow</div>
+            <div className="text-xl font-bold text-zinc-800 font-mono">
               ₹ {sourcePayments.reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0).toLocaleString()}
             </div>
           </div>
@@ -309,9 +403,9 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
       </div>
 
       {/* Primary Actions Drawer Bar */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50 border border-slate-200 p-4 rounded-xl">
-        <div className="text-xs text-slate-500 italic">
-          ⚓ Register Trawlers representing raw suppliers or hatcheries before selling.
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-2xl">
+        <div className="text-xs text-zinc-500 italic">
+          ⚓ Register Sources representing raw suppliers or hatcheries before selling.
         </div>
 
         <button
@@ -322,44 +416,44 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
             }
             setShowAddSourceForm(!showAddSourceForm);
           }}
-          className={`w-full sm:w-auto px-4 py-2 text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
+          className={`w-full sm:w-auto px-4 py-2 text-xs font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
             isAuthorizedToLog
-              ? "bg-indigo-650 hover:bg-indigo-700 text-white"
-              : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed"
+              ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+              : "bg-zinc-200 text-zinc-400 border border-zinc-300 cursor-not-allowed"
           }`}
           id="btn-add-source"
         >
           <PlusCircle className="w-4 h-4" />
-          Add Incoming Trawler / Loader
+          Add Incoming Source / Loader
         </button>
       </div>
 
       {/* Add Source Form Drawer */}
       {showAddSourceForm && (
-        <form onSubmit={handleAddSource} className="bg-slate-50 border border-slate-200 p-5 rounded-xl space-y-4 animate-slideDown shadow-inner">
-          <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
+        <form onSubmit={handleAddSource} className="bg-zinc-50 border border-zinc-200 p-5 rounded-2xl space-y-4 animate-slideDown shadow-inner">
+          <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
             <PlusCircle className="w-4 h-4 text-indigo-600 animate-pulse" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 font-sans">
-              Register Incoming Fish Trawler / Source Group
+            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 font-sans">
+              Register Incoming Fish Source / Source Group
             </h4>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
-                Trawler ID / Fisherman Group Name <span className="text-red-500">*</span>
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
+                Source ID / Fisherman Group Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={sourceName}
                 onChange={(e) => setSourceName(e.target.value)}
-                placeholder="e.g. Digha Estuary Trawler 04"
+                placeholder="e.g. Digha Estuary Source 04"
                 required
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
                 id="form-source-name"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Base Purchase Rate / kg (INR) <span className="text-red-500">*</span>
               </label>
               <input
@@ -368,33 +462,33 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                 onChange={(e) => setRatePerKg(e.target.value)}
                 placeholder="e.g. 210"
                 required
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
                 id="form-source-rate"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-slate-600 block">
+              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
                 Arrival Unloading Date
               </label>
               <input
                 type="date"
                 value={sourceDate}
                 onChange={(e) => setSourceDate(e.target.value)}
-                className="w-full text-xs text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-slate-205">
+          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200">
             <button
               type="button"
               onClick={() => setShowAddSourceForm(false)}
-              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
+              className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow cursor-pointer"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-2xl shadow cursor-pointer"
               id="btn-save-source"
             >
               Create Source Group
@@ -405,21 +499,21 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
       {/* Main layout: active sources and settlements stacked */}
       <div className="flex flex-col gap-6 w-full">
-        {/* Unsettled active trawlers - Full width */}
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col w-full">
-          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700">
-              Active Fish Trawlers in Harbor
+        {/* Unsettled active sources - Full width */}
+        <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm flex flex-col w-full">
+          <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200 flex items-center justify-between">
+            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
+              Active Fish Sources in Harbor
             </h4>
             <span className="text-[10px] bg-sky-100 text-sky-800 font-semibold px-2 py-0.5 rounded-full">
               In Stock / Loading
             </span>
           </div>
 
-          <div className="divide-y divide-slate-100 flex-grow max-h-[500px] overflow-y-auto">
+          <div className="divide-y divide-zinc-100 flex-grow max-h-[500px] overflow-y-auto">
             {sources.filter((s) => !s.is_archived).length === 0 ? (
-              <div className="p-12 text-center text-slate-400 text-xs text-sans">
-                No active fishing sources logged. Add an incoming trawler to start.
+              <div className="p-12 text-center text-zinc-400 text-xs text-sans">
+                No active fishing sources logged. Add an incoming source to start.
               </div>
             ) : (
               sources
@@ -430,24 +524,24 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                   const saleSum = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
 
                   return (
-                    <div key={src.id} className="p-4 hover:bg-slate-50 transition duration-150 space-y-3">
+                    <div key={src.id} className="p-4 hover:bg-zinc-50 transition duration-150 space-y-3">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white ${
-                            src.is_completed ? "bg-slate-400 animate-none" : "bg-indigo-600 animate-pulse"
+                          <div className={`w-8 h-8 rounded-2xl flex items-center justify-center text-white ${
+                            src.is_completed ? "bg-zinc-400 animate-none" : "bg-indigo-600 animate-pulse"
                           }`}>
                             <Anchor className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-slate-800 font-sans">{src.name}</div>
-                            <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1 font-mono">
+                            <div className="text-xs font-bold text-zinc-800 font-sans">{src.name}</div>
+                            <div className="text-[10px] text-zinc-500 font-semibold flex items-center gap-1 font-mono">
                               <Calendar className="w-3.5 h-3.5" /> Date Arrived: {src.date}
                             </div>
                           </div>
                         </div>
 
                         {src.is_completed ? (
-                          <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 font-semibold">
+                          <span className="text-[10px] bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full border border-zinc-200 font-semibold">
                             Completed & Paid
                           </span>
                         ) : (
@@ -457,40 +551,50 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                         )}
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 bg-slate-50 rounded-lg p-2.5 text-center text-[10px] text-slate-600 font-mono">
+                      <div className="grid grid-cols-3 gap-2 bg-zinc-50 rounded-2xl p-2.5 text-center text-[10px] text-zinc-600 font-mono">
                         <div>
-                          <div className="text-slate-450 uppercase font-sans font-bold text-[8px]">Base Rate</div>
-                          <div className="font-bold text-slate-800">₹{src.rate_per_kg}/kg</div>
+                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Base Rate</div>
+                          <div className="font-bold text-zinc-800">₹{src.rate_per_kg}/kg</div>
                         </div>
                         <div>
-                          <div className="text-slate-450 uppercase font-sans font-bold text-[8px]">Sold Out</div>
+                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Sold Out</div>
                           <div className="font-bold text-blue-700">{kgSum.toLocaleString()} kg</div>
                         </div>
                         <div>
-                          <div className="text-slate-450 uppercase font-sans font-bold text-[8px]">Trawler Yield</div>
+                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Source Yield</div>
                           <div className="font-bold text-emerald-700">₹ {saleSum.toLocaleString()}</div>
                         </div>
                       </div>
 
                       {/* Yield Report toggle */}
-                      <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-2">
+                      <div className="bg-zinc-50 rounded-2xl p-2.5 border border-zinc-100 space-y-2">
                         <button
                           type="button"
                           onClick={() => setExpandedReportSourceId(expandedReportSourceId === src.id ? null : src.id)}
-                          className="w-full text-center text-[10.5px] font-sans font-bold text-indigo-600 hover:text-indigo-805 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1 bg-white border border-slate-200 rounded shadow-xs"
+                          className="w-full text-center text-[10.5px] font-sans font-bold text-indigo-600 hover:text-indigo-805 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1 bg-white border border-zinc-200 rounded shadow-xs"
                         >
                           {expandedReportSourceId === src.id ? "▲ Close Crop Yield Report" : "📋 View Species Breakdown & Profit Math"}
                         </button>
 
+                        {src.is_completed && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedReportSourceId(expandedReportSourceId === 'pdf_' + src.id ? null : 'pdf_' + src.id)}
+                            className="w-full text-center text-[10.5px] font-sans font-bold text-rose-600 hover:text-rose-800 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1 bg-white border border-zinc-200 rounded shadow-xs mt-1"
+                          >
+                            {expandedReportSourceId === 'pdf_' + src.id ? "▲ Close Invoice Builder" : "🧾 Generate Bill / Source Payout Slip"}
+                          </button>
+                        )}
+
                         {expandedReportSourceId === src.id && (
-                          <div className="space-y-3 pt-2 text-[10px] text-slate-700 animate-slideDown">
-                            <div className="font-sans font-black uppercase text-[8.5px] tracking-wider text-slate-500 border-b pb-1">
+                          <div className="space-y-3 pt-2 text-[10px] text-zinc-700 animate-slideDown">
+                            <div className="font-sans font-black uppercase text-[8.5px] tracking-wider text-zinc-500 border-b pb-1">
                               Species Performance Summary
                             </div>
                             
-                            {/* Compute unique fish types for this supplier/trawler */}
+                            {/* Compute unique fish types for this supplier/source */}
                             {Array.from(new Set(srcTx.map(t => t.fish_type))).length === 0 ? (
-                              <div className="text-center text-slate-400 py-2">No transactions recorded for this supplier.</div>
+                              <div className="text-center text-zinc-400 py-2">No transactions recorded for this supplier.</div>
                             ) : (
                               <div className="space-y-3.5">
                                 {Array.from(new Set(srcTx.map(t => t.fish_type))).map((fishName) => {
@@ -498,45 +602,45 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                                   const fWeight = fishTx.reduce((sum, t) => sum + (t.weight || 0), 0);
                                   const fRevenue = fishTx.reduce((sum, t) => sum + (t.total_price || 0), 0);
                                   const meanBidPrice = fWeight > 0 ? fRevenue / fWeight : 0;
-                                  const basePaidToTrawler = fWeight * src.rate_per_kg;
-                                  const absoluteProfit = fRevenue - basePaidToTrawler;
+                                  const basePaidToSource = fWeight * src.rate_per_kg;
+                                  const absoluteProfit = fRevenue - basePaidToSource;
 
                                   return (
-                                    <div key={fishName} className="p-2.0 bg-white border border-slate-150 rounded-lg space-y-2">
-                                      <div className="flex justify-between items-center text-[11px] font-sans font-black text-slate-800">
+                                    <div key={fishName} className="p-2.0 bg-white border border-zinc-150 rounded-2xl space-y-2">
+                                      <div className="flex justify-between items-center text-[11px] font-sans font-black text-zinc-800">
                                         <span className="text-teal-700 uppercase bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100">{fishName}</span>
                                         <span className="font-mono text-indigo-700">{fWeight.toLocaleString()} KG Sold</span>
                                       </div>
 
                                       {/* Profit Math metrics */}
-                                      <div className="grid grid-cols-2 gap-2 text-[9px] font-mono text-slate-600 border-t border-slate-100 pt-1.5">
+                                      <div className="grid grid-cols-2 gap-2 text-[9px] font-mono text-zinc-600 border-t border-zinc-100 pt-1.5">
                                         <div>
                                           <div>Weighted Mean Price:</div>
-                                          <div className="font-bold text-slate-900">₹{meanBidPrice.toFixed(2)}/kg</div>
+                                          <div className="font-bold text-zinc-900">₹{meanBidPrice.toFixed(2)}/kg</div>
                                         </div>
                                         <div>
                                           <div>Contract Cost Rate:</div>
-                                          <div className="font-bold text-slate-900">₹{src.rate_per_kg}/kg</div>
+                                          <div className="font-bold text-zinc-900">₹{src.rate_per_kg}/kg</div>
                                         </div>
                                         <div>
                                           <div>Gross Crop Auction Value:</div>
-                                          <div className="font-bold text-slate-900">₹{fRevenue.toLocaleString()}</div>
+                                          <div className="font-bold text-zinc-900">₹{fRevenue.toLocaleString()}</div>
                                         </div>
                                         <div>
                                           <div>Middleman Profit Math:</div>
                                           <div className={`font-black ${absoluteProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                                            ₹{absoluteProfit.toLocaleString()} ({absoluteProfit >= 0 ? "+" : ""}{((absoluteProfit / (basePaidToTrawler || 1)) * 100).toFixed(1)}%)
+                                            ₹{absoluteProfit.toLocaleString()} ({absoluteProfit >= 0 ? "+" : ""}{((absoluteProfit / (basePaidToSource || 1)) * 100).toFixed(1)}%)
                                           </div>
                                         </div>
                                       </div>
 
                                       {/* Purchaser History timelines */}
-                                      <div className="bg-slate-50 p-1.5 rounded text-[8.5px] space-y-1 mt-1 font-sans">
-                                        <div className="font-bold text-slate-400 uppercase tracking-wide">Sales Breakdown details:</div>
+                                      <div className="bg-zinc-50 p-1.5 rounded text-[8.5px] space-y-1 mt-1 font-sans">
+                                        <div className="font-bold text-zinc-400 uppercase tracking-wide">Sales Breakdown details:</div>
                                         {fishTx.map((t) => {
                                           const buyer = data?.buyers?.find((b) => b.id === t.buyer_id);
                                           return (
-                                            <div key={t.id} className="flex justify-between items-center border-b border-white pb-0.5 last:border-0 font-mono text-slate-650">
+                                            <div key={t.id} className="flex justify-between items-center border-b border-white pb-0.5 last:border-0 font-mono text-zinc-600">
                                               <span>
                                                 👤 {buyer?.nickname || "Unknown Buyer"}
                                               </span>
@@ -554,29 +658,30 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                             )}
                           </div>
                         )}
+
+                        {expandedReportSourceId === 'pdf_' + src.id && (
+                          <div className="animate-slideDown">
+                             <SourceBillGenerator source={src} transactions={srcTx} appDate={appDate} payment={sourcePayments.find(p => p.source_id === src.id)} />
+                          </div>
+                        )}
                       </div>
 
                       {/* Settle Actions */}
                       <div className="flex items-center justify-between pt-1">
                         <button
                           onClick={() => handleArchiveSource(src.id)}
-                          className="text-[10px] text-slate-500 hover:text-slate-750 flex items-center gap-1 cursor-pointer"
+                          className="text-[10px] text-zinc-500 hover:text-zinc-700 flex items-center gap-1 cursor-pointer"
                           title="Hide from dashboard view"
                         >
                           <Archive className="w-3.5 h-3.5" />
-                          <span>Archive Trawler</span>
+                          <span>Archive Source</span>
                         </button>
 
                         {!src.is_completed && (
                           <button
                             onClick={() => handleInitiateSettle(src.id)}
-                            disabled={!isAdmin}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1 border shadow-sm transition ${
-                              isAdmin
-                                ? "bg-indigo-650 border-indigo-700 text-white hover:bg-indigo-700 cursor-pointer"
-                                : "bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 cursor-help"
-                            }`}
-                            title={isAdmin ? "Initiate mathematical settlement balance" : "Admin operator required to execute credit payout settlements."}
+                            className="px-3 py-1.5 text-xs font-bold rounded-2xl flex items-center gap-1 border shadow-sm transition bg-indigo-600 border-indigo-700 text-white hover:bg-indigo-700 cursor-pointer"
+                            title="Initiate mathematical settlement balance"
                           >
                             <Calculator className="w-3.5 h-3.5" />
                             Settle Accounts
@@ -591,9 +696,9 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
         </div>
 
         {/* Structured Settlement Calculator Panel - Full width */}
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm flex flex-col w-full">
-          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700">
+        <div id="settlement-panel-box" className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm flex flex-col w-full">
+          <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center">
+            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
               Accounts Settlement Panel
             </h4>
             <Landmark className="w-4 h-4 text-indigo-600" />
@@ -627,7 +732,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
                 return (
                   <form onSubmit={handleSaveSettlement} className="space-y-4 animate-fadeIn">
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-slate-700 text-xs flex items-start gap-2 leading-relaxed">
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 text-zinc-700 text-xs flex items-start gap-2 leading-relaxed">
                       <Calculator className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                       <div>
                         Currently settling ledger values for <strong>{src.name}</strong>. Choose standard calculations or customize the numbers manually.
@@ -636,7 +741,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
                     {/* Settle Method Segment Block */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
                         Settlement Sourcing Method
                       </label>
                       <div className="grid grid-cols-2 gap-2 text-xs">
@@ -649,10 +754,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                             setCustomCommission(defaultComm.toString());
                             setAmountPaidToSource(Math.max(0, calculatedProceeds - defaultComm).toString());
                           }}
-                          className={`py-2 px-3 rounded-lg border text-center font-semibold transition cursor-pointer ${
+                          className={`py-2 px-3 rounded-2xl border text-center font-semibold transition cursor-pointer ${
                             settleMethod === "auto"
                               ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold"
-                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                              : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
                           }`}
                         >
                           Auto-Calculate Trades
@@ -671,10 +776,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                             setCustomCommission(defaultComm.toString());
                             setAmountPaidToSource(Math.max(0, projectedProceeds - defaultComm).toString());
                           }}
-                          className={`py-2 px-3 rounded-lg border text-center font-semibold transition cursor-pointer ${
+                          className={`py-2 px-3 rounded-2xl border text-center font-semibold transition cursor-pointer ${
                             settleMethod === "manual"
                               ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold"
-                              : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                              : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
                           }`}
                         >
                           Manual Cargo Override
@@ -684,7 +789,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
                     {/* Manual Cargo Entry Form inputs */}
                     {settleMethod === "manual" && (
-                      <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-lg grid grid-cols-2 gap-3 text-xs animate-slideDown">
+                      <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-2xl grid grid-cols-2 gap-3 text-xs animate-slideDown">
                         <div className="space-y-1">
                           <label className="text-[10px] font-bold text-amber-855 text-amber-800 uppercase block">Manual Weight (KG)</label>
                           <input
@@ -704,7 +809,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                               }
                               setAmountPaidToSource(Math.max(0, proceeds - comm).toString());
                             }}
-                            className="w-full bg-white border border-amber-300 rounded p-2 text-slate-700 outline-none font-mono font-bold"
+                            className="w-full bg-white border border-amber-300 rounded p-2 text-zinc-700 outline-none font-mono font-bold"
                           />
                         </div>
                         <div className="space-y-1">
@@ -725,7 +830,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                               }
                               setAmountPaidToSource(Math.max(0, proceeds - comm).toString());
                             }}
-                            className="w-full bg-white border border-amber-300 rounded p-2 text-slate-700 outline-none font-mono font-bold"
+                            className="w-full bg-white border border-amber-300 rounded p-2 text-zinc-700 outline-none font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -733,7 +838,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
                     {/* Commission Type Selector */}
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
                         Commission Calculation Rule
                       </label>
                       <div className="flex gap-2 text-xs">
@@ -749,7 +854,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           className={`flex-1 py-1.5 px-3 rounded border text-center font-medium transition cursor-pointer ${
                             commissionType === "flat"
                               ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-bold"
-                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                              : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                           }`}
                         >
                           Flat INR Commission
@@ -766,7 +871,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           className={`flex-1 py-1.5 px-3 rounded border text-center font-medium transition cursor-pointer ${
                             commissionType === "percent"
                               ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-bold"
-                              : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                              : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
                           }`}
                         >
                           Percentage Commission (%)
@@ -776,8 +881,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
                     {/* Percentage Preset Row */}
                     {commissionType === "percent" && (
-                      <div className="flex gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] animate-slideDown">
-                        <span className="text-slate-500 self-center font-sans pr-1">Fast Presets:</span>
+                      <div className="flex gap-1.5 p-2 bg-zinc-50 border border-zinc-200 rounded-2xl text-[10px] animate-slideDown">
+                        <span className="text-zinc-500 self-center font-sans pr-1">Fast Presets:</span>
                         {["2", "3", "5", "7", "10"].map((pct) => (
                           <button
                             key={pct}
@@ -790,8 +895,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                             }}
                             className={`flex-1 py-1 px-2 rounded text-center font-semibold border transition cursor-pointer ${
                               commissionPercent === pct
-                                ? "bg-indigo-600 border-indigo-650 text-white"
-                                : "bg-white text-slate-700 hover:bg-slate-100 border-slate-200"
+                                ? "bg-indigo-600 border-indigo-600 text-white"
+                                : "bg-white text-zinc-700 hover:bg-zinc-100 border-zinc-200"
                             }`}
                           >
                             {pct}%
@@ -801,26 +906,26 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                     )}
 
                     {/* Live Computed Stats Ledger */}
-                    <div className="space-y-1 text-xs font-mono bg-slate-900 text-slate-300 rounded-lg p-3.5 border border-slate-800">
-                      <div className="flex justify-between border-b border-slate-800 pb-1.5 font-sans">
-                        <span className="text-slate-450 uppercase text-[9px] font-bold">Ledger Balance Parameters</span>
-                        <span className="text-slate-300 uppercase text-[9px] font-bold">Auditing Flow</span>
+                    <div className="space-y-1 text-xs font-mono bg-zinc-900 text-zinc-300 rounded-2xl p-3.5 border border-zinc-800">
+                      <div className="flex justify-between border-b border-zinc-800 pb-1.5 font-sans">
+                        <span className="text-zinc-500 uppercase text-[9px] font-bold">Ledger Balance Parameters</span>
+                        <span className="text-zinc-300 uppercase text-[9px] font-bold">Auditing Flow</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-850">
-                        <span className="text-slate-400">Selected Cargo Weight:</span>
-                        <span className="text-slate-100 font-bold">{activeWeight.toLocaleString()} KG</span>
+                      <div className="flex justify-between py-1 border-b border-zinc-800">
+                        <span className="text-zinc-400">Selected Cargo Weight:</span>
+                        <span className="text-zinc-100 font-bold">{activeWeight.toLocaleString()} KG</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-850">
-                        <span className="text-slate-400">Buying Unit Cost:</span>
-                        <span className="text-slate-100">₹{activeRate.toLocaleString()}/kg</span>
+                      <div className="flex justify-between py-1 border-b border-zinc-800">
+                        <span className="text-zinc-400">Buying Unit Cost:</span>
+                        <span className="text-zinc-100">₹{activeRate.toLocaleString()}/kg</span>
                       </div>
-                      <div className="flex justify-between py-1 border-b border-slate-850">
-                        <span className="text-slate-400 text-teal-400">Total Purchase Value:</span>
+                      <div className="flex justify-between py-1 border-b border-zinc-800">
+                        <span className="text-zinc-400 text-teal-400">Total Purchase Value:</span>
                         <span className="text-teal-400 font-bold">₹{costOfGoodsRaw.toLocaleString()}</span>
                       </div>
                       {settleMethod === "auto" && (
-                        <div className="flex justify-between py-1 border-b border-slate-850">
-                          <span className="text-slate-400">Actual Auction Receipts:</span>
+                        <div className="flex justify-between py-1 border-b border-zinc-800">
+                          <span className="text-zinc-400">Actual Auction Receipts:</span>
                           <span className="text-blue-400 font-bold">₹{calculatedProceeds.toLocaleString()}</span>
                         </div>
                       )}
@@ -836,7 +941,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                     <div className="grid grid-cols-2 gap-4">
                       {/* Commission editable if flat */}
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-555 text-slate-600 uppercase tracking-widest block">
+                        <label className="text-[10px] font-bold text-zinc-555 text-zinc-600 uppercase tracking-widest block">
                           Commissions Amount (INR)
                         </label>
                         <input
@@ -850,8 +955,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                               setAmountPaidToSource(Math.max(0, saleTotal - ded).toString());
                             }
                           }}
-                          className={`w-full text-xs text-slate-705 text-slate-700 bg-white border border-slate-300 rounded-lg p-2.5 outline-none font-mono font-bold ${
-                            commissionType === "percent" ? "bg-slate-100 text-slate-400 cursor-not-allowed" : "focus:ring-1 focus:ring-indigo-500"
+                          className={`w-full text-xs text-zinc-705 text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none font-mono font-bold ${
+                            commissionType === "percent" ? "bg-zinc-100 text-zinc-400 cursor-not-allowed" : "focus:ring-1 focus:ring-indigo-500"
                           }`}
                         />
                       </div>
@@ -866,23 +971,23 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           value={amountPaidToSource}
                           onChange={(e) => setAmountPaidToSource(e.target.value)}
                           placeholder={calculatedPayout.toString()}
-                          className="w-full text-xs text-slate-700 bg-white border border-emerald-300 rounded-lg p-2.5 outline-none focus:ring-1 focus:ring-emerald-500 font-mono font-bold text-emerald-700"
+                          className="w-full text-xs text-zinc-700 bg-white border border-emerald-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-emerald-500 font-mono font-bold text-emerald-700"
                           title="Type any fixed amount here to override calculations completely"
                         />
                       </div>
                     </div>
 
-                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-150 font-sans">
+                    <div className="flex gap-2 justify-end pt-3 border-t border-zinc-150 font-sans">
                       <button
                         type="button"
                         onClick={() => setActiveSettleSourceId(null)}
-                        className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
+                        className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
                       >
                         Abort
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-2 bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-2xl shadow-sm cursor-pointer"
                         id="btn-confirm-settlement"
                       >
                         Confirm Payout & Settle
@@ -892,11 +997,11 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                 );
               })()
             ) : (
-              <div className="h-full flex flex-col items-center justify-center py-10 text-center text-slate-400 space-y-3">
-                <Landmark className="w-10 h-10 text-slate-300" />
-                <div className="text-xs font-bold text-slate-600">Select a Trawler to calculate credit payments</div>
-                <p className="text-[11px] text-slate-405 leading-relaxed max-w-xs">
-                  Settle trawler accounts to deduct bazaar commission, compute aggregate weights, and document outward capital flow.
+              <div className="h-full flex flex-col items-center justify-center py-10 text-center text-zinc-400 space-y-3">
+                <Landmark className="w-10 h-10 text-zinc-300" />
+                <div className="text-xs font-bold text-zinc-600">Select a Source to calculate credit payments</div>
+                <p className="text-[11px] text-zinc-405 leading-relaxed max-w-xs">
+                  Settle source accounts to deduct bazaar commission, compute aggregate weights, and document outward capital flow.
                 </p>
               </div>
             )}
@@ -905,26 +1010,26 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
       </div>
 
       {/* Structured Payments History table */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-          <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700">
-            Historic Trawler Settlement History ({sourcePayments.length})
+      <div className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center">
+          <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
+            Historic Source Settlement History ({sourcePayments.length})
           </h4>
-          <span className="text-[10px] text-slate-500">
+          <span className="text-[10px] text-zinc-500">
             Audit logs of market pay-outs
           </span>
         </div>
 
         {sourcePayments.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-xs">
+          <div className="p-8 text-center text-zinc-400 text-xs">
             No payments settled yet.
           </div>
         ) : (
           <div className="overflow-x-auto text-[11px]">
             <table className="w-full text-left border-collapse font-sans text-xs">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 font-sans border-b border-slate-200 text-[10px] tracking-wider uppercase font-bold">
-                  <th className="p-4 text-left">Trawler ID</th>
+                <tr className="bg-zinc-50 text-zinc-500 font-sans border-b border-zinc-200 text-[10px] tracking-wider uppercase font-bold">
+                  <th className="p-4 text-left">Source ID</th>
                   <th className="p-4 text-right">Aggr. Weight logged</th>
                   <th className="p-4 text-right">contract price / kg</th>
                   <th className="p-4 text-right">gross auction proceeds</th>
@@ -933,13 +1038,13 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                   <th className="p-4 text-right">Settled Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
+              <tbody className="divide-y divide-zinc-100 text-zinc-700">
                 {sourcePayments.map((pay) => {
                   const source = sources.find((s) => s.id === pay.source_id);
                   return (
-                    <tr key={pay.id} className="hover:bg-slate-50 transition duration-150">
-                      <td className="p-4 font-bold text-indigo-850 flex items-center gap-1.5">
-                        <Anchor className="w-3.5 h-3.5 text-slate-400" />
+                    <tr key={pay.id} className="hover:bg-zinc-50 transition duration-150">
+                      <td className="p-4 font-bold text-indigo-800 flex items-center gap-1.5">
+                        <Anchor className="w-3.5 h-3.5 text-zinc-400" />
                         <span>{source ? source.name : `Source (#${pay.source_id})`}</span>
                       </td>
                       <td className="p-4 text-right font-mono font-medium">{pay.total_kg} kg</td>
@@ -955,179 +1060,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                         <span className="bg-indigo-50 border border-indigo-150 text-[10px] text-indigo-700 px-2.5 py-0.5 rounded-full font-bold">
                           {pay.date || "2026-06-09"}
                         </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* 4. Administrative Profit & Margin Analyst Hub */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm space-y-4 p-5 animate-slideDown" id="admin-margin-analyst">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-150 pb-4 gap-2">
-          <div>
-            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-indigo-600 animate-pulse" /> Administrative profit & margin analyst hub
-            </h4>
-            <p className="text-[10px] text-slate-505 text-slate-500 mt-0.5">
-              Multi-dimensional cross-reference analyzer grouped by date, source trawler, and fish variety/crate
-            </p>
-          </div>
-          <span className="text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-mono font-bold select-none">
-            {filteredAnalysisRows.length} Rows Computed
-          </span>
-        </div>
-
-        {/* Dynamic Select Filters Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Date Filter */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-sans font-bold text-slate-500 uppercase tracking-wider block">Arrival Date</label>
-            <select
-              value={analystDateFilter}
-              onChange={(e) => setAnalystDateFilter(e.target.value)}
-              className="w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-lg p-2 outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="all">📅 All Dates</option>
-              {uniqueDates.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Source Trawler Filter */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-sans font-bold text-slate-500 uppercase tracking-wider block">Source Trawler</label>
-            <select
-              value={analystSourceFilter}
-              onChange={(e) => setAnalystSourceFilter(e.target.value)}
-              className="w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-lg p-2 outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="all">⚓ All Sources</option>
-              {uniqueSourceIdsAndNames.map((s) => (
-                <option key={s.id} value={String(s.id)}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Fish Variety Filter */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-sans font-bold text-slate-500 uppercase tracking-wider block">Fish Type</label>
-            <select
-              value={analystFishFilter}
-              onChange={(e) => setAnalystFishFilter(e.target.value)}
-              className="w-full text-xs text-slate-700 bg-white border border-slate-200 rounded-lg p-2 outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <option value="all">🐟 All Species Varieties</option>
-              {uniqueFishTypes.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Multi-Dimensional Dashboard Key Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50/50 p-4 rounded-xl border border-slate-150">
-          <div className="text-center p-2 bg-white rounded-lg border border-slate-150">
-            <div className="text-[8.5px] font-bold text-slate-450 text-slate-400 uppercase tracking-widest">Aggregate Sold</div>
-            <div className="text-[13px] md:text-sm font-black font-mono text-indigo-700 mt-1">
-              {analysisSummary.totalKg.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg
-            </div>
-          </div>
-          <div className="text-center p-2 bg-white rounded-lg border border-slate-150">
-            <div className="text-[8.5px] font-bold text-slate-450 text-slate-400 uppercase tracking-widest">Auction Revenues</div>
-            <div className="text-[13px] md:text-sm font-black font-mono text-emerald-600 mt-1">
-              ₹ {analysisSummary.totalRevenue.toLocaleString()}
-            </div>
-          </div>
-          <div className="text-center p-2 bg-white rounded-lg border border-slate-150">
-            <div className="text-[8.5px] font-bold text-slate-450 text-slate-400 uppercase tracking-widest">Base Raw Cost</div>
-            <div className="text-[13px] md:text-sm font-black font-mono text-slate-600 mt-1">
-              ₹ {analysisSummary.totalCost.toLocaleString()}
-            </div>
-          </div>
-          <div className="text-center p-2 bg-white rounded-lg border border-slate-150">
-            <div className="text-[8.5px] font-bold text-slate-450 text-slate-400 uppercase tracking-widest">Dealer Net Margin</div>
-            <div className={`text-[13px] md:text-sm font-black font-mono mt-1 ${
-              analysisSummary.totalProfit >= 0 ? "text-emerald-650 text-emerald-650 text-emerald-500" : "text-rose-500"
-            }`}>
-              ₹ {analysisSummary.totalProfit.toLocaleString()}{" "}
-              <span className="text-[9.5px]">
-                ({analysisSummary.totalProfit >= 0 ? "+" : ""}{analysisSummary.profitMarginPercent.toFixed(1)}%)
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Aggregated Analytical Grid Results */}
-        {filteredAnalysisRows.length === 0 ? (
-          <div className="py-12 text-center text-slate-400 text-xs font-sans">
-            No matching sales transactions matched the filtered parameters.
-          </div>
-        ) : (
-          <div className="overflow-x-auto min-w-full">
-            <table className="w-full text-left border-collapse font-sans text-xs">
-              <thead>
-                <tr className="bg-slate-55 bg-slate-50 text-slate-500 font-sans border-b border-slate-205 border-b border-slate-200 text-[10px] tracking-wider uppercase font-extrabold pb-2">
-                  <th className="p-3">Arrival Date</th>
-                  <th className="p-3">Source Trawler</th>
-                  <th className="p-3">Fish Type</th>
-                  <th className="p-3 text-right">Sold Quantity</th>
-                  <th className="p-3 text-right text-indigo-700">Mean Price / kg</th>
-                  <th className="p-3 text-right">Contract Cost / kg</th>
-                  <th className="p-3 text-right text-emerald-600">Market Proceeds</th>
-                  <th className="p-3 text-right">Purchase Cost</th>
-                  <th className="p-3 text-right">Gross Profit Margin</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 text-[11px]">
-                {filteredAnalysisRows.map((row, index) => {
-                  return (
-                    <tr key={index} className="hover:bg-slate-50 transition duration-150 font-sans">
-                      <td className="p-3 text-slate-500 font-mono">
-                        {row.date}
-                      </td>
-                      <td className="p-3 font-semibold text-slate-800">
-                        {row.sourceName}
-                      </td>
-                      <td className="p-3">
-                        <span className="text-[10px] uppercase font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-100">
-                          {row.fishType}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-mono font-bold">
-                        {row.totalKg.toLocaleString()} kg
-                      </td>
-                      <td className="p-3 text-right font-mono font-black text-indigo-700">
-                        ₹ {row.meanPrice.toFixed(2)}
-                      </td>
-                      <td className="p-3 text-right font-mono text-slate-500">
-                        ₹ {row.sourceRate.toFixed(2)}
-                      </td>
-                      <td className="p-3 text-right font-mono text-emerald-650 text-emerald-600 font-bold">
-                        ₹ {row.totalRevenue.toLocaleString()}
-                      </td>
-                      <td className="p-3 text-right font-mono text-slate-500">
-                        ₹ {row.totalCost.toLocaleString()}
-                      </td>
-                      <td className={`p-3 text-right font-mono font-black ${
-                        row.profit >= 0 ? "text-emerald-500" : "text-rose-500"
-                      }`}>
-                        <div className="leading-tight">
-                          ₹ {row.profit.toLocaleString()}
-                        </div>
-                        <div className="text-[9.5px] font-bold opacity-80 leading-tight block">
-                          {row.profit >= 0 ? "+" : ""}{row.profitPercent.toFixed(1)}%
-                        </div>
                       </td>
                     </tr>
                   );

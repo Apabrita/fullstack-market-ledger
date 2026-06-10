@@ -49,12 +49,12 @@ export const VirtualNumpad: React.FC<VirtualNumpadProps> = ({
   ];
 
   return (
-    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-2xl max-w-xs mx-auto animate-fadeIn select-none">
+    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-4 shadow-2xl max-w-xs mx-auto animate-fadeIn select-none">
       {/* Display line */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 mb-4 text-right relative flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-mono font-bold">Numpad Ledger</span>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-4 text-right relative flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-mono font-bold">Numpad Ledger</span>
         <div className="flex flex-col items-end">
-          <span className={`text-xl font-mono font-bold tracking-widest ${value ? "text-teal-400" : "text-slate-600"}`}>
+          <span className={`text-xl font-mono font-bold tracking-widest ${value ? "text-teal-400" : "text-zinc-600"}`}>
             {value || placeholder}
           </span>
         </div>
@@ -72,12 +72,12 @@ export const VirtualNumpad: React.FC<VirtualNumpadProps> = ({
                 whileTap={{ scale: 0.92, backgroundColor: "#111827" }}
                 whileHover={{ scale: 1.02 }}
                 onClick={() => handlePress(key)}
-                className={`py-3.5 rounded-xl text-center font-mono text-sm font-bold transition-all duration-100 flex items-center justify-center cursor-pointer ${
+                className={`py-3.5 rounded-2xl text-center font-mono text-sm font-bold transition-all duration-100 flex items-center justify-center cursor-pointer ${
                   key === "⌫"
-                    ? "bg-slate-900 text-rose-450 text-rose-400 hover:bg-slate-850/60 hover:text-rose-300 border border-slate-800/65"
+                    ? "bg-zinc-900 text-rose-500 text-rose-400 hover:bg-zinc-800/60 hover:text-rose-300 border border-zinc-800/65"
                     : isControl
-                    ? "bg-slate-900 text-amber-450 text-amber-400 hover:bg-slate-850 border border-slate-800/65"
-                    : "bg-slate-900 text-slate-100 hover:bg-slate-800 hover:text-white border border-slate-850"
+                    ? "bg-zinc-900 text-amber-500 text-amber-400 hover:bg-zinc-800 border border-zinc-800/65"
+                    : "bg-zinc-900 text-zinc-100 hover:bg-zinc-800 hover:text-white border border-zinc-800"
                 }`}
               >
                 {key === "⌫" ? <Delete className="w-4 h-4" /> : key}
@@ -93,7 +93,7 @@ export const VirtualNumpad: React.FC<VirtualNumpadProps> = ({
           type="button"
           whileTap={{ scale: 0.95 }}
           onClick={() => handlePress("C")}
-          className="py-2.5 rounded-xl text-center text-xs font-sans font-bold bg-slate-900/40 hover:bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-850 cursor-pointer"
+          className="py-2.5 rounded-2xl text-center text-xs font-sans font-bold bg-zinc-900/40 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 cursor-pointer"
         >
           Clear (C)
         </motion.button>
@@ -102,7 +102,7 @@ export const VirtualNumpad: React.FC<VirtualNumpadProps> = ({
             type="button"
             whileTap={{ scale: 0.95 }}
             onClick={onEnter}
-            className="py-2.5 rounded-xl text-center text-xs font-sans font-black bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-900/20 cursor-pointer"
+            className="py-2.5 rounded-2xl text-center text-xs font-sans font-black bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-900/20 cursor-pointer"
           >
             Apply PIN/Val
           </motion.button>
@@ -111,7 +111,7 @@ export const VirtualNumpad: React.FC<VirtualNumpadProps> = ({
             type="button"
             whileTap={{ scale: 0.95 }}
             onClick={onClose}
-            className="py-2.5 rounded-xl text-center text-xs font-sans font-bold bg-slate-800 hover:bg-slate-700 text-slate-100 cursor-pointer"
+            className="py-2.5 rounded-2xl text-center text-xs font-sans font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-100 cursor-pointer"
           >
             Close Pad
           </motion.button>

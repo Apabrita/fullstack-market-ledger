@@ -22,7 +22,6 @@ import {
   CheckSquare,
   AlertCircle
 } from "lucide-react";
-import { VirtualNumpad } from "./VirtualNumpad";
 
 interface CollectPanelProps {
   activeUser: DbUser | null;
@@ -185,6 +184,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       alert("Only authenticated Administrators can prune drafts.");
       return;
     }
+    if (!window.confirm("Are you sure you want to delete this collection draft?")) return;
     await write("daily_collections", "delete", { id: colId });
   };
 
@@ -201,13 +201,13 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       {/* Overview summaries */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         
-        <div className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl flex items-center justify-between">
+        <div className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl flex items-center justify-between">
           <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl">
+            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl">
               <CheckSquare className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
                 Approved Collections
               </div>
               <div className="text-base font-black font-mono text-emerald-400 mt-0.5">
@@ -217,13 +217,13 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
           </div>
         </div>
 
-        <div className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl flex items-center justify-between">
+        <div className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl flex items-center justify-between">
           <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl">
+            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-2xl">
               <Clock className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
                 Unapproved / Drafts
               </div>
               <div className="text-base font-black font-mono text-amber-500 mt-0.5">
@@ -231,21 +231,21 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
               </div>
             </div>
           </div>
-          <span className="text-[10px] font-mono bg-amber-950/40 text-amber-450 border border-amber-900/35 px-1.5 py-0.5 rounded uppercase">
+          <span className="text-[10px] font-mono bg-amber-950/40 text-amber-500 border border-amber-900/35 px-1.5 py-0.5 rounded uppercase">
             {collections.filter(c => !c.is_approved).length} Drafts
           </span>
         </div>
 
-        <div className="bg-slate-950 border border-slate-850 p-4.5 rounded-2xl flex items-center justify-between md:col-span-1">
+        <div className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl flex items-center justify-between md:col-span-1">
           <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
+            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl">
               <Landmark className="w-5 h-5" />
             </div>
             <div>
-              <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
                 Outstanding Balance
               </div>
-              <div className="text-base font-black font-mono text-slate-205 text-indigo-300 mt-0.5">
+              <div className="text-base font-black font-mono text-zinc-200 text-indigo-300 mt-0.5">
                 ₹ {buyers.reduce((sum, b) => sum + (b.lifetime_debt || 0), 0).toLocaleString()}
               </div>
             </div>
@@ -258,9 +258,9 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       <div className="flex flex-col gap-6 w-full">
         
         {/* Collection Form Panel - Full width */}
-        <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 shadow-xl space-y-4 w-full">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-850">
-            <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 shadow-2xl shadow-black/10 space-y-4 w-full">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+            <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
               <Landmark className="w-4 h-4 text-teal-400" /> Book Client Cash Collections
             </h3>
             {isAuthorizedToLog && (
@@ -280,14 +280,14 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
           </div>
 
           {!isAuthorizedToLog ? (
-            <div className="p-4 bg-slate-900/20 border border-slate-850 rounded-xl text-center text-xs text-slate-555 text-slate-400 font-medium">
+            <div className="p-4 bg-zinc-900/20 border border-zinc-800 rounded-2xl text-center text-xs text-zinc-555 text-zinc-400 font-medium">
               🔒 Locked Operator Account. Please authorize your collector or administrator PIN first.
             </div>
           ) : (
             <div className="space-y-4 font-sans">
               
               {/* Note about active role */}
-              <div className="text-[9.5px] uppercase font-mono text-slate-500 flex items-center gap-1">
+              <div className="text-[9.5px] uppercase font-mono text-zinc-500 flex items-center gap-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-teal-500" /> Stamped Operator: {activeUser?.name} ({activeUser?.role})
               </div>
 
@@ -297,8 +297,8 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                 {!buyerId ? (
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between items-center">
-                      <label className="text-slate-400 block font-bold">Search Debtor Account:</label>
-                      <span className="text-[9.5px] text-slate-500 uppercase font-mono">Alphabetic Order</span>
+                      <label className="text-zinc-400 block font-bold">Search Debtor Account:</label>
+                      <span className="text-[9.5px] text-zinc-500 uppercase font-mono">Alphabetic Order</span>
                     </div>
                     <div className="relative">
                       <input
@@ -306,13 +306,13 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Type client's name or nickname..."
-                        className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-800 rounded-xl p-3 pl-9 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                        className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-2xl p-3 pl-9 focus:outline-none focus:ring-1 focus:ring-teal-500"
                       />
-                      <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3.5" />
+                      <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-3.5" />
                     </div>
 
                     {/* Filtered buyers list with touch selectors */}
-                    <div className="space-y-1.5 max-h-[190px] overflow-y-auto border border-slate-800 rounded-xl p-2 bg-slate-950/40">
+                    <div className="space-y-1.5 max-h-[190px] overflow-y-auto border border-zinc-800 rounded-2xl p-2 bg-zinc-950/40">
                       {buyers
                         .filter((b) => searchQuery === "" || b.nickname.toLowerCase().includes(searchQuery.toLowerCase()))
                         .sort((a, b) => a.nickname.localeCompare(b.nickname))
@@ -324,16 +324,16 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                               setBuyerId(String(b.id));
                               setSearchQuery("");
                             }}
-                            className="w-full text-left p-2.5 hover:bg-slate-900 active:bg-slate-900 rounded-lg transition flex justify-between items-center border border-transparent hover:border-slate-800"
+                            className="w-full text-left p-2.5 hover:bg-zinc-900 active:bg-zinc-900 rounded-2xl transition flex justify-between items-center border border-transparent hover:border-zinc-800"
                           >
-                            <span className="text-xs font-bold text-slate-200 truncate pr-2">{b.nickname}</span>
-                            <span className="text-[10px] font-mono text-teal-450 text-slate-400 shrink-0 bg-slate-900 px-2 py-0.5 rounded border border-slate-850">
+                            <span className="text-xs font-bold text-zinc-200 truncate pr-2">{b.nickname}</span>
+                            <span className="text-[10px] font-mono text-teal-500 text-zinc-400 shrink-0 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
                               Owed: ₹{b.lifetime_debt.toLocaleString()}
                             </span>
                           </button>
                         ))}
                       {buyers.filter((b) => searchQuery === "" || b.nickname.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                        <div className="text-center py-6 text-[11px] text-slate-500 font-medium">
+                        <div className="text-center py-6 text-[11px] text-zinc-500 font-medium">
                           No matching active debtors found.
                         </div>
                       )}
@@ -344,11 +344,11 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                     const selectedBuyer = buyers.find((b) => String(b.id) === String(buyerId));
                     if (!selectedBuyer) return null;
                     return (
-                      <div className="p-3.5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-3">
+                      <div className="p-3.5 bg-zinc-900/60 border border-zinc-800 rounded-2xl space-y-3">
                         <div className="flex justify-between items-start">
                           <div>
-                            <span className="text-[9px] text-slate-500 uppercase tracking-wider font-bold">Selected Buyer Account</span>
-                            <div className="text-xs font-black text-slate-100">{selectedBuyer.nickname}</div>
+                            <span className="text-[9px] text-zinc-500 uppercase tracking-wider font-bold">Selected Buyer Account</span>
+                            <div className="text-xs font-black text-zinc-100">{selectedBuyer.nickname}</div>
                           </div>
                           <button
                             type="button"
@@ -358,24 +358,24 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                               setEditingCollectionId(null);
                               setShowNumpad(false);
                             }}
-                            className="px-2 py-1 text-[9.5px] uppercase font-mono font-bold bg-slate-950 border border-slate-800 hover:bg-slate-850 text-rose-400 rounded cursor-pointer transition"
+                            className="px-2 py-1 text-[9.5px] uppercase font-mono font-bold bg-zinc-950 border border-zinc-800 hover:bg-zinc-800 text-rose-400 rounded cursor-pointer transition"
                           >
                             Change
                           </button>
                         </div>
-                        <div className="flex justify-between items-center text-xs border-t border-slate-800/40 pt-2">
-                          <span className="text-slate-400">Total Outstanding Debt:</span>
+                        <div className="flex justify-between items-center text-xs border-t border-zinc-800/40 pt-2">
+                          <span className="text-zinc-400">Total Outstanding Debt:</span>
                           <span className="font-mono font-black text-rose-400">₹{(selectedBuyer.lifetime_debt || 0).toLocaleString()}</span>
                         </div>
 
-                        <div className="flex justify-between items-center text-xs border-t border-slate-800/40 pt-2 pb-1">
-                          <span className="text-slate-400 font-sans">Payment Allocation:</span>
+                        <div className="flex justify-between items-center text-xs border-t border-zinc-800/40 pt-2 pb-1">
+                          <span className="text-zinc-400 font-sans">Payment Allocation:</span>
                           <span className={`font-sans font-extrabold text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
                             parseFloat(amountPaidInput) === selectedBuyer.lifetime_debt
                               ? "bg-sky-950/80 text-sky-400 border border-sky-900/40"
                               : parseFloat(amountPaidInput) > 0
                               ? "bg-teal-950/80 text-teal-400 border border-teal-900/45 animate-pulse"
-                              : "bg-slate-900 text-slate-500 border border-slate-800"
+                              : "bg-zinc-900 text-zinc-500 border border-zinc-800"
                           }`}>
                             {parseFloat(amountPaidInput) === selectedBuyer.lifetime_debt
                               ? "⚡ Full Payment"
@@ -390,7 +390,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                           
                           {/* Active Editing / Entry indicator */}
                           {editingCollectionId && (
-                            <div className="bg-sky-950/40 border border-sky-900/35 p-2 rounded-lg text-[10px] text-sky-305 text-center font-bold">
+                            <div className="bg-sky-950/40 border border-sky-900/35 p-2 rounded-2xl text-[10px] text-sky-305 text-center font-bold">
                               ✏️ Modifying Draft ID #{String(editingCollectionId).substring(0, 8)}
                             </div>
                           )}
@@ -402,10 +402,10 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                               setShowNumpad(true);
                               setShowCashCalc(false);
                             }}
-                            className={`w-full py-3 px-4 font-sans font-bold text-xs rounded-xl flex items-center justify-center gap-2 border transition cursor-pointer ${
+                            className={`w-full py-3 px-4 font-sans font-bold text-xs rounded-2xl flex items-center justify-center gap-2 border transition cursor-pointer ${
                               showNumpad
-                                ? "bg-teal-650 border-teal-500 text-white shadow-md bg-teal-600"
-                                : "bg-slate-900 border-slate-800 text-slate-250 hover:bg-slate-850"
+                                ? "bg-teal-600 border-teal-500 text-white shadow-md bg-teal-600"
+                                : "bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-zinc-800"
                             }`}
                           >
                             <Calculator className="w-4 h-4 text-teal-400" />
@@ -421,7 +421,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                                   setAmountPaidInput(selectedBuyer.lifetime_debt.toString());
                                   setShowNumpad(false);
                                 }}
-                                className="py-1 px-2.5 text-[10px] font-sans font-extrabold uppercase bg-sky-950/30 border border-sky-900/35 text-sky-455 text-sky-400 hover:bg-sky-950/60 rounded-lg cursor-pointer transition flex items-center gap-1 shrink-0"
+                                className="py-1 px-2.5 text-[10px] font-sans font-extrabold uppercase bg-sky-950/30 border border-sky-900/35 text-sky-455 text-sky-400 hover:bg-sky-950/60 rounded-2xl cursor-pointer transition flex items-center gap-1 shrink-0"
                               >
                                 <span>Full Payment: ₹{selectedBuyer.lifetime_debt.toLocaleString()}</span>
                               </button>
@@ -438,37 +438,52 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                   
                   {/* Device captured date - strictly automatic */}
                   <div className="space-y-1.5 text-xs">
-                    <label className="text-slate-400 block font-bold">Device Date Stamps:</label>
-                    <div className="w-full text-xs text-emerald-450 text-emerald-400 bg-slate-900 border border-emerald-900/10 rounded-xl p-3 font-mono font-bold select-none text-center">
+                    <label className="text-zinc-400 block font-bold">Device Date Stamps:</label>
+                    <div className="w-full text-xs text-emerald-500 text-emerald-400 bg-zinc-900 border border-emerald-900/10 rounded-2xl p-3 font-mono font-bold select-none text-center">
                       ⚡ {collectionDate}
                     </div>
                   </div>
 
                   <div className="space-y-1.5 text-xs relative">
-                    <label className="text-slate-400 block font-bold">Amount Paid (₹):</label>
-                    <input
-                      type="text"
-                      value={amountPaidInput}
-                      onChange={(e) => {
-                        const parsed = e.target.value.replace(/\D/g, "");
-                        setAmountPaidInput(parsed);
-                        if (parsed) {
-                          setShowNumpad(true);
-                        }
-                      }}
-                      onFocus={() => {
-                        if (buyerId) {
-                          setShowNumpad(true);
-                          setShowCashCalc(false);
-                        } else {
-                          alert("Please select or search a buyer first.");
-                        }
-                      }}
-                      placeholder="INR Amount"
-                      className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-800 rounded-xl p-3 focus:outline-none focus:ring-1 focus:ring-teal-500 font-mono text-right font-bold pr-4"
-                      required
-                      disabled={!buyerId}
-                    />
+                    <label className="text-zinc-400 block font-bold">Amount Paid (₹):</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => {
+                           if (buyerId) {
+                             setShowNumpad(!showNumpad);
+                             setShowCashCalc(false);
+                           }
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition cursor-pointer"
+                        title="Toggle Keypad"
+                      >
+                        ⌨️
+                      </button>
+                      <input
+                        type="text"
+                        value={amountPaidInput}
+                        onChange={(e) => {
+                          const parsed = e.target.value.replace(/\D/g, "");
+                          setAmountPaidInput(parsed);
+                          if (parsed && !showNumpad) {
+                            setShowNumpad(true);
+                          }
+                        }}
+                        onFocus={() => {
+                          if (buyerId) {
+                            setShowNumpad(true);
+                            setShowCashCalc(false);
+                          } else {
+                            alert("Please select or search a buyer first.");
+                          }
+                        }}
+                        placeholder="INR Amount"
+                        className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-2xl py-3 pr-3 pl-10 focus:outline-none focus:ring-1 focus:ring-teal-500 font-mono text-right font-bold"
+                        required
+                        disabled={!buyerId}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -481,7 +496,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                         setShowCashCalc(!showCashCalc);
                         setShowNumpad(false);
                       }}
-                      className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-850 text-indigo-400 border border-indigo-900/40 font-mono font-bold flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-indigo-400 border border-indigo-900/40 font-mono font-bold flex items-center gap-1 cursor-pointer"
                     >
                       <Calculator className="w-3.5 h-3.5" /> India Note Counter
                     </button>
@@ -490,7 +505,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowNumpad(false)}
-                        className="px-2.5 py-1.5 rounded bg-slate-900 hover:bg-slate-850 text-slate-400 border border-slate-850 font-mono cursor-pointer"
+                        className="px-2.5 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 font-mono cursor-pointer"
                       >
                         Hide Pad
                       </button>
@@ -503,78 +518,78 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
-                    className="p-3.5 bg-indigo-950/20 border border-indigo-900/30 rounded-xl space-y-3 font-mono text-[11px]"
+                    className="p-3.5 bg-indigo-950/20 border border-indigo-900/30 rounded-2xl space-y-3 font-mono text-[11px]"
                   >
-                    <div className="flex justify-between items-center text-xs font-sans font-bold text-slate-200">
+                    <div className="flex justify-between items-center text-xs font-sans font-bold text-zinc-200">
                       <span>Physical Cash Drawer Note Counter</span>
                       <span className="text-indigo-400">INR denominations</span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-slate-500 text-[10px]">₹500:</span>
+                        <span className="w-10 text-zinc-500 text-[10px]">₹500:</span>
                         <input
                           type="text"
                           value={notes500}
                           onChange={(e) => setNotes500(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-850 rounded p-1 text-center font-mono"
+                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
                           placeholder="qty"
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-slate-500 text-[10px]">₹200:</span>
+                        <span className="w-10 text-zinc-500 text-[10px]">₹200:</span>
                         <input
                           type="text"
                           value={notes200}
                           onChange={(e) => setNotes200(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-855 rounded p-1 text-center font-mono"
+                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-855 rounded p-1 text-center font-mono"
                           placeholder="qty"
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-slate-500 text-[10px]">₹100:</span>
+                        <span className="w-10 text-zinc-500 text-[10px]">₹100:</span>
                         <input
                           type="text"
                           value={notes100}
                           onChange={(e) => setNotes100(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-850 rounded p-1 text-center font-mono"
+                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
                           placeholder="qty"
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-slate-500 text-[10px]">₹50:</span>
+                        <span className="w-10 text-zinc-500 text-[10px]">₹50:</span>
                         <input
                           type="text"
                           value={notes50}
                           onChange={(e) => setNotes50(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-805 rounded p-1 text-center font-mono"
+                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-805 rounded p-1 text-center font-mono"
                           placeholder="qty"
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-slate-500 text-[10px]">₹20:</span>
+                        <span className="w-10 text-zinc-500 text-[10px]">₹20:</span>
                         <input
                           type="text"
                           value={notes20}
                           onChange={(e) => setNotes20(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-800 rounded p-1 text-center font-mono"
+                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
                           placeholder="qty"
                         />
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-slate-500 text-[10px]">₹10:</span>
+                        <span className="w-10 text-zinc-500 text-[10px]">₹10:</span>
                         <input
                           type="text"
                           value={notes10}
                           onChange={(e) => setNotes10(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-slate-200 bg-slate-900 border border-slate-800 rounded p-1 text-center font-mono"
+                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
                           placeholder="qty"
                         />
                       </div>
                     </div>
 
                     <div className="flex justify-between items-center pt-2 border-t border-indigo-950 text-xs">
-                      <span className="font-sans font-bold text-slate-400">Drawer Sum:</span>
+                      <span className="font-sans font-bold text-zinc-400">Drawer Sum:</span>
                       <span className="font-extrabold text-teal-400 font-mono">₹{calculatedCashTotal.toLocaleString()}</span>
                     </div>
 
@@ -589,7 +604,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                           setNotes20("");
                           setNotes10("");
                         }}
-                        className="py-1 bg-slate-900 hover:bg-slate-850 rounded text-slate-400 font-sans cursor-pointer text-[10px]"
+                        className="py-1 bg-zinc-900 hover:bg-zinc-800 rounded text-zinc-400 font-sans cursor-pointer text-[10px]"
                       >
                         Reset Counts
                       </button>
@@ -605,22 +620,60 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                   </motion.div>
                 )}
 
-                {/* Floating Numpad for amount paid input if toggled */}
+                {/* Fixed Numpad for amount paid input if toggled */}
                 {showNumpad && buyerId && (
-                  <motion.div className="pt-2">
-                    <VirtualNumpad
-                      value={amountPaidInput}
-                      onChange={(val) => setAmountPaidInput(val)}
-                      onClose={() => setShowNumpad(false)}
-                      placeholder="Amount INR"
-                    />
+                  <motion.div 
+                    initial={{ y: "100%" }}
+                    animate={{ y: 0 }}
+                    exit={{ y: "100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="fixed bottom-0 left-0 right-0 z-50 p-3 bg-zinc-900 border-t-2 border-zinc-800 shadow-[0_-10px_40px_rgba(0,0,0,0.8)] pb-8"
+                  >
+                    <div className="w-full max-w-sm mx-auto space-y-2">
+                       <div className="flex justify-between items-center mb-1 bg-zinc-950 p-2 rounded-xl text-xs">
+                          <span className="font-mono text-zinc-500 font-bold uppercase tracking-widest pl-2">Amount</span>
+                          <div className="font-mono font-black text-teal-400 text-lg mr-2">{amountPaidInput || "0.00"}</div>
+                       </div>
+                       
+                       {/* Highly tactile specialized mobile numpad layout */}
+                       <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
+                         {/* Row 1 */}
+                         <button onClick={() => setAmountPaidInput(prev => prev + "7")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">7</button>
+                         <button onClick={() => setAmountPaidInput(prev => prev + "8")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">8</button>
+                         <button onClick={() => setAmountPaidInput(prev => prev + "9")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">9</button>
+                         <button onClick={() => setAmountPaidInput(prev => prev.slice(0, -1))} type="button" className="py-2.5 text-sm font-extrabold bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-rose-500 rounded-2xl cursor-pointer flex items-center justify-center font-mono">⌫</button>
+                         
+                         {/* Row 2 */}
+                         <button onClick={() => setAmountPaidInput(prev => prev + "4")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">4</button>
+                         <button onClick={() => setAmountPaidInput(prev => prev + "5")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">5</button>
+                         <button onClick={() => setAmountPaidInput(prev => prev + "6")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">6</button>
+                         <button onClick={() => setAmountPaidInput("")} type="button" className="py-2.5 text-xs font-black bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-rose-500 rounded-2xl cursor-pointer flex items-center justify-center">C</button>
+                         
+                         {/* Row 3 and 4 with spanning NEXT button */}
+                         <div className="col-span-3 grid grid-cols-3 gap-1.5">
+                           <button onClick={() => setAmountPaidInput(prev => prev + "1")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">1</button>
+                           <button onClick={() => setAmountPaidInput(prev => prev + "2")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">2</button>
+                           <button onClick={() => setAmountPaidInput(prev => prev + "3")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">3</button>
+                           
+                           <button onClick={() => setAmountPaidInput(prev => prev + "0")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">0</button>
+                           <button onClick={() => { if(!amountPaidInput.includes(".")) setAmountPaidInput(prev => prev + "."); }} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">.</button>
+                           <button onClick={() => setAmountPaidInput(prev => prev + "00")} type="button" className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer">00</button>
+                         </div>
+                         
+                         {/* Spanned NEXT element */}
+                         <button onClick={() => setShowNumpad(false)} type="button" className="py-6 text-xs md:text-sm font-black text-white hover:opacity-90 rounded-2xl cursor-pointer transition-all uppercase flex flex-col justify-center items-center shadow-lg gap-1 select-none bg-emerald-600 shadow-emerald-900/30">
+                           <span>APPLY</span>
+                           <span className="text-[9px] font-bold">✔</span>
+                         </button>
+                       </div>
+                    </div>
                   </motion.div>
                 )}
 
                 {buyerId && (
                   <button
                     type="submit"
-                    className="w-full py-3.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-sans font-bold text-xs shadow-lg shadow-teal-900/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-sans font-bold text-xs shadow-lg shadow-teal-900/20 transition cursor-pointer flex items-center justify-center gap-1.5"
                   >
                     <PlusCircle className="w-4 h-4" />
                     <span>{editingCollectionId ? "Modify Collection Draft" : "Book Collection Draft"}</span>
@@ -632,13 +685,13 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
         </div>
 
         {/* Collections Ledger Audit List - Full width */}
-        <div className="bg-slate-950 border border-slate-850 rounded-2xl p-5 shadow-xl space-y-4 w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-850 gap-2.5">
+        <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5 shadow-2xl shadow-black/10 space-y-4 w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-zinc-800 gap-2.5">
             <div className="space-y-0.5">
-              <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-slate-300">
+              <h3 className="text-xs font-sans font-extrabold uppercase tracking-wider text-zinc-300">
                 Collections Audit & Approvals
               </h3>
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] text-zinc-500">
                 Outstanding cash receipts queued in system ledger
               </p>
             </div>
@@ -650,14 +703,14 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                 value={ledgerSearch}
                 onChange={(e) => setLedgerSearch(e.target.value)}
                 placeholder="Search ledger..."
-                className="text-[10px] text-slate-250 bg-slate-900 border border-slate-800 rounded-lg p-1.5 pl-7 focus:outline-none focus:ring-1 focus:ring-teal-500 w-full sm:w-40 font-sans"
+                className="text-[10px] text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-2xl p-1.5 pl-7 focus:outline-none focus:ring-1 focus:ring-teal-500 w-full sm:w-40 font-sans"
               />
-              <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2" />
+              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2 top-2" />
             </div>
           </div>
 
           {collections.length === 0 ? (
-            <div className="text-center py-20 bg-slate-900/20 rounded-2xl border border-dashed border-slate-850 text-slate-500 text-xs text-slate-400">
+            <div className="text-center py-20 bg-zinc-900/20 rounded-2xl border border-dashed border-zinc-800 text-zinc-500 text-xs text-zinc-400">
               No collection logs registered in the physical database yet.
             </div>
           ) : (
@@ -677,11 +730,11 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
-                        className="bg-slate-950/40 border border-slate-850 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 font-sans"
+                        className="bg-zinc-950/40 border border-zinc-800 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 font-sans"
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-200">
+                            <span className="text-xs font-black text-zinc-200">
                               {buyer ? buyer.nickname : "Unknown Buyer ID"}
                             </span>
                             {col.is_approved ? (
@@ -695,7 +748,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                             )}
                           </div>
 
-                          <div className="text-[10px] text-slate-500 font-mono flex flex-wrap gap-x-2">
+                          <div className="text-[10px] text-zinc-500 font-mono flex flex-wrap gap-x-2">
                             <span>Date: {col.date}</span>
                             {col.created_at && (
                               <>
@@ -707,7 +760,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                             <span>Draft ID: #{String(col.id).substring(0, 8)}</span>
                           </div>
 
-                          <div className="text-[11px] font-bold text-slate-400">
+                          <div className="text-[11px] font-bold text-zinc-400">
                             Amount Paid: <span className="text-teal-400 font-mono font-black">₹{(col.amount_paid || 0).toLocaleString()}</span>
                           </div>
                         </div>
@@ -727,7 +780,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                                   setShowForm(true);
                                   setShowNumpad(true);
                                 }}
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-indigo-950/40 border border-indigo-900/40 text-indigo-400 hover:bg-indigo-950/80 transition cursor-pointer"
+                                className="px-2.5 py-1.5 rounded-2xl text-[10px] font-bold bg-indigo-950/40 border border-indigo-900/40 text-indigo-400 hover:bg-indigo-950/80 transition cursor-pointer"
                                 title="Edit booked cash amount"
                               >
                                 Edit
@@ -735,10 +788,10 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
 
                               <button
                                 onClick={() => handleApprove(col.id)}
-                                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition ${
+                                className={`px-2.5 py-1.5 rounded-2xl text-[10px] font-bold flex items-center gap-1 cursor-pointer transition ${
                                   isAdmin
                                     ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
-                                    : "bg-slate-900 border border-slate-850 text-slate-500 cursor-not-allowed"
+                                    : "bg-zinc-900 border border-zinc-800 text-zinc-500 cursor-not-allowed"
                                 }`}
                                 title={isAdmin ? "Approve cash & deduct debtor balance" : "Admin credentials required to clear receipt"}
                               >
@@ -747,14 +800,14 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                               {isAdmin && (
                                 <button
                                   onClick={() => handleDeleteDraft(col.id)}
-                                  className="px-2 py-1.5 rounded-lg text-[10px] bg-slate-900 hover:bg-rose-950/30 text-slate-500 hover:text-rose-400 border border-slate-850 hover:border-rose-900/40 transition cursor-pointer"
+                                  className="px-2 py-1.5 rounded-2xl text-[10px] bg-zinc-900 hover:bg-rose-950/30 text-zinc-500 hover:text-rose-400 border border-zinc-800 hover:border-rose-900/40 transition cursor-pointer"
                                 >
                                   Prune
                                 </button>
                               )}
                             </>
                           ) : (
-                            <div className="text-[10px] text-emerald-400/80 font-mono flex items-center gap-0.5 bg-emerald-950/10 px-2 py-1 border border-emerald-900/30 rounded-lg">
+                            <div className="text-[10px] text-emerald-400/80 font-mono flex items-center gap-0.5 bg-emerald-950/10 px-2 py-1 border border-emerald-900/30 rounded-2xl">
                               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Settled Cloud Log
                             </div>
                           )}
@@ -762,10 +815,10 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                           {/* Rollover trigger */}
                           <button
                             onClick={() => handleRollover(col.id)}
-                            className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition ${
+                            className={`px-2 py-1.5 rounded-2xl text-[10px] font-bold border transition ${
                               col.is_rolled_over
                                 ? "bg-indigo-950/30 text-indigo-400 border-indigo-900/50 hover:bg-indigo-950/50"
-                                : "bg-slate-900 text-slate-400 border-slate-850 hover:bg-slate-850 hover:text-white"
+                                : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-white"
                             } cursor-pointer`}
                           >
                             {col.is_rolled_over ? "Rolled Over" : "Rollover"}
