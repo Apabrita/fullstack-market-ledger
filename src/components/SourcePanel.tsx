@@ -8,6 +8,7 @@ import { useData } from "./DataContext";
 import { PlusCircle, Search, Anchor, Scale, Landmark, Percent, Receipt, Lock, CheckCircle2, ChevronRight, Calculator, Archive, Trash2, Calendar, TrendingUp, Printer } from "lucide-react";
 import { User as DbUser } from "../db";
 import { shareAsPDF } from "../utils/pdf";
+import { SourcePaymentFlow } from "./SourcePaymentFlow";
 
 interface SourcePanelProps {
   activeUser: DbUser | null;
@@ -364,42 +365,22 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
   return (
     <div className="space-y-6" id="sources-logistics-panel">
       {/* 1. Header and Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
-            <Anchor className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-zinc-500 font-medium font-sans">Active Sources Today</div>
-            <div className="text-xl font-bold text-zinc-800">
-              {sources.filter((s) => !s.is_completed).length} In Harbor
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl font-sans">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-zinc-500 font-medium font-sans">Market Commissions (Total)</div>
-            <div className="text-xl font-bold text-emerald-800 font-mono">
-              ₹ {sourcePayments.reduce((sum, p) => sum + (p.commission || 0), 0).toLocaleString()}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-zinc-200 p-5 rounded-2xl flex items-center space-x-4 shadow-sm">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-            <Percent className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs text-zinc-500 font-medium font-sans">Total Settled Outflow</div>
-            <div className="text-xl font-bold text-zinc-800 font-mono">
-              ₹ {sourcePayments.reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0).toLocaleString()}
-            </div>
-          </div>
-        </div>
+      <div className="bg-white border border-zinc-200 p-3 rounded-2xl flex items-center justify-between shadow-sm text-xs font-sans">
+         <div className="flex items-center gap-2">
+           <Anchor className="w-4 h-4 text-indigo-600" />
+           <span className="text-zinc-500 font-medium whitespace-nowrap">Active In Harbor:</span>
+           <span className="font-bold text-zinc-800">{sources.filter((s) => !s.is_completed).length}</span>
+         </div>
+         <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+           <Receipt className="w-4 h-4 text-teal-600" />
+           <span className="text-zinc-500 font-medium whitespace-nowrap">Market Commissions:</span>
+           <span className="font-bold text-emerald-700 font-mono">₹{sourcePayments.reduce((sum, p) => sum + (p.commission || 0), 0).toLocaleString()}</span>
+         </div>
+         <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+           <Percent className="w-4 h-4 text-blue-600" />
+           <span className="text-zinc-500 font-medium whitespace-nowrap">Settled Outflow:</span>
+           <span className="font-bold text-zinc-800 font-mono">₹{sourcePayments.reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0).toLocaleString()}</span>
+         </div>
       </div>
 
       {/* Primary Actions Drawer Bar */}
@@ -573,7 +554,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           onClick={() => setExpandedReportSourceId(expandedReportSourceId === src.id ? null : src.id)}
                           className="w-full text-center text-[10.5px] font-sans font-bold text-indigo-600 hover:text-indigo-805 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1 bg-white border border-zinc-200 rounded shadow-xs"
                         >
-                          {expandedReportSourceId === src.id ? "▲ Close Crop Yield Report" : "📋 View Species Breakdown & Profit Math"}
+                          {expandedReportSourceId === src.id ? "▲ Close" : "Pay the Sources (Open)"}
                         </button>
 
                         {src.is_completed && (
@@ -586,82 +567,14 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           </button>
                         )}
 
-                        {expandedReportSourceId === src.id && (
-                          <div className="space-y-3 pt-2 text-[10px] text-zinc-700 animate-slideDown">
-                            <div className="font-sans font-black uppercase text-[8.5px] tracking-wider text-zinc-500 border-b pb-1">
-                              Species Performance Summary
-                            </div>
-                            
-                            {/* Compute unique fish types for this supplier/source */}
-                            {Array.from(new Set(srcTx.map(t => t.fish_type))).length === 0 ? (
-                              <div className="text-center text-zinc-400 py-2">No transactions recorded for this supplier.</div>
-                            ) : (
-                              <div className="space-y-3.5">
-                                {Array.from(new Set(srcTx.map(t => t.fish_type))).map((fishName) => {
-                                  const fishTx = srcTx.filter(t => t.fish_type === fishName);
-                                  const fWeight = fishTx.reduce((sum, t) => sum + (t.weight || 0), 0);
-                                  const fRevenue = fishTx.reduce((sum, t) => sum + (t.total_price || 0), 0);
-                                  const meanBidPrice = fWeight > 0 ? fRevenue / fWeight : 0;
-                                  const basePaidToSource = fWeight * src.rate_per_kg;
-                                  const absoluteProfit = fRevenue - basePaidToSource;
-
-                                  return (
-                                    <div key={fishName} className="p-2.0 bg-white border border-zinc-150 rounded-2xl space-y-2">
-                                      <div className="flex justify-between items-center text-[11px] font-sans font-black text-zinc-800">
-                                        <span className="text-teal-700 uppercase bg-teal-50 px-1.5 py-0.5 rounded border border-teal-100">{fishName}</span>
-                                        <span className="font-mono text-indigo-700">{fWeight.toLocaleString()} KG Sold</span>
-                                      </div>
-
-                                      {/* Profit Math metrics */}
-                                      <div className="grid grid-cols-2 gap-2 text-[9px] font-mono text-zinc-600 border-t border-zinc-100 pt-1.5">
-                                        <div>
-                                          <div>Weighted Mean Price:</div>
-                                          <div className="font-bold text-zinc-900">₹{meanBidPrice.toFixed(2)}/kg</div>
-                                        </div>
-                                        <div>
-                                          <div>Contract Cost Rate:</div>
-                                          <div className="font-bold text-zinc-900">₹{src.rate_per_kg}/kg</div>
-                                        </div>
-                                        <div>
-                                          <div>Gross Crop Auction Value:</div>
-                                          <div className="font-bold text-zinc-900">₹{fRevenue.toLocaleString()}</div>
-                                        </div>
-                                        <div>
-                                          <div>Middleman Profit Math:</div>
-                                          <div className={`font-black ${absoluteProfit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                                            ₹{absoluteProfit.toLocaleString()} ({absoluteProfit >= 0 ? "+" : ""}{((absoluteProfit / (basePaidToSource || 1)) * 100).toFixed(1)}%)
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Purchaser History timelines */}
-                                      <div className="bg-zinc-50 p-1.5 rounded text-[8.5px] space-y-1 mt-1 font-sans">
-                                        <div className="font-bold text-zinc-400 uppercase tracking-wide">Sales Breakdown details:</div>
-                                        {fishTx.map((t) => {
-                                          const buyer = data?.buyers?.find((b) => b.id === t.buyer_id);
-                                          return (
-                                            <div key={t.id} className="flex justify-between items-center border-b border-white pb-0.5 last:border-0 font-mono text-zinc-600">
-                                              <span>
-                                                👤 {buyer?.nickname || "Unknown Buyer"}
-                                              </span>
-                                              <span>
-                                                {t.weight} kg @ ₹{t.price_per_kg}/kg (by <strong className="text-indigo-600 font-sans">{t.added_by || "Staff"}</strong>)
-                                              </span>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {expandedReportSourceId === 'pdf_' + src.id && (
-                          <div className="animate-slideDown">
-                             <SourceBillGenerator source={src} transactions={srcTx} appDate={appDate} payment={sourcePayments.find(p => p.source_id === src.id)} />
+                        {(expandedReportSourceId === src.id || expandedReportSourceId === 'pdf_' + src.id) && (
+                          <div className="pt-2 animate-slideDown">
+                            <SourcePaymentFlow 
+                              source={src} 
+                              transactions={srcTx} 
+                              appDate={appDate} 
+                              onClose={() => setExpandedReportSourceId(null)} 
+                            />
                           </div>
                         )}
                       </div>
@@ -676,17 +589,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           <Archive className="w-3.5 h-3.5" />
                           <span>Archive Source</span>
                         </button>
-
-                        {!src.is_completed && (
-                          <button
-                            onClick={() => handleInitiateSettle(src.id)}
-                            className="px-3 py-1.5 text-xs font-bold rounded-2xl flex items-center gap-1 border shadow-sm transition bg-indigo-600 border-indigo-700 text-white hover:bg-indigo-700 cursor-pointer"
-                            title="Initiate mathematical settlement balance"
-                          >
-                            <Calculator className="w-3.5 h-3.5" />
-                            Settle Accounts
-                          </button>
-                        )}
                       </div>
                     </div>
                   );
@@ -695,318 +597,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
           </div>
         </div>
 
-        {/* Structured Settlement Calculator Panel - Full width */}
-        <div id="settlement-panel-box" className="bg-white border border-zinc-200 rounded-2xl overflow-hidden shadow-sm flex flex-col w-full">
-          <div className="px-5 py-4 bg-zinc-50 border-b border-zinc-200 flex justify-between items-center">
-            <h4 className="font-sans font-bold text-xs uppercase tracking-wider text-zinc-700">
-              Accounts Settlement Panel
-            </h4>
-            <Landmark className="w-4 h-4 text-indigo-600" />
-          </div>
 
-          <div className="p-5 flex-grow space-y-4">
-            {activeSettleSourceId ? (
-              (() => {
-                const src = sources.find((s) => s.id === activeSettleSourceId);
-                if (!src) return null;
 
-                const srcTx = transactions.filter((tx) => tx.source_id === activeSettleSourceId);
-                const calculatedKg = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
-                const calculatedProceeds = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
 
-                const activeWeight = settleMethod === "manual" ? parseFloat(manualWeight) || 0 : calculatedKg;
-                const activeRate = settleMethod === "manual" ? parseFloat(manualRatePerKg) || 0 : src.rate_per_kg;
 
-                const costOfGoodsRaw = activeWeight * activeRate;
-                const saleTotal = settleMethod === "manual" ? costOfGoodsRaw : calculatedProceeds;
-
-                // Commission Math
-                let activeCommission = 0;
-                if (commissionType === "percent") {
-                  activeCommission = Math.round(saleTotal * (parseFloat(commissionPercent) || 0) / 100);
-                } else {
-                  activeCommission = parseFloat(customCommission) || 0;
-                }
-
-                const calculatedPayout = Math.max(0, saleTotal - activeCommission);
-
-                return (
-                  <form onSubmit={handleSaveSettlement} className="space-y-4 animate-fadeIn">
-                    <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-3 text-zinc-700 text-xs flex items-start gap-2 leading-relaxed">
-                      <Calculator className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                      <div>
-                        Currently settling ledger values for <strong>{src.name}</strong>. Choose standard calculations or customize the numbers manually.
-                      </div>
-                    </div>
-
-                    {/* Settle Method Segment Block */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
-                        Settlement Sourcing Method
-                      </label>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSettleMethod("auto");
-                            // Recalculate default comm
-                            const defaultComm = Math.round(calculatedProceeds * 0.05);
-                            setCustomCommission(defaultComm.toString());
-                            setAmountPaidToSource(Math.max(0, calculatedProceeds - defaultComm).toString());
-                          }}
-                          className={`py-2 px-3 rounded-2xl border text-center font-semibold transition cursor-pointer ${
-                            settleMethod === "auto"
-                              ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold"
-                              : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-                          }`}
-                        >
-                          Auto-Calculate Trades
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSettleMethod("manual");
-                            setManualWeight(calculatedKg.toString());
-                            setManualRatePerKg(src.rate_per_kg.toString());
-                            // update commissions
-                            const weightNum = parseFloat(calculatedKg.toString()) || 0;
-                            const rateNum = parseFloat(src.rate_per_kg.toString()) || 0;
-                            const projectedProceeds = weightNum * rateNum;
-                            const defaultComm = Math.round(projectedProceeds * 0.05);
-                            setCustomCommission(defaultComm.toString());
-                            setAmountPaidToSource(Math.max(0, projectedProceeds - defaultComm).toString());
-                          }}
-                          className={`py-2 px-3 rounded-2xl border text-center font-semibold transition cursor-pointer ${
-                            settleMethod === "manual"
-                              ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold"
-                              : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-                          }`}
-                        >
-                          Manual Cargo Override
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Manual Cargo Entry Form inputs */}
-                    {settleMethod === "manual" && (
-                      <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-2xl grid grid-cols-2 gap-3 text-xs animate-slideDown">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-amber-855 text-amber-800 uppercase block">Manual Weight (KG)</label>
-                          <input
-                            type="number"
-                            value={manualWeight}
-                            onChange={(e) => {
-                              setManualWeight(e.target.value);
-                              // Sync payout
-                              const w = parseFloat(e.target.value) || 0;
-                              const r = parseFloat(manualRatePerKg) || 0;
-                              const proceeds = w * r;
-                              let comm = 0;
-                              if (commissionType === "percent") {
-                                comm = Math.round(proceeds * (parseFloat(commissionPercent) || 0) / 100);
-                              } else {
-                                comm = parseFloat(customCommission) || 0;
-                              }
-                              setAmountPaidToSource(Math.max(0, proceeds - comm).toString());
-                            }}
-                            className="w-full bg-white border border-amber-300 rounded p-2 text-zinc-700 outline-none font-mono font-bold"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-amber-855 text-amber-800 uppercase block">Manual Price per kg (₹)</label>
-                          <input
-                            type="number"
-                            value={manualRatePerKg}
-                            onChange={(e) => {
-                              setManualRatePerKg(e.target.value);
-                              const w = parseFloat(manualWeight) || 0;
-                              const r = parseFloat(e.target.value) || 0;
-                              const proceeds = w * r;
-                              let comm = 0;
-                              if (commissionType === "percent") {
-                                comm = Math.round(proceeds * (parseFloat(commissionPercent) || 0) / 100);
-                              } else {
-                                comm = parseFloat(customCommission) || 0;
-                              }
-                              setAmountPaidToSource(Math.max(0, proceeds - comm).toString());
-                            }}
-                            className="w-full bg-white border border-amber-300 rounded p-2 text-zinc-700 outline-none font-mono font-bold"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Commission Type Selector */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block">
-                        Commission Calculation Rule
-                      </label>
-                      <div className="flex gap-2 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCommissionType("flat");
-                            const proceeds = settleMethod === "manual" ? (parseFloat(manualWeight) || 0) * (parseFloat(manualRatePerKg) || 0) : calculatedProceeds;
-                            const defaultComm = Math.round(proceeds * 0.05);
-                            setCustomCommission(defaultComm.toString());
-                            setAmountPaidToSource(Math.max(0, proceeds - defaultComm).toString());
-                          }}
-                          className={`flex-1 py-1.5 px-3 rounded border text-center font-medium transition cursor-pointer ${
-                            commissionType === "flat"
-                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-bold"
-                              : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                          }`}
-                        >
-                          Flat INR Commission
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCommissionType("percent");
-                            const proceeds = settleMethod === "manual" ? (parseFloat(manualWeight) || 0) * (parseFloat(manualRatePerKg) || 0) : calculatedProceeds;
-                            const pct = parseFloat(commissionPercent) || 5;
-                            const comm = Math.round(proceeds * pct / 100);
-                            setAmountPaidToSource(Math.max(0, proceeds - comm).toString());
-                          }}
-                          className={`flex-1 py-1.5 px-3 rounded border text-center font-medium transition cursor-pointer ${
-                            commissionType === "percent"
-                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-bold"
-                              : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
-                          }`}
-                        >
-                          Percentage Commission (%)
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Percentage Preset Row */}
-                    {commissionType === "percent" && (
-                      <div className="flex gap-1.5 p-2 bg-zinc-50 border border-zinc-200 rounded-2xl text-[10px] animate-slideDown">
-                        <span className="text-zinc-500 self-center font-sans pr-1">Fast Presets:</span>
-                        {["2", "3", "5", "7", "10"].map((pct) => (
-                          <button
-                            key={pct}
-                            type="button"
-                            onClick={() => {
-                              setCommissionPercent(pct);
-                              const proceeds = settleMethod === "manual" ? (parseFloat(manualWeight) || 0) * (parseFloat(manualRatePerKg) || 0) : calculatedProceeds;
-                              const comm = Math.round(proceeds * parseFloat(pct) / 100);
-                              setAmountPaidToSource(Math.max(0, proceeds - comm).toString());
-                            }}
-                            className={`flex-1 py-1 px-2 rounded text-center font-semibold border transition cursor-pointer ${
-                              commissionPercent === pct
-                                ? "bg-indigo-600 border-indigo-600 text-white"
-                                : "bg-white text-zinc-700 hover:bg-zinc-100 border-zinc-200"
-                            }`}
-                          >
-                            {pct}%
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Live Computed Stats Ledger */}
-                    <div className="space-y-1 text-xs font-mono bg-zinc-900 text-zinc-300 rounded-2xl p-3.5 border border-zinc-800">
-                      <div className="flex justify-between border-b border-zinc-800 pb-1.5 font-sans">
-                        <span className="text-zinc-500 uppercase text-[9px] font-bold">Ledger Balance Parameters</span>
-                        <span className="text-zinc-300 uppercase text-[9px] font-bold">Auditing Flow</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-zinc-800">
-                        <span className="text-zinc-400">Selected Cargo Weight:</span>
-                        <span className="text-zinc-100 font-bold">{activeWeight.toLocaleString()} KG</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-zinc-800">
-                        <span className="text-zinc-400">Buying Unit Cost:</span>
-                        <span className="text-zinc-100">₹{activeRate.toLocaleString()}/kg</span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-zinc-800">
-                        <span className="text-zinc-400 text-teal-400">Total Purchase Value:</span>
-                        <span className="text-teal-400 font-bold">₹{costOfGoodsRaw.toLocaleString()}</span>
-                      </div>
-                      {settleMethod === "auto" && (
-                        <div className="flex justify-between py-1 border-b border-zinc-800">
-                          <span className="text-zinc-400">Actual Auction Receipts:</span>
-                          <span className="text-blue-400 font-bold">₹{calculatedProceeds.toLocaleString()}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between py-1.5 text-xs">
-                        <span className="text-orange-400 font-bold flex items-center gap-1 font-sans">
-                          <Percent className="w-3" /> Charged Commission:
-                        </span>
-                        <span className="text-orange-400 font-bold">₹{activeCommission.toLocaleString()} ({commissionType === "percent" ? `${commissionPercent}%` : "flat"})</span>
-                      </div>
-                    </div>
-
-                    {/* Final Payment Custom Input Details */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Commission editable if flat */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-zinc-555 text-zinc-600 uppercase tracking-widest block">
-                          Commissions Amount (INR)
-                        </label>
-                        <input
-                          type="number"
-                          value={commissionType === "percent" ? activeCommission : customCommission}
-                          disabled={commissionType === "percent"}
-                          onChange={(e) => {
-                            if (commissionType === "flat") {
-                              setCustomCommission(e.target.value);
-                              const ded = parseFloat(e.target.value) || 0;
-                              setAmountPaidToSource(Math.max(0, saleTotal - ded).toString());
-                            }
-                          }}
-                          className={`w-full text-xs text-zinc-705 text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none font-mono font-bold ${
-                            commissionType === "percent" ? "bg-zinc-100 text-zinc-400 cursor-not-allowed" : "focus:ring-1 focus:ring-indigo-500"
-                          }`}
-                        />
-                      </div>
-
-                      {/* Net Payout Override Block (Fixed amount paid) */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-emerald-800 uppercase tracking-widest block">
-                          Direct Net Payout (Fixed)
-                        </label>
-                        <input
-                          type="number"
-                          value={amountPaidToSource}
-                          onChange={(e) => setAmountPaidToSource(e.target.value)}
-                          placeholder={calculatedPayout.toString()}
-                          className="w-full text-xs text-zinc-700 bg-white border border-emerald-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-emerald-500 font-mono font-bold text-emerald-700"
-                          title="Type any fixed amount here to override calculations completely"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 justify-end pt-3 border-t border-zinc-150 font-sans">
-                      <button
-                        type="button"
-                        onClick={() => setActiveSettleSourceId(null)}
-                        className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
-                      >
-                        Abort
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-2xl shadow-sm cursor-pointer"
-                        id="btn-confirm-settlement"
-                      >
-                        Confirm Payout & Settle
-                      </button>
-                    </div>
-                  </form>
-                );
-              })()
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center py-10 text-center text-zinc-400 space-y-3">
-                <Landmark className="w-10 h-10 text-zinc-300" />
-                <div className="text-xs font-bold text-zinc-600">Select a Source to calculate credit payments</div>
-                <p className="text-[11px] text-zinc-405 leading-relaxed max-w-xs">
-                  Settle source accounts to deduct bazaar commission, compute aggregate weights, and document outward capital flow.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Structured Payments History table */}

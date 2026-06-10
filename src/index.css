@@ -136,20 +136,39 @@
   color: #000000 !important;
 }
 
-.theme-light h1,
-.theme-light h2,
-.theme-light h3,
-.theme-light h4,
-.theme-light h5,
-.theme-light h6,
-.theme-light label,
-.theme-light strong,
-.theme-light th,
-.theme-light td,
-.theme-light p,
-.theme-light span,
-.theme-light li {
-  color: #000000 !important;
+.theme-light h1:not([class*="text-"]),
+.theme-light h2:not([class*="text-"]),
+.theme-light h3:not([class*="text-"]),
+.theme-light h4:not([class*="text-"]),
+.theme-light h5:not([class*="text-"]),
+.theme-light h6:not([class*="text-"]),
+.theme-light label:not([class*="text-"]),
+.theme-light strong:not([class*="text-"]),
+.theme-light th:not([class*="text-"]),
+.theme-light td:not([class*="text-"]),
+.theme-light p:not([class*="text-"]),
+.theme-light span:not([class*="text-"]),
+.theme-light li:not([class*="text-"]) {
+  color: #0d0e15 !important;
+}
+
+/* Exempt child elements inside colored text containers or explicitly white/light text */
+.theme-light .text-white, .theme-light .text-white * { color: #ffffff !important; }
+.theme-light .text-zinc-50, .theme-light .text-zinc-50 * { color: #fafafa !important; }
+.theme-light .text-zinc-100, .theme-light .text-zinc-100 * { color: #f4f4f5 !important; }
+.theme-light .text-zinc-200, .theme-light .text-zinc-200 * { color: #e4e4e7 !important; }
+.theme-light .text-zinc-300, .theme-light .text-zinc-300 * { color: #d4d4d8 !important; }
+.theme-light .text-teal-400, .theme-light .text-teal-400 * { color: #0d9488 !important; }
+.theme-light .text-emerald-400, .theme-light .text-emerald-400 * { color: #16a34a !important; }
+.theme-light .text-sky-400, .theme-light .text-sky-400 * { color: #0284c7 !important; }
+.theme-light .text-amber-400, .theme-light .text-amber-400 * { color: #d97706 !important; }
+.theme-light .text-rose-400, .theme-light .text-rose-400 * { color: #e11d48 !important; }
+
+/* Keep buttons color systems safe from theme-light force overrides */
+.theme-light button span,
+.theme-light button strong,
+.theme-light button p {
+  color: inherit !important;
 }
 
 .theme-light input,

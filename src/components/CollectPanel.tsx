@@ -198,60 +198,61 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       exit={{ opacity: 0 }}
       className="space-y-6"
     >
-      {/* Overview summaries */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-        <div className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl">
-              <CheckSquare className="w-5 h-5" />
+      {/* Overview summaries - Compact Single Box */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-3 shadow-md">
+        <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-zinc-800/60">
+          
+          {/* Approved Collections Column */}
+          <div className="flex items-center space-x-3 pb-3 md:pb-0 md:pr-4">
+            <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl shrink-0">
+              <CheckSquare className="w-4.5 h-4.5" />
             </div>
             <div>
-              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+              <div className="text-[9px] text-[#22c55e] font-sans font-black uppercase tracking-wider">
                 Approved Collections
               </div>
-              <div className="text-base font-black font-mono text-emerald-400 mt-0.5">
+              <div className="text-sm font-black font-mono text-emerald-400 mt-0.5 leading-none">
                 ₹ {collections.filter(c => c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0).toLocaleString()}
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-amber-500/10 text-amber-400 rounded-2xl">
-              <Clock className="w-5 h-5 animate-pulse" />
-            </div>
-            <div>
-              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                Unapproved / Drafts
+          {/* Unapproved / Drafts Column */}
+          <div className="flex items-center justify-between py-3 md:py-0 md:px-5">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl shrink-0">
+                <Clock className="w-4.5 h-4.5 animate-pulse" />
               </div>
-              <div className="text-base font-black font-mono text-amber-500 mt-0.5">
-                ₹ {collections.filter(c => !c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0).toLocaleString()}
+              <div>
+                <div className="text-[9px] text-amber-550 text-amber-500 font-sans font-black uppercase tracking-wider flex items-center gap-1.5">
+                  Unapproved Drafts
+                </div>
+                <div className="text-sm font-black font-mono text-amber-500 mt-0.5 leading-none">
+                  ₹ {collections.filter(c => !c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0).toLocaleString()}
+                </div>
               </div>
             </div>
+            <span className="text-[8.5px] font-bold font-mono bg-amber-950/40 text-amber-450 text-amber-400 border border-amber-900/40 px-2 py-0.5 rounded-full uppercase leading-none">
+              {collections.filter(c => !c.is_approved).length} Drafts
+            </span>
           </div>
-          <span className="text-[10px] font-mono bg-amber-950/40 text-amber-500 border border-amber-900/35 px-1.5 py-0.5 rounded uppercase">
-            {collections.filter(c => !c.is_approved).length} Drafts
-          </span>
-        </div>
 
-        <div className="bg-zinc-950 border border-zinc-800 p-4.5 rounded-2xl flex items-center justify-between md:col-span-1">
-          <div className="flex items-center space-x-3.5">
-            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl">
-              <Landmark className="w-5 h-5" />
+          {/* Outstanding Balance Column */}
+          <div className="flex items-center space-x-3 pt-3 md:pt-0 md:pl-5">
+            <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl shrink-0">
+              <Landmark className="w-4.5 h-4.5" />
             </div>
             <div>
-              <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+              <div className="text-[9px] text-[#6366f1] font-sans font-black uppercase tracking-wider">
                 Outstanding Balance
               </div>
-              <div className="text-base font-black font-mono text-zinc-200 text-indigo-300 mt-0.5">
+              <div className="text-sm font-black font-mono text-indigo-400 mt-0.5 leading-none">
                 ₹ {buyers.reduce((sum, b) => sum + (b.lifetime_debt || 0), 0).toLocaleString()}
               </div>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
 
       {/* Main Operations Block: Logging Box & Pending Receipts Grid */}

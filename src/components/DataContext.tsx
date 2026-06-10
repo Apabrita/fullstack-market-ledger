@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import {
   loadAll,
+  getLocalOptimisticData,
   executeWrite,
   processQueue,
   getQueue,
@@ -43,6 +44,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isFirstLoadRef = useRef(true);
   const [data, setData] = useState<NFCData | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,16 +125,35 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshData = useCallback(async () => {
-    setLoading(true);
+    // 1. Instant optimistic state update from local cache (0ms)
     try {
-      const allData = await loadAll();
-      setData(allData);
+      const allDataLocal = getLocalOptimisticData();
+      setData(allDataLocal);
       setQueue(getQueue());
       setOnline(isOnline());
     } catch (e) {
-      console.error("Failed to refresh application data layer", e);
+      console.warn("Local cache aggregator failed", e);
+    }
+
+    // 2. Only show main loading spinner on initial app launch
+    const isFirstLoad = isFirstLoadRef.current;
+    if (isFirstLoad) {
+      setLoading(true);
+    }
+
+    try {
+      // 3. Perform silent, asynchronous cloud database fetches
+      const allDataRemote = await loadAll();
+      setData(allDataRemote);
+      setQueue(getQueue());
+      setOnline(isOnline());
+    } catch (e) {
+      console.error("Failed to background-refresh application data", e);
     } finally {
-      setLoading(false);
+      if (isFirstLoad) {
+        setLoading(false);
+        isFirstLoadRef.current = false;
+      }
     }
   }, []);
 

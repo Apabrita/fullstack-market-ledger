@@ -118,24 +118,23 @@ const MarketDashboard: React.FC = () => {
       activeTheme === "light" ? "bg-zinc-50 text-zinc-900" : "bg-zinc-950 text-zinc-100"
     }`}>
       {/* Laptop Header */}
-      <header className={`border-b flex flex-col sm:flex-row items-center justify-between gap-4 py-3.5 px-6 md:px-12 sticky top-0 z-50 shadow-md backdrop-blur-md bg-opacity-95 transition-colors duration-200 ${
-        activeTheme === "light" ? "bg-white border-zinc-200 text-zinc-900" : "bg-zinc-900 border-zinc-800 text-zinc-100"
+      <header className={`border-b flex flex-col sm:flex-row items-center justify-between gap-4 py-2 px-6 md:px-12 sticky top-0 z-50 shadow-sm backdrop-blur-md bg-opacity-95 transition-all duration-200 ${
+        activeTheme === "light" ? "bg-zinc-50 border-zinc-200 text-zinc-900" : "bg-[#090f1d] border-[#1d2d52]/50 text-zinc-100"
       }`}>
         <div className="flex items-center space-x-3 text-center sm:text-left select-none">
-          <div className="bg-gradient-to-tr from-teal-500 to-indigo-600 p-2.5 rounded-2xl shadow-lg ring-1 ring-white/10">
-            <Waves className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className={`text-md md:text-lg font-black font-sans tracking-tight uppercase flex items-center justify-center sm:justify-start gap-1.5 ${
-              activeTheme === "light" ? "text-zinc-900" : "text-white"
-            }`}>
-              New Fish Center <span className="text-[10px] bg-teal-500/10 border border-teal-500 text-teal-500 px-2 py-0.5 rounded font-mono font-bold tracking-widest">Laptop Hub</span>
+          <div className={`rounded-xl px-3 py-1 border font-sans select-none ${
+            activeTheme === "light"
+              ? "bg-white border-zinc-200 text-zinc-800 shadow-sm"
+              : "bg-[#02050e] border-[#1d2d52]/60 text-white shadow"
+          }`}>
+            <h1 className="text-sm font-black tracking-wider uppercase font-sans leading-none flex items-center gap-1.5">
+              NEW FISH CENTER 
+              <span className={`text-[8px] tracking-widest uppercase px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                activeTheme === "light" ? "bg-zinc-100 text-zinc-600" : "bg-zinc-800 text-teal-400 border border-teal-500/10"
+              }`}>
+                Laptop Hub
+              </span>
             </h1>
-            <p className={`text-[10px] font-mono tracking-wider lowercase ${
-              activeTheme === "light" ? "text-zinc-600" : "text-zinc-400"
-            }`}>
-              Premium Wholesale Arat Ledger & Offline-Sync Portal
-            </p>
           </div>
         </div>
 
@@ -400,39 +399,59 @@ const MarketDashboard: React.FC = () => {
         </div>
 
         {/* 2. Mobile App Header */}
-        <header className="bg-white border-b border-zinc-200 px-4 py-3 flex justify-between items-center z-45 shrink-0 select-none">
-          <div className="flex items-center gap-2">
-            <div className="bg-sky-100 text-sky-700 p-1.5 rounded-2xl">
-              <Waves className="w-4.5 h-4.5" />
-            </div>
-            <div>
-              <h2 className="text-xs font-extrabold uppercase font-sans tracking-tight text-sky-900 leading-none">
-                NEW FISH CENTER
-              </h2>
-              {isAuthenticated && activeUser ? (
-                <span className="text-[8.5px] font-bold text-emerald-600 flex items-center gap-1.5 mt-0.5 font-mono uppercase tracking-tight">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shrink-0"></span>
-                  Active: {activeUser.name}
-                </span>
-              ) : (
-                <span className="text-[8.5px] font-bold text-rose-500 flex items-center gap-1.5 mt-0.5 font-mono uppercase tracking-tight">
-                  <span className="w-1.5 h-1.5 bg-rose-500 rounded-full shrink-0"></span>
-                  Terminal Locked
-                </span>
-              )}
-            </div>
+        <header className={`border-b px-3.5 py-1.5 flex justify-between items-center z-45 shrink-0 select-none transition-colors duration-150 ${
+          activeTheme === "light" 
+            ? "bg-[#fafafa] border-zinc-200" 
+            : "bg-[#090f1d] border-[#1d2d52]/50"
+        }`}>
+          {/* New Fish Center in a beautiful small panel */}
+          <div className={`rounded-xl px-2.5 py-1 shadow-sm border font-sans select-none ${
+            activeTheme === "light"
+              ? "bg-white border-zinc-200 text-zinc-800"
+              : "bg-[#02050e] border-[#1d2d52]/60 text-white"
+          }`}>
+            <h2 className="text-[10px] font-black uppercase tracking-wider font-sans leading-none">
+              NEW FISH CENTER
+            </h2>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] bg-sky-200/50 text-sky-800 font-black px-2 py-1 rounded-2xl">
-              {activeUser?.role?.toUpperCase() || "VISITOR"}
-            </span>
-            <input 
-              type="date"
-              value={appDate}
-              onChange={(e) => setAppDate(e.target.value)}
-              className="text-[9px] font-semibold text-zinc-600 font-mono bg-transparent outline-none cursor-pointer"
-            />
+          {/* Right side group with role type, user name, and date section */}
+          <div className="flex items-center gap-2.5">
+            {/* Account role and username container */}
+            <div className="text-right flex flex-col justify-center">
+              <span className={`text-[8px] font-black uppercase tracking-wider leading-none inline-block px-1.5 py-0.5 rounded-full select-none ${
+                isAuthenticated && activeUser
+                  ? activeUser.role === "admin"
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : activeUser.role === "collector"
+                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    : "bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                  : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+              }`}>
+                {isAuthenticated && activeUser 
+                  ? activeUser.role.toUpperCase() 
+                  : "LOCKED"}
+              </span>
+              <span className={`text-[9px] font-bold mt-0.5 font-sans leading-none select-none tracking-tight ${
+                activeTheme === "light" ? "text-zinc-600" : "text-zinc-300"
+              }`}>
+                {isAuthenticated && activeUser ? activeUser.name : "System Gate"}
+              </span>
+            </div>
+
+            {/* Selectable Date Picker Panel */}
+            <div className={`flex items-center pl-2.5 border-l ${
+              activeTheme === "light" ? "border-zinc-200" : "border-zinc-800"
+            }`}>
+              <input 
+                type="date"
+                value={appDate}
+                onChange={(e) => setAppDate(e.target.value)}
+                className={`text-[9.5px] font-bold font-mono bg-transparent outline-none cursor-pointer focus:ring-0 ${
+                  activeTheme === "light" ? "text-zinc-700 hover:text-zinc-900" : "text-[#f27429] hover:text-[#ff8a43]"
+                }`}
+              />
+            </div>
           </div>
         </header>
 

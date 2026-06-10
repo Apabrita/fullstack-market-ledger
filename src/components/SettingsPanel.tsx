@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { useData } from "./DataContext";
 import { PlusCircle, Search, KeyRound, User, UserCheck, ShieldAlert, CheckSquare, RefreshCcw, Trash2, Key, Sun, Moon, Sliders, AlertCircle, Server } from "lucide-react";
-import { User as DbUser, getQueue, saveQueue, isOnline, QueueItem, executeWrite } from "../db";
+import { User as DbUser, getQueue, saveQueue, isOnline, QueueItem, executeWrite, getCredentials, saveCredentials, clearCredentials, isSyncConfigured } from "../db";
 
 interface SettingsPanelProps {
   activeUser: DbUser | null;
@@ -17,6 +17,14 @@ interface SettingsPanelProps {
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuthenticated, onLogout }) => {
   const { data, queue, write, theme, setTheme, activeTheme } = useData();
   const [showAddUserForm, setShowAddUserForm] = useState(false);
+
+  // Device Sync & Cloud Database states
+  const { url: initialUrl, anonKey: initialAnonKey } = getCredentials();
+  const [supUrl, setSupUrl] = useState(initialUrl);
+  const [supKey, setSupKey] = useState(initialAnonKey);
+  const [connectionKey, setConnectionKey] = useState("");
+  const [syncSavedSuccess, setSyncSavedSuccess] = useState(false);
+  const [showKeysRevealed, setShowKeysRevealed] = useState(false);
 
   // Archive & Database Optimization States
   const [isPruning, setIsPruning] = useState(false);
@@ -84,6 +92,71 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
       setPruningStatus("Error executing safety prune optimization.");
     } finally {
       setIsPruning(false);
+    }
+  };
+
+  // Multi-Device Pairing and Sync Controllers
+  const handleCopyConnectionKey = () => {
+    const creds = { url: supUrl, key: supKey };
+    if (!supUrl || !supKey) {
+      alert("Please configure URL and Anon Key first, or check developer environments.");
+      return;
+    }
+    const encoded = btoa(JSON.stringify(creds));
+    navigator.clipboard.writeText(encoded);
+    alert("📋 Success! Connection Key has been copied to clipboard. Paste this passcode key on your other devices to pair them instantly!");
+  };
+
+  const handleEstablishConnection = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    let targetUrl = supUrl;
+    let targetKey = supKey;
+
+    if (connectionKey.trim()) {
+      try {
+        const decoded = JSON.parse(atob(connectionKey.trim()));
+        if (decoded.url && decoded.key) {
+          targetUrl = decoded.url;
+          targetKey = decoded.key;
+          setSupUrl(targetUrl);
+          setSupKey(targetKey);
+        } else {
+          alert("Invalid Connection Key payload.");
+          return;
+        }
+      } catch (err) {
+        alert("Could not parse Connection Key. Please make sure it was copied accurately.");
+        return;
+      }
+    }
+
+    if (!targetUrl.trim() || !targetKey.trim()) {
+      alert("Please provide both database URL and Anon security key.");
+      return;
+    }
+
+    saveCredentials(targetUrl, targetKey);
+    setSyncSavedSuccess(true);
+    setTimeout(() => {
+      setSyncSavedSuccess(false);
+      // Purge default dummy cache if we are initiating connection so we can download fresh data records
+      const isConnectingNew = !initialUrl;
+      if (isConnectingNew) {
+         localStorage.removeItem("nfc_offline_cache");
+      }
+      window.location.reload();
+    }, 1500);
+  };
+
+  const handleDisconnectSync = () => {
+    if (!isAdmin) {
+      alert("Only Admin can disconnect sync database credentials.");
+      return;
+    }
+    if (confirm("Disconnect database sync? Your local transactions will still be stored in local cache and you'll run in Offline-only mode.")) {
+      clearCredentials();
+      window.location.reload();
     }
   };
 
@@ -357,7 +430,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                     </div>
                     <div>
                       <div className={`text-xs font-bold ${activeTheme === "light" ? "text-zinc-800" : "text-[#ffffff]"}`}>{u.name}</div>
-                      <div className={`text-[10px] flex items-center gap-1 font-mono ${activeTheme === "light" ? "text-zinc-550" : "text-zinc-400"}`}>
+                      <div className={`text-[10px] flex items-center gap-1 font-mono ${activeTheme === "light" ? "text-zinc-500" : "text-zinc-400"}`}>
                         PIN code: <span className="tracking-widest font-bold font-mono">••••</span> (Hint: {u.pin})
                       </div>
                     </div>
@@ -383,6 +456,148 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Device Sync & Multi-Device Connection Portal */}
+        <div className={`border rounded-2xl overflow-hidden shadow-md flex flex-col transition-colors duration-200 ${
+          activeTheme === "light" ? "bg-white border-zinc-200" : "bg-[#060a15] border-[#1d2d52]"
+        }`}>
+          <div className={`px-5 py-4 border-b flex items-center justify-between transition-colors duration-200 ${
+            activeTheme === "light" ? "bg-zinc-50 border-zinc-200" : "bg-[#0a1125] border-[#1d2d52]"
+          }`}>
+            <h4 className={`font-sans font-extrabold text-xs uppercase tracking-wider ${
+              activeTheme === "light" ? "text-zinc-800" : "text-[#f8fafc]"
+            }`}>
+              📡 Device Sync & Pair Connections
+            </h4>
+            <Server className="w-4 h-4 text-teal-500" />
+          </div>
+
+          <div className="p-5 flex-grow space-y-4">
+            <div className={`rounded-xl p-4 border space-y-3 text-xs leading-relaxed transition-colors duration-200 ${
+              activeTheme === "light" ? "bg-zinc-50 border-zinc-200 text-zinc-700" : "bg-[#030611] border-[#1d2d52] text-zinc-300"
+            }`}>
+              <div className={`font-sans font-black text-[11px] uppercase tracking-wider flex items-center gap-1 ${
+                activeTheme === "light" ? "text-zinc-800" : "text-white"
+              }`}>
+                {isSyncConfigured() ? (
+                  <span className="text-emerald-500 flex items-center gap-1">● Database Sync Active</span>
+                ) : (
+                  <span className="text-amber-500 flex items-center gap-1">▲ Local Standalone Mode</span>
+                )}
+              </div>
+              <p>
+                To synchronize your live wholesale entries, prices, and bills across multiple laptops or Android tablets, connect them to the same cloud system.
+              </p>
+
+              {isSyncConfigured() && (
+                <div className="pt-2 space-y-2">
+                  <span className="block font-bold">Copy connection key to other device:</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyConnectionKey}
+                    className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-black text-[11px] uppercase tracking-wider rounded-2xl transition duration-155 cursor-pointer shadow flex items-center justify-center gap-2"
+                  >
+                    📋 Copy Connection Passcode Key
+                  </button>
+                  <p className="text-[10px] text-zinc-400 font-sans leading-normal">
+                    Click copy and paste this passcode block on your secondary devices to synchronize them instantly!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleEstablishConnection} className="space-y-4">
+              <div className="space-y-3.5 text-xs">
+                <div>
+                  <label className={`font-bold block mb-1 ${activeTheme === "light" ? "text-zinc-700" : "text-zinc-300"}`}>
+                    Connect by Passcode / Connection Key:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={connectionKey}
+                    onChange={(e) => setConnectionKey(e.target.value)}
+                    placeholder="Paste the Base64 Connection Key copied from your main device..."
+                    className={`text-xs p-3 font-mono rounded-2xl w-full focus:outline-none focus:ring-1 ${
+                      activeTheme === "light"
+                        ? "bg-white text-zinc-900 border border-zinc-300 focus:ring-teal-500"
+                        : "bg-[#020409] text-white border border-[#1d2d52] focus:ring-[#1d2d52]"
+                    }`}
+                  />
+                </div>
+
+                {(!isSyncConfigured() || isAdmin) && (
+                  <div className="border-t border-zinc-800/40 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowKeysRevealed(!showKeysRevealed)}
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 underline block mb-2 cursor-pointer transition font-semibold"
+                    >
+                      {showKeysRevealed ? "Hide advanced manual inputs" : "Show advanced manual inputs (Supabase URL & Anon Key)"}
+                    </button>
+
+                    {showKeysRevealed && (
+                      <div className="space-y-3.5">
+                        <div>
+                          <label className="font-bold block mb-1">Database API URL:</label>
+                          <input
+                            type="text"
+                            value={supUrl}
+                            onChange={(e) => setSupUrl(e.target.value)}
+                            placeholder="https://your-project.supabase.co"
+                            className={`text-xs px-2.5 py-2 rounded-2xl w-full font-mono focus:outline-none focus:ring-1 ${
+                              activeTheme === "light"
+                                ? "bg-white text-zinc-900 border border-zinc-300 focus:ring-teal-500"
+                                : "bg-[#020409] text-white border border-[#1d2d52] focus:ring-indigo-500"
+                            }`}
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold block mb-1">Anon Security Token/Key:</label>
+                          <input
+                            type="password"
+                            value={supKey}
+                            onChange={(e) => setSupKey(e.target.value)}
+                            placeholder="eyJhbGciOi..."
+                            className={`text-xs px-2.5 py-2 rounded-2xl w-full font-mono focus:outline-none focus:ring-1 ${
+                              activeTheme === "light"
+                                ? "bg-white text-zinc-900 border border-zinc-300 focus:ring-teal-500"
+                                : "bg-[#020409] text-white border border-[#1d2d52] focus:ring-indigo-505"
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {syncSavedSuccess && (
+                <div className="text-[11px] text-center text-teal-500 font-bold p-1 bg-teal-500/10 rounded-full animate-pulse border border-teal-500/25">
+                  ✔ Connection configuration updated! Syncing registers...
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end pt-1">
+                {isSyncConfigured() && (
+                  <button
+                    type="button"
+                    onClick={handleDisconnectSync}
+                    className="px-3.5 py-2 bg-rose-955/20 hover:bg-rose-900 text-rose-455 hover:bg-rose-900/40 text-rose-400 font-bold rounded-2xl text-[11px] uppercase cursor-pointer tracking-wider border border-rose-900/40 transition"
+                  >
+                    Disconnect Cloud
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#f27429] hover:bg-[#e1631a] text-white text-[11px] font-black rounded-2xl shadow-sm cursor-pointer transition uppercase tracking-wider"
+                  title="Establish connection"
+                >
+                  Save & Connect Devices
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 

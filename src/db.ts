@@ -3,12 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
-import firebaseConfig from "../firebase-applet-config.json";
+import { createClient } from "@supabase/supabase-js";
 
 // ==========================================
-// 1. Critical Capacitor Version Bug Fix (The Interceptor Polyfill)
+// 1. Critical Capacitor Version Bug Fix
 // ==========================================
 if (typeof window !== "undefined") {
   const win = window as any;
@@ -17,21 +15,6 @@ if (typeof window !== "undefined") {
   if (!win.Capacitor.Plugins.App) {
     win.Capacitor.Plugins.App = { addListener: () => Promise.resolve({ remove: () => {} }) };
   }
-  const patchedApp = win.Capacitor.Plugins.App;
-  Object.defineProperty(win.Capacitor.Plugins, "App", {
-    get: () => patchedApp,
-    set: (nativeAppPlugin: any) => {
-      if (nativeAppPlugin && nativeAppPlugin.addListener) {
-        const realAddListener = nativeAppPlugin.addListener;
-        patchedApp.addListener = function (...args: any[]) {
-          const res = realAddListener.apply(nativeAppPlugin, args);
-          if (!res || typeof res.then !== "function") return Promise.resolve(res || { remove: () => {} });
-          return res;
-        };
-      }
-    },
-    configurable: true,
-  });
 }
 
 // ==========================================
@@ -119,25 +102,48 @@ export interface QueueItem {
 }
 
 // ==========================================
-// 3. Live Google Firebase Storage Setup
+// 3. Supabase Live Sync Setup
 // ==========================================
-let db: any = null;
-let firebaseInitialized = false;
+let supabase: any = null;
+let supabaseInitialized = false;
 
-try {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
-  firebaseInitialized = true;
-  console.log("Firebase Firestore Client synchronized perfectly!");
-} catch (err) {
-  console.warn("Firebase config initialization failed/skipped. Local Cache acts as primary storage.", err);
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || localStorage.getItem('supabase_url') || "";
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key') || "";
+
+if (supabaseUrl && supabaseAnonKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    supabaseInitialized = true;
+    console.log("Supabase Client synchronized perfectly!");
+  } catch (err) {
+    console.warn("Supabase initialization failed.", err);
+  }
 }
 
 export function isSyncConfigured(): boolean {
-  return firebaseInitialized;
+  return supabaseInitialized;
 }
 
-// Check network online status
+export function getCredentials(): { url: string; anonKey: string } {
+  const url = (import.meta as any).env.VITE_SUPABASE_URL || (typeof window !== "undefined" ? localStorage.getItem('supabase_url') : "") || "";
+  const anonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || (typeof window !== "undefined" ? localStorage.getItem('supabase_anon_key') : "") || "";
+  return { url, anonKey };
+}
+
+export function saveCredentials(url: string, key: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem('supabase_url', url.trim());
+    localStorage.setItem('supabase_anon_key', key.trim());
+  }
+}
+
+export function clearCredentials() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem('supabase_url');
+    localStorage.removeItem('supabase_anon_key');
+  }
+}
+
 export function isOnline(): boolean {
   if (typeof window !== "undefined") {
     const simulatedOffline = localStorage.getItem("nfc_simulated_offline") === "true";
@@ -169,7 +175,6 @@ const INITIAL_SEED_DATA: NFCData = {
 const CACHE_KEY = "nfc_offline_cache";
 const QUEUE_KEY = "nfc_offline_queue";
 
-// Helpers to get local cache
 export function getLocalCache(): NFCData {
   if (typeof window === "undefined") return INITIAL_SEED_DATA;
   const stored = localStorage.getItem(CACHE_KEY);
@@ -214,82 +219,51 @@ export function saveQueue(queue: QueueItem[]) {
 export async function loadAll(): Promise<NFCData> {
   let fetched: NFCData = getLocalCache();
 
-  if (firebaseInitialized && isOnline()) {
+  if (supabaseInitialized && isOnline()) {
     try {
       const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
       const dbData = {} as NFCData;
 
       const fetchCloud = Promise.all(
         keys.map(async (key) => {
-          const colRef = collection(db, key);
-          const snapshot = await getDocs(colRef);
-          const list: any[] = [];
-          snapshot.forEach((docSnap) => {
-            const docId = docSnap.id;
-            const docData = docSnap.data();
-            list.push({ id: docId, key: docId, ...docData });
-          });
-          dbData[key] = list as any;
+          const { data, error } = await supabase.from(key).select("*");
+          if (!error && data) {
+            dbData[key] = data as any;
+          } else {
+             dbData[key] = [];
+          }
         })
       );
 
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 1000));
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 3000));
       await Promise.race([fetchCloud, timeout]);
 
-      // Verify if database was empty setup to write seed
+      // Seed check
       let totalDocCount = 0;
-      keys.forEach((k) => {
-        if (dbData[k] && dbData[k].length > 0) {
-          totalDocCount += dbData[k].length;
-        }
-      });
+      keys.forEach((k) => totalDocCount += (dbData[k]?.length || 0));
 
       if (totalDocCount === 0) {
-        console.log("Firestore database is blank. Initiating market seed process...");
+        console.log("Supabase database is blank. Initiating market seed process...");
         await Promise.all(
           keys.map(async (key) => {
             const list = INITIAL_SEED_DATA[key];
-            await Promise.all(
-              list.map(async (item: any) => {
-                const itemId = item.id || item.key;
-                const docRef = doc(db, key, String(itemId));
-                await setDoc(docRef, item);
-              })
-            );
-          })
-        );
-        
-        // Re-read back
-        await Promise.all(
-          keys.map(async (key) => {
-            const colRef = collection(db, key);
-            const snapshot = await getDocs(colRef);
-            const list: any[] = [];
-            snapshot.forEach((docSnap) => {
-              const docId = docSnap.id;
-              list.push({ id: docId, key: docId, ...docSnap.data() });
-            });
+            if (list.length > 0) {
+              await supabase.from(key).upsert(list, { onConflict: key === 'settings' ? 'key' : 'id' }).catch(() => {});
+            }
             dbData[key] = list as any;
           })
         );
       }
 
       if (!dbData.users || dbData.users.length === 0) {
-        console.log("Firestore users list is empty. Provisioning default station operator accounts...");
-        const defaultUsers = INITIAL_SEED_DATA.users;
-        await Promise.all(
-          defaultUsers.map(async (u) => {
-            const docRef = doc(db, "users", String(u.id));
-            await setDoc(docRef, u);
-          })
-        );
-        dbData.users = defaultUsers;
+        await supabase.from('users').upsert(INITIAL_SEED_DATA.users).catch(() => {});
+        dbData.users = INITIAL_SEED_DATA.users;
       }
 
       fetched = dbData;
       saveLocalCache(fetched);
     } catch (e) {
-      console.warn("Google Firestore fetch failed. Reverting to persistent offline cache.", e);
+      console.warn("Supabase fetch failed... reverting to local cache.", e);
       fetched = getLocalCache();
     }
   } else {
@@ -308,23 +282,19 @@ export async function loadAll(): Promise<NFCData> {
 
     queue.forEach((item) => {
       const tableKey = item.table;
-      
-      if (!merged[tableKey]) {
-        merged[tableKey] = [];
-      }
-
+      if (!merged[tableKey]) merged[tableKey] = [];
       const tableList = merged[tableKey] as any[];
 
       switch (item.action) {
         case "insert":
-          if (!tableList.some((x) => (x.id === item.id || x.key === item.id))) {
+          if (!tableList.some((x) => String(x.id || (x as any).key) === String(item.id))) {
             tableList.push(item.payload);
           }
           break;
 
         case "update":
         case "upsert": {
-          const idx = tableList.findIndex((x) => (x.id === item.id || x.key === item.id));
+          const idx = tableList.findIndex((x) => String(x.id || (x as any).key) === String(item.id));
           if (idx !== -1) {
             tableList[idx] = { ...tableList[idx], ...item.payload };
           } else {
@@ -334,7 +304,7 @@ export async function loadAll(): Promise<NFCData> {
         }
 
         case "delete":
-          merged[tableKey] = tableList.filter((x) => (x.id !== item.id && x.key !== item.id)) as any;
+          merged[tableKey] = tableList.filter((x) => String(x.id || (x as any).key) !== String(item.id)) as any;
           break;
       }
     });
@@ -345,46 +315,80 @@ export async function loadAll(): Promise<NFCData> {
   return fetched;
 }
 
+export function getLocalOptimisticData(): NFCData {
+  const fetched = getLocalCache();
+  const queue = getQueue();
+  if (queue.length > 0) {
+    const merged: NFCData = JSON.parse(JSON.stringify(fetched));
+    queue.forEach((item) => {
+      const tableKey = item.table;
+      if (!merged[tableKey]) merged[tableKey] = [];
+      const tableList = merged[tableKey] as any[];
+
+      switch (item.action) {
+        case "insert":
+          if (!tableList.some((x) => String(x.id || (x as any).key) === String(item.id))) {
+            tableList.push(item.payload);
+          }
+          break;
+
+        case "update":
+        case "upsert": {
+          const idx = tableList.findIndex((x) => String(x.id || (x as any).key) === String(item.id));
+          if (idx !== -1) {
+            tableList[idx] = { ...tableList[idx], ...item.payload };
+          } else {
+            tableList.push(item.payload);
+          }
+          break;
+        }
+
+        case "delete":
+          merged[tableKey] = tableList.filter((x) => String(x.id || (x as any).key) !== String(item.id)) as any;
+          break;
+      }
+    });
+
+    return merged;
+  }
+  return fetched;
+}
+
 export async function executeWrite<K extends keyof NFCData>(
   table: K,
   action: "insert" | "update" | "upsert" | "delete",
   payload: any
 ): Promise<{ success: boolean; data: any; queued: boolean }> {
-  if ((action === "insert" || action === "upsert") && !payload.id) {
+  if ((action === "insert" || action === "upsert") && !payload.id && table !== 'settings') {
     payload.id = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
   }
 
   const itemId = payload.id || payload.key || ""; 
 
-  if (firebaseInitialized && isOnline()) {
+  if (supabaseInitialized && isOnline()) {
     try {
-      const docRef = doc(db, table, String(itemId));
-      if (action === "insert" || action === "upsert") {
-        await setDoc(docRef, payload);
-      } else if (action === "update") {
-        await updateDoc(docRef, payload);
+      if (action === "insert" || action === "upsert" || action === "update") {
+         await supabase.from(table).upsert(payload, { onConflict: table === 'settings' ? 'key' : 'id' });
       } else if (action === "delete") {
-        await deleteDoc(docRef);
+         const pKey = table === 'settings' ? 'key' : 'id';
+         await supabase.from(table).delete().eq(pKey, itemId);
       }
 
       await syncLocalCacheItem(table, action, payload);
       return { success: true, data: payload, queued: false };
     } catch (e) {
-      console.warn(`Firestore write fail on '${table}'. Storing inside queue.`, e);
+      console.warn(`Supabase write fail on '${table}'. Storing inside queue.`, e);
     }
   }
 
-  // Queue transactions locally when offline
   const queue = getQueue();
-  const queueItem: QueueItem = {
+  queue.push({
     id: itemId,
     table,
     action,
     payload,
     timestamp: Date.now(),
-  };
-
-  queue.push(queueItem);
+  });
   saveQueue(queue);
 
   await syncLocalCacheItem(table, action, payload);
@@ -397,7 +401,7 @@ export async function executeWrite<K extends keyof NFCData>(
 }
 
 export async function processQueue(): Promise<{ success: boolean; processed: number; remaining: number }> {
-  if (!firebaseInitialized || !isOnline()) {
+  if (!supabaseInitialized || !isOnline()) {
     return { success: false, processed: 0, remaining: getQueue().length };
   }
 
@@ -412,14 +416,12 @@ export async function processQueue(): Promise<{ success: boolean; processed: num
     try {
       const resolvedPayload = resolveTempIds(item.payload, idTempMap);
       const itemId = idTempMap[item.id] || item.id;
-      const docRef = doc(db, item.table, String(itemId));
+      const pKey = item.table === 'settings' ? 'key' : 'id';
 
-      if (item.action === "insert" || item.action === "upsert") {
-        await setDoc(docRef, resolvedPayload);
-      } else if (item.action === "update") {
-        await updateDoc(docRef, resolvedPayload);
+      if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
+        await supabase.from(item.table).upsert(resolvedPayload, { onConflict: pKey });
       } else if (item.action === "delete") {
-        await deleteDoc(docRef);
+        await supabase.from(item.table).delete().eq(pKey, itemId);
       }
 
       processedCount++;
@@ -435,7 +437,7 @@ export async function processQueue(): Promise<{ success: boolean; processed: num
     window.dispatchEvent(new Event("queue_updated"));
   }
 
-  await forceSyncFromServer();
+  await loadAll();
 
   return {
     success: remaining.length === 0,
@@ -469,13 +471,13 @@ async function syncLocalCacheItem<K extends keyof NFCData>(
 
   switch (action) {
     case "insert":
-      if (!tableList.some((x) => (x.id === itemId || x.key === itemId))) {
+      if (!tableList.some((x) => String(x.id || (x as any).key) === String(itemId))) {
         tableList.push(payload);
       }
       break;
     case "update":
     case "upsert": {
-      const idx = tableList.findIndex((x) => (payload.id ? x.id === itemId : x.key === itemId));
+      const idx = tableList.findIndex((x) => String(x.id || (x as any).key) === String(itemId));
       if (idx !== -1) {
         tableList[idx] = { ...tableList[idx], ...payload };
       } else {
@@ -484,37 +486,11 @@ async function syncLocalCacheItem<K extends keyof NFCData>(
       break;
     }
     case "delete":
-      cache[table] = tableList.filter((x) => (x.id !== itemId && x.key !== itemId)) as any;
+      cache[table] = tableList.filter((x) => String(x.id || (x as any).key) !== String(itemId)) as any;
       break;
   }
 
   saveLocalCache(cache);
-}
-
-export async function forceSyncFromServer(): Promise<boolean> {
-  if (!firebaseInitialized || !isOnline()) return false;
-  try {
-    const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
-    const dbData = {} as NFCData;
-
-    await Promise.all(
-      keys.map(async (key) => {
-        const colRef = collection(db, key);
-        const snapshot = await getDocs(colRef);
-        const list: any[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        dbData[key] = list as any;
-      })
-    );
-
-    saveLocalCache(dbData);
-    return true;
-  } catch (err) {
-    console.error("Force sync failed: ", err);
-    return false;
-  }
 }
 
 export function clearAllLocalState() {
@@ -525,36 +501,34 @@ export function clearAllLocalState() {
 }
 
 export async function wipeAllData(): Promise<void> {
-  if (!firebaseInitialized || !isOnline()) {
+  if (!supabaseInitialized || !isOnline()) {
     throw new Error("System must be online to perform a full cloud wipe.");
   }
   
   const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
   for (const key of keys) {
-    const colRef = collection(db, key);
-    const snapshot = await getDocs(colRef);
-    for (const docSnap of snapshot.docs) {
-      await deleteDoc(doc(db, key, docSnap.id));
-    }
+     const pKey = key === 'settings' ? 'key' : 'id';
+     const { data } = await supabase.from(key).select(pKey);
+     if (data) {
+       for (const doc of data) {
+         await supabase.from(key).delete().eq(pKey, doc[pKey]);
+       }
+     }
   }
   
   clearAllLocalState();
-
-  // Restore the core admin user so you don't get locked out
-  await setDoc(doc(db, "users", "u-1"), { id: "u-1", name: "Admin Setup", pin: "2255", role: "admin" });
-  await setDoc(doc(db, "users", "u-2"), { id: "u-2", name: "Auctioneer Setup", pin: "1122", role: "auctioneer" });
-  await setDoc(doc(db, "users", "u-3"), { id: "u-3", name: "Collector Setup", pin: "3344", role: "collector" });
-  await setDoc(doc(db, "settings", "halkhata_pin"), { key: "halkhata_pin", value: "9988" });
+  
+  await supabase.from('users').upsert(INITIAL_SEED_DATA.users);
+  await supabase.from('settings').upsert(INITIAL_SEED_DATA.settings);
   
   window.location.reload();
 }
 
-// Window online hook
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
-    forceSyncFromServer()
+    loadAll()
       .then(() => {
-        console.log("Synchronized fresh Firestore snapshot.");
+        console.log("Synchronized fresh Supabase snapshot.");
       })
       .catch((e) => console.error("Snapshot sync failed", e))
       .finally(() => {
@@ -569,77 +543,44 @@ if (typeof window !== "undefined") {
   });
 }
 
-// ==========================================
-// 6. User Verification & Subscriptions
-// ==========================================
-
 export async function authenticateUserWithPIN(
   userId: string | number,
   pin: string
 ): Promise<{ success: boolean; user?: User }> {
-  if (firebaseInitialized && isOnline()) {
-    try {
-      const cache = getLocalCache();
-      const matchedUser = cache.users.find((u) => String(u.id) === String(userId) && u.pin === pin);
-      if (matchedUser) {
-        return { success: true, user: matchedUser };
-      }
-    } catch (e) {
-      console.warn("Firestore user PIN mismatch, reverting to local offline state", e);
-    }
-  }
-
-  const cache = getLocalCache();
-  const matchedUser = cache.users.find((u) => String(u.id) === String(userId) && u.pin === pin);
-  if (matchedUser) {
-    return { success: true, user: matchedUser };
-  }
+  try {
+     const cache = getLocalCache();
+     let matchedUser = cache.users.find((u) => String(u.id) === String(userId) && String(u.pin) === String(pin));
+     if (matchedUser) return { success: true, user: matchedUser };
+  } catch(e) {}
   return { success: false };
 }
 
-import { onSnapshot } from "firebase/firestore";
-
 export function setupRealtimeSubscriptions(onUpdate?: () => void): () => void {
-  if (!firebaseInitialized) {
-    console.log("Skipping realtime Firestore listener (Demo/local Mode)");
-    return () => {};
-  }
+  if (!supabaseInitialized) return () => {};
 
-  const tables: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
-  const unsubs: (() => void)[] = [];
+  const tables = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
+  const channels: any[] = [];
 
-  console.log("Setting up Cloud Firestore Realtime listeners:", tables);
-
-  tables.forEach((key) => {
-    try {
-      const unsub = onSnapshot(collection(db, key), (snapshot) => {
-        snapshot.docChanges().forEach(async (change) => {
-          let action: "insert" | "update" | "delete" | "upsert" = "upsert";
-          if (change.type === "added") action = "insert";
-          else if (change.type === "modified") action = "update";
-          else if (change.type === "removed") action = "delete";
-
-          const dataWithId = { id: change.doc.id, ...change.doc.data() };
-          await syncLocalCacheItem(key, action, dataWithId);
-        });
-
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("queue_updated"));
-        }
-        if (onUpdate) {
-          onUpdate();
-        }
-      }, (err) => {
-        console.warn(`Firestore Real-time subscription error for table ${key}:`, err);
-      });
-      unsubs.push(unsub);
-    } catch (err) {
-      console.error(`Failed to subscribe to Firestore collection ${key}:`, err);
-    }
+  tables.forEach((table) => {
+    const channel = supabase.channel(`public:${table}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table }, (payload: any) => {
+         let action: any = "upsert";
+         if (payload.eventType === 'DELETE') action = "delete";
+         
+         const record = payload.new || { id: payload.old?.id, key: payload.old?.key };
+         syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("queue_updated"));
+            }
+            if (onUpdate) onUpdate();
+         });
+      })
+      .subscribe();
+      
+    channels.push(channel);
   });
 
   return () => {
-    console.log("Cleaning up active Firebase Real-time listeners.");
-    unsubs.forEach((unsub) => unsub());
+    channels.forEach(ch => supabase.removeChannel(ch));
   };
 }

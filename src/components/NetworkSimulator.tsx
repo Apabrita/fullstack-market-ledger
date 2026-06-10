@@ -192,9 +192,26 @@ export const NetworkSimulator: React.FC = () => {
         </button>
       </div>
 
-      {!syncConfigured && (
+      {!syncConfigured ? (
         <div className="p-3 bg-teal-950/20 text-zinc-400 border border-teal-900/30 rounded-2xl text-[11px] leading-relaxed">
           💡 <strong>Demo Mode Enabled</strong>: All reads & writes accumulate instantly in client's local storage and support optimistic layouts! To wire real Supabase persistence: configure your <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> credentials in your project secrets.
+        </div>
+      ) : (
+        <div className="p-3 bg-indigo-950/20 text-indigo-200 border border-indigo-900/40 rounded-2xl text-[11px] leading-relaxed space-y-2">
+          <div>🚀 <strong>Supabase Connected!</strong> Ensure your Supabase project has the correct tables created before data can sync perfectly.</div>
+          <div className="text-[10px] text-indigo-300">If your cloud database is newly created, run the initial table schema setup in your Supabase SQL Editor:
+          </div>
+          <textarea 
+             readOnly 
+             className="w-full h-24 bg-zinc-950 border border-zinc-800 text-zinc-400 p-2 text-[9px] font-mono rounded"
+             defaultValue={`CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT );
+CREATE TABLE IF NOT EXISTS buyers ( id TEXT PRIMARY KEY, nickname TEXT, lifetime_debt NUMERIC, credit_limit NUMERIC );
+CREATE TABLE IF NOT EXISTS sources ( id TEXT PRIMARY KEY, name TEXT, rate_per_kg NUMERIC, date TEXT, is_completed BOOLEAN, is_archived BOOLEAN );
+CREATE TABLE IF NOT EXISTS transactions ( id TEXT PRIMARY KEY, source_id TEXT, buyer_id TEXT, weight NUMERIC, price_per_kg NUMERIC, total_price NUMERIC, date TEXT, fish_type TEXT, added_by TEXT );
+CREATE TABLE IF NOT EXISTS daily_collections ( id TEXT PRIMARY KEY, buyer_id TEXT, date TEXT, total_owed_today NUMERIC, amount_paid NUMERIC, is_rolled_over BOOLEAN, is_approved BOOLEAN );
+CREATE TABLE IF NOT EXISTS source_payments ( id TEXT PRIMARY KEY, source_id TEXT, date TEXT, total_kg NUMERIC, rate_per_kg NUMERIC, sale_total NUMERIC, amount_paid_to_source NUMERIC, commission NUMERIC, is_settled BOOLEAN );
+CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );`}
+          />
         </div>
       )}
     </div>

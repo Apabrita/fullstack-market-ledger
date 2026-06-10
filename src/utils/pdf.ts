@@ -61,16 +61,16 @@ export const shareAsPDF = async (
   try {
     // ⬇️ Lower the scale slightly for mobile to aggressively prevent OOM (Out of Memory) crashes on long scrollable print views.
     const isMobile = Capacitor.isNativePlatform() || window.innerWidth < 768;
-    const canvasScale = isMobile ? 1 : 1.5;
+    const canvasScale = isMobile ? 1.5 : 2;
 
     // A small delay to let image fetching or fonts process on the cloned node
     await new Promise(resolve => setTimeout(resolve, 100));
 
     // Use html-to-image instead of html2canvas to natively support OKLCH and modern CSS in webview
     const imgDataUrl = await toJpeg(clone, {
-      quality: 0.85,
+      quality: 1.0,
       backgroundColor: '#ffffff',
-      pixelRatio: canvasScale,
+      pixelRatio: 4, // Ultra crisp
       style: {
         transform: 'scale(1)',
         transformOrigin: 'top left',
@@ -86,6 +86,7 @@ export const shareAsPDF = async (
 
     const imgProps = pdf.getImageProperties(imgDataUrl);
     const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     const canvasWidth = imgProps.width;
     const canvasHeight = imgProps.height;
     
@@ -95,17 +96,30 @@ export const shareAsPDF = async (
 
     const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth;
 
-    const pageHeight = pdf.internal.pageSize.getHeight();
     let heightLeft = pdfHeight;
     let position = 0;
+    let pageNum = 1;
 
     pdf.addImage(imgDataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+    
+    // Add page number to first page
+    pdf.setFontSize(10);
+    pdf.setTextColor(150);
+    pdf.text(`Page ${pageNum}`, pdfWidth / 2, pageHeight - 5, { align: 'center' });
+    
     heightLeft -= pageHeight;
 
-    while (heightLeft >= 0) {
+    while (heightLeft > 0) {
       position = heightLeft - pdfHeight;
       pdf.addPage();
       pdf.addImage(imgDataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
+      pageNum++;
+      
+      // Blank out the top margin if there is content overflowing from previous
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(0, 0, pdfWidth, 10, 'F');
+      
+      pdf.text(`Page ${pageNum}`, pdfWidth / 2, pageHeight - 5, { align: 'center' });
       heightLeft -= pageHeight;
     }
 

@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from "react";
 import { useData } from "./DataContext";
 import { Anchor, User, Scale, TrendingUp, AlertCircle, Sparkles, Check, Edit2, Play, Lock, Trash2, ArrowRight, X, ChevronRight, UserPlus, CreditCard } from "lucide-react";
-import { User as DbUser, getLocalCache } from "../db";
+import { User as DbUser, loadAll } from "../db";
 import { motion, AnimatePresence } from "motion/react";
 
 interface TransactionPanelProps {
@@ -69,13 +69,114 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const canWrite = isAuthenticated && (activeUser?.role === "admin" || activeUser?.role === "auctioneer");
 
   // State managers
-  const [activeSourceId, setActiveSourceId] = useState<string | number | null>(null);
-  const [buyer, setBuyer] = useState<any>(null);
-  const [fishType, setFishType] = useState("");
+  const [activeSourceId, setActiveSourceId] = useState<string | number | null>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nfc_active_source_id");
+      return saved ? saved : null;
+    }
+    return null;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (activeSourceId) {
+        localStorage.setItem("nfc_active_source_id", String(activeSourceId));
+      } else {
+        localStorage.removeItem("nfc_active_source_id");
+      }
+    }
+  }, [activeSourceId]);
+
+  const store_settings = data?.settings || [];
+  const sessionEndedSetting = store_settings.find((s: any) => s.key === `auction_session_ended_${appDate}`);
+  const [isAuctionSessionEnded, setIsAuctionSessionEnded] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(`nfc_auction_session_ended_${appDate}`) === "true";
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (sessionEndedSetting) {
+      setIsAuctionSessionEnded(sessionEndedSetting.value === "true");
+    }
+  }, [sessionEndedSetting]);
+
+  const [buyer, setBuyer] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nfc_draft_buyer");
+      try {
+        return saved ? JSON.parse(saved) : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [fishType, setFishType] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("nfc_draft_fish_type") || "";
+    }
+    return "";
+  });
+
   const [isFishInputFocused, setIsFishInputFocused] = useState(false);
-  const [weight, setWeight] = useState("");
-  const [price, setPrice] = useState("");
-  const [field, setField] = useState<"weight" | "price">("weight");
+  const [weight, setWeight] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("nfc_draft_weight") || "";
+    }
+    return "";
+  });
+
+  const [price, setPrice] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("nfc_draft_price") || "";
+    }
+    return "";
+  });
+
+  const [field, setField] = useState<"weight" | "price">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nfc_draft_field");
+      return (saved === "weight" || saved === "price") ? saved : "weight";
+    }
+    return "weight";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (buyer) {
+        localStorage.setItem("nfc_draft_buyer", JSON.stringify(buyer));
+      } else {
+        localStorage.removeItem("nfc_draft_buyer");
+      }
+    }
+  }, [buyer]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nfc_draft_fish_type", fishType);
+    }
+  }, [fishType]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nfc_draft_weight", weight);
+    }
+  }, [weight]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nfc_draft_price", price);
+    }
+  }, [price]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nfc_draft_field", field);
+    }
+  }, [field]);
 
   const [showPicker, setShowPicker] = useState(false);
   const [showSrcInput, setShowSrcInput] = useState(false);
@@ -86,6 +187,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const [loading, setLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [isNumpadDown, setIsNumpadDown] = useState(false);
+  const [showEndAuctionConfirm, setShowEndAuctionConfirm] = useState(false);
 
   // Source editing state variables
   const [isEditingSource, setIsEditingSource] = useState(false);
@@ -176,7 +278,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
     if (!activeSrc) return;
     await write("sources", "update", { ...activeSrc, is_completed: true });
     
-    // Auto-create source payment slip structure inside ledger
+    // Auto-create or Update source payment slip structure inside ledger
     const existing = store.source_payments.find((p) => p.source_id === activeSrc.id);
     if (!existing) {
       await write("source_payments", "insert", {
@@ -190,7 +292,14 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         commission: 0,
         is_settled: false,
       });
+    } else {
+      await write("source_payments", "update", {
+        ...existing,
+        total_kg: totalKg,
+        sale_total: totalAmt,
+      });
     }
+    setActiveSourceId(null);
     doFlash("🔒 Source Marked Sold!");
   };
 
@@ -204,8 +313,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   };
 
   const rebuildCollection = async (buyerId: string, date: string) => {
-    // To ensure precision immediately after a write, we pull the freshest data from local storage
-    const latestData = getLocalCache();
+    // To ensure precision immediately after a write, we pull the freshest data (queue merged)
+    const latestData = await loadAll();
     const txns = latestData.transactions.filter((t) => t.buyer_id === buyerId && t.date === date);
     const total = txns.reduce((sum, t) => sum + (t.total_price || 0), 0);
     
@@ -418,44 +527,56 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       )}
 
       {/* 1. Source Unloading Session bar */}
-      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 p-4 shrink-0 space-y-4">
-        {/* Dynamic active chips */}
-        <div className="flex flex-wrap gap-2 items-center">
-          {todaySources.map((src) => {
-            const isActive = src.id === activeSourceId && !src.is_completed;
-            const isCompleted = src.is_completed;
-            return (
-              <button
-                key={src.id}
-                onClick={() => {
-                  setActiveSourceId(src.id);
-                  setConfirmClear(false);
-                }}
-                className={`px-4 py-2 text-xs font-bold rounded-full border transition flex items-center gap-1.5 cursor-pointer selection:hidden select-none ${
-                  isActive
-                    ? "bg-sky-600 text-white border-sky-400 font-extrabold shadow-md transform scale-105"
-                    : isCompleted
-                    ? "bg-zinc-900 text-zinc-500 border-zinc-800 line-through decoration-slate-600"
-                    : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800"
-                }`}
-              >
-                {isCompleted ? <Lock className="w-3 h-3 text-amber-500 shrink-0" /> : <Anchor className="w-3 h-3 text-sky-400 shrink-0" />}
-                <span>{src.name}</span>
-                {src.rate_per_kg > 0 && <span className="opacity-60 text-[9.5px]">₹{src.rate_per_kg}</span>}
-              </button>
-            );
-          })}
+      <div className="bg-gradient-to-b from-zinc-900 to-zinc-950 border-b border-zinc-800 p-3 shrink-0 space-y-2">
+        {/* Consolidated row for dynamic action chips and end session toggle */}
+        <div className="flex flex-wrap gap-2 items-center justify-between">
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {todaySources.map((src) => {
+              const isActive = src.id === activeSourceId && !src.is_completed;
+              const isCompleted = src.is_completed;
+              return (
+                <button
+                  key={src.id}
+                  onClick={() => {
+                    setActiveSourceId(src.id);
+                    setConfirmClear(false);
+                  }}
+                  className={`px-3 py-1.5 text-[11px] font-bold rounded-full border transition flex items-center gap-1.5 cursor-pointer selection:hidden select-none ${
+                    isActive
+                      ? "bg-sky-600 text-white border-sky-400 font-extrabold shadow-md transform scale-102"
+                      : isCompleted
+                      ? "bg-zinc-900/60 text-zinc-500 border-zinc-800/80 line-through decoration-slate-600"
+                      : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800"
+                  }`}
+                >
+                  {isCompleted ? <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" /> : <Anchor className="w-2.5 h-2.5 text-sky-400 shrink-0" />}
+                  <span>{src.name}</span>
+                  {src.rate_per_kg > 0 && <span className="opacity-60 text-[9px] font-mono">₹{src.rate_per_kg}</span>}
+                </button>
+              );
+            })}
 
-          {!showSrcInput && (
+            {!showSrcInput && (
+              <button
+                onClick={() => {
+                  setSrcName("");
+                  setSrcRate("");
+                  setShowSrcInput(true);
+                }}
+                className="px-3 py-1.5 text-[11px] font-bold border border-dashed border-amber-600 rounded-full text-amber-500 hover:text-amber-400 hover:bg-amber-500/5 transition cursor-pointer select-none"
+              >
+                + New Source
+              </button>
+            )}
+          </div>
+
+          {!isAuctionSessionEnded && (
             <button
-              onClick={() => {
-                setSrcName("");
-                setSrcRate("");
-                setShowSrcInput(true);
-              }}
-              className="px-4 py-2 text-xs font-bold border-1.5 border-dashed border-amber-600 rounded-full text-amber-500 hover:text-amber-400 hover:bg-amber-500/5 transition cursor-pointer select-none"
+              onClick={() => setShowEndAuctionConfirm(true)}
+              className="px-2.5 py-1.5 bg-rose-600/90 hover:bg-rose-700 text-white font-extrabold rounded-full text-[9px] tracking-wide uppercase transition duration-150 cursor-pointer shadow-sm border border-rose-500/10 flex items-center justify-center gap-1 shrink-0"
+              title="End the auction session for today"
             >
-              + New Source
+              ✕ Close Today's Auction
             </button>
           )}
         </div>
@@ -612,322 +733,422 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         )}
       </div>
 
-      {/* 2. Scrollable Transaction Audit Log */}
-      <div className="flex-grow overflow-y-auto p-4 space-y-4">
-        {/* Dynamic Aggregated Metrics cards row */}
-        <div className="grid grid-cols-3 gap-2 shrink-0">
-          {[
-            ["TOTAL KG", fmtKg(totalKg), "text-amber-500", "border-amber-500/20"],
-            ["REVENUE", fmt(totalAmt), "text-emerald-400", "border-emerald-500/20"],
-            ["MEAN BID", totalKg > 0 ? fmt(totalAmt / totalKg) + "/kg" : "—", "text-sky-400", "border-sky-500/20"],
-          ].map(([label, value, textColor, borderColor]) => (
-            <div
-              key={label}
-              className={`bg-gradient-to-br from-zinc-900 to-zinc-950 border ${borderColor} rounded-2xl py-2.5 px-1 text-center select-none shadow-sm`}
-            >
-              <div className="text-[8px] text-zinc-500 font-extrabold uppercase font-sans tracking-widest">{label}</div>
-              <div className={`text-sm md:text-base font-black font-mono mt-1 ${textColor}`}>{value}</div>
+      {/* Confirmation End Session Modal Popup Dialog */}
+      {showEndAuctionConfirm && (
+        <div className="inset-0 absolute bg-zinc-950/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-center space-y-5">
+            <div className="w-14 h-14 bg-rose-500/10 border border-rose-500/35 rounded-full flex items-center justify-center mx-auto text-rose-500">
+              <AlertCircle className="w-7 h-7" />
             </div>
-          ))}
+            <div className="space-y-1.5 text-center">
+              <h4 className="font-extrabold text-md uppercase text-zinc-100 tracking-tight">End today's auction?</h4>
+              <p className="text-zinc-400 text-[11px] leading-relaxed">
+                Are you sure you want to end the auction for today? This action is reversible, but it will clear the active auction screen and entries panel until reopened.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                onClick={async () => {
+                  setIsAuctionSessionEnded(true);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem(`nfc_auction_session_ended_${appDate}`, "true");
+                    // Clear current draft selections
+                    localStorage.removeItem("nfc_draft_buyer");
+                    localStorage.removeItem("nfc_draft_fish_type");
+                    localStorage.removeItem("nfc_draft_weight");
+                    localStorage.removeItem("nfc_draft_price");
+                    localStorage.removeItem("nfc_draft_field");
+                    localStorage.removeItem("nfc_active_source_id");
+                  }
+                  setBuyer(null);
+                  setWeight("");
+                  setPrice("");
+                  setFishType("");
+                  setField("weight");
+                  setActiveSourceId(null);
+                  
+                  // Upsert setting in DB
+                  await write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "true" });
+                  
+                  setShowEndAuctionConfirm(false);
+                  doFlash("🔒 Auction Session Ended Successfully!");
+                }}
+                className="flex-grow sm:flex-none px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black rounded-2xl transition shadow cursor-pointer uppercase tracking-tight"
+              >
+                Yes, End Session
+              </button>
+              <button
+                onClick={() => setShowEndAuctionConfirm(false)}
+                className="flex-grow sm:flex-none px-5 py-2.5 bg-zinc-850 hover:bg-zinc-800 border border-zinc-805 border-zinc-800 text-zinc-300 text-[11px] font-bold rounded-2xl transition cursor-pointer uppercase tracking-tight"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Empty placeholder if no recorded logs */}
-        {activeTxns.length === 0 && (
-          <div className="text-center py-20 text-zinc-500 text-xs font-sans space-y-2 select-none">
-            <div className="text-2xl animate-bounce">🎣</div>
-            <div className="font-bold">No transactions found for this source.</div>
-            <p className="text-[10.5px] text-zinc-600 max-w-sm mx-auto">
-              Select or register a source chip above, pick your buyer nickname at the bottom, and enter weights on the custom keypad.
+      {/* 2. Scrollable Transaction Audit Log */}
+      {isAuctionSessionEnded ? (
+        <div className="flex-grow flex flex-col items-center justify-center p-6 text-center space-y-5 select-none bg-gradient-to-b from-zinc-950 to-zinc-900 overflow-y-auto">
+          <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 rounded-full flex items-center justify-center text-rose-500 animate-pulse shadow-sm animate-scaleUp">
+            <Lock className="w-8 h-8" />
+          </div>
+          
+          <div className="space-y-1.5 max-w-sm">
+            <h4 className="text-sm font-black tracking-tight uppercase text-zinc-100">
+              Auction Session Closed
+            </h4>
+            <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
+              All transactions have been finalized and the digital auction slate has been closed for <span className="font-mono text-amber-500 font-bold">{appDate}</span>.
             </p>
           </div>
-        )}
 
-        {/* Table representation but mobile-first scrolling Cards */}
-        <div className="space-y-2 animate-fadeIn">
-          {[...activeTxns].reverse().map((t) => {
-            const b = store.buyers.find((x) => x.id === t.buyer_id);
-            const canEdit = canWrite;
-            return (
-              <div
-                key={t.id}
-                className="flex justify-between items-center bg-zinc-900/40 border border-zinc-800 rounded-2xl p-3 shadow-inner hover:bg-zinc-900 transition duration-150"
-              >
-                <div className="flex-grow">
-                  <div className="text-xs md:text-sm font-extrabold text-zinc-200 uppercase tracking-tight flex items-center flex-wrap gap-1.5 font-sans">
-                    <span>{b?.nickname || "Direct Spot Cash"}</span>
-                    {t.fish_type && (
-                      <span className="text-[9.5px] uppercase font-bold text-sky-500 text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded-full border border-sky-400/10">
-                        {t.fish_type}
-                      </span>
-                    )}
-                    {t.added_by && (
-                      <span className="text-[9px] font-medium font-mono text-zinc-500 lowercase">
-                        ({t.added_by})
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-[10.5px] text-zinc-400 font-mono mt-1">
-                    {t.weight.toFixed(2)} kg × ₹{t.price_per_kg}/kg
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="text-xs md:text-sm font-black font-mono text-emerald-400 text-right">
-                    {fmt(t.total_price)}
-                  </div>
-                  {canEdit && (
-                    <button
-                      onClick={() => setEditTxn(t)}
-                      className="p-1.5 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-2xl cursor-pointer transition text-[11px]"
-                      title="Adjust Record"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. Static Tactile POS Entry Drawer */}
-      <div className="shrink-0 border-t-2 border-zinc-800 bg-zinc-900 p-3 select-none flex flex-col gap-2.5 z-10 shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
-        {/* Compact Wholesale Buyer Box and Mini Keypad Toggle side-by-side */}
-        <div className="flex gap-1.5 items-center justify-between">
-          <button
-            onClick={() => setShowPicker(true)}
-            className={`w-[84%] py-1.5 px-2.5 rounded-2xl text-center cursor-pointer flex items-center justify-center gap-1 border font-extrabold text-[10px] uppercase tracking-wider select-none selection:hidden transition-all duration-150 focus:outline-none ${
-              buyer
-                ? "bg-amber-600 text-white border-amber-500 shadow-md"
-                : "bg-zinc-950 text-zinc-400 border-zinc-800 hover:bg-zinc-900"
-            }`}
-          >
-            <User className="w-2.5 h-2.5 shrink-0" />
-            <span className="truncate">{buyer ? `🧑 ${buyer.nickname}` : "👤 Pick Buyer"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsNumpadDown(!isNumpadDown)}
-            className={`w-[14%] flex-shrink-0 py-1.5 px-1 border rounded-2xl font-black text-[10px] uppercase cursor-pointer flex items-center justify-center select-none transition-all ${
-              isNumpadDown
-                ? "bg-zinc-950 text-zinc-500 border-zinc-800 hover:bg-zinc-900"
-                : "bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700"
-            }`}
-            title={isNumpadDown ? "Show Custom Keypad" : "Hide Custom Keypad"}
-          >
-            <span>{isNumpadDown ? "⌨️" : "✕ ⌨️"}</span>
-          </button>
-        </div>
-
-
-
-          {/* Crate Name / No. entry & chip helper row */}
-        <div className="flex flex-col gap-1.5 relative">
-          <div className="flex gap-2 relative">
-            <input
-              type="text"
-              value={fishType}
-              onChange={(e) => setFishType(e.target.value)}
-              onFocus={() => setIsFishInputFocused(true)}
-              onBlur={() => setTimeout(() => setIsFishInputFocused(false), 200)}
-              placeholder="📦 Enter Crate Name / No...."
-              className={`w-full text-xs font-semibold bg-zinc-950 p-2 text-zinc-200 placeholder-slate-600 rounded-2xl border outline-none focus:ring-1 focus:ring-sky-500 transition-all font-sans ${
-                fishType ? "border-sky-500/60" : "border-zinc-800"
-              }`}
-            />
-            {fishType && (
-              <button
-                onClick={() => setFishType("")}
-                className="absolute right-2 top-2 text-rose-500 p-0.5 hover:bg-rose-500/10 rounded cursor-pointer z-10"
-              >
-                ✕
-              </button>
-            )}
+          <div className="grid grid-cols-2 gap-2.5 w-full max-w-sm bg-zinc-900/60 border border-zinc-800 p-4 rounded-2xl text-left shadow-md">
+            <div className="border-r border-zinc-800/80 pr-2">
+              <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider block">Daily Total Volume</span>
+              <span className="text-xs font-black text-amber-500 font-mono mt-0.5 block">{fmtKg(store.transactions.reduce((sum, t) => sum + (t.weight || 0), 0))}</span>
+            </div>
+            <div className="pl-3">
+              <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider block">Completed Turnover</span>
+              <span className="text-xs font-black text-emerald-400 font-mono mt-0.5 block">{fmt(store.transactions.reduce((sum, t) => sum + (t.total_price || 0), 0))}</span>
+            </div>
           </div>
 
-          {/* Crate contextual pill tags suggestions */}
-          {isFishInputFocused && fishSuggestions.length > 0 && !fishSuggestions.some(s => s.toLowerCase() === fishType.toLowerCase()) && (
-            <div className="flex flex-wrap gap-1.5 overflow-x-auto scrollbar-none py-0.5 select-none absolute top-full left-0 right-0 z-20 bg-zinc-900 border border-zinc-800 p-2 rounded-2xl shadow-2xl shadow-black/10 mt-1">
-              {fishSuggestions
-                .filter((s) => !fishType || s.toLowerCase().startsWith(fishType.toLowerCase()))
-                .map((s) => (
-                  <button
-                    key={s}
-                    onMouseDown={(e) => {
-                      e.preventDefault(); // Prevent blur when clicking
-                    }}
-                    onClick={() => {
-                      setFishType(s);
-                      setIsFishInputFocused(false);
-                    }}
-                    className="px-3 py-1.5 text-[10.5px] font-extrabold rounded-full border transition flex items-center justify-center cursor-pointer select-none bg-zinc-950 border-zinc-800/70 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
-                  >
-                    {s}
-                  </button>
-                ))}
-            </div>
-          )}
+          <div className="space-y-3 w-full max-w-xs pt-1 animate-fadeIn">
+            <button
+              onClick={async () => {
+                setIsAuctionSessionEnded(false);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem(`nfc_auction_session_ended_${appDate}`, "false");
+                }
+                await write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "false" });
+                doFlash("🔓 Auction Session Reopened!");
+              }}
+              className="w-full bg-slate-100 hover:bg-white text-zinc-950 font-black rounded-xl py-2.5 text-xs tracking-wider cursor-pointer uppercase transition duration-150 shadow shadow-white/5 border border-white/20 block"
+            >
+              🔓 Reopen Auction Session
+            </button>
+            <p className="text-[9.5px] text-zinc-500 font-sans leading-normal">
+              Reopening will restore custom numeric keypads, source slots, and enable active buyer record logging.
+            </p>
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="flex-grow overflow-y-auto p-4 space-y-4">
+            {/* Dynamic Aggregated Metrics cards row */}
+            <div className="grid grid-cols-3 gap-2 shrink-0">
+              {[
+                ["TOTAL KG", fmtKg(totalKg), "text-amber-500", "border-amber-500/20"],
+                ["REVENUE", fmt(totalAmt), "text-emerald-400", "border-emerald-500/20"],
+                ["MEAN BID", totalKg > 0 ? fmt(totalAmt / totalKg) + "/kg" : "—", "text-sky-400", "border-sky-500/20"],
+              ].map(([label, value, textColor, borderColor]) => (
+                <div
+                  key={label}
+                  className={`bg-gradient-to-br from-zinc-900 to-zinc-950 border ${borderColor} rounded-2xl py-2.5 px-1 text-center select-none shadow-sm`}
+                >
+                  <div className="text-[8px] text-zinc-500 font-extrabold uppercase font-sans tracking-widest">{label}</div>
+                  <div className={`text-sm md:text-base font-black font-mono mt-1 ${textColor}`}>{value}</div>
+                </div>
+              ))}
+            </div>
 
-        {/* Side-by-side WEIGHT (kg) and PRICE/kg box containers */}
-        <div className="grid grid-cols-2 gap-2 text-left shrink-0">
-          {[
-            ["WEIGHT (kg)", weight, "weight"],
-            ["PRICE/kg (₹)", price, "price"],
-          ].map(([label, val, f]) => {
-            const isActive = field === f;
-            return (
-              <div
-                key={f}
-                onClick={() => setField(f as any)}
-                className={`p-2 rounded-2xl transition duration-150 cursor-pointer flex flex-col justify-between select-none ${
-                  isActive
-                    ? "bg-zinc-955 border-2 border-amber-500 bg-zinc-950 shadow-inner scale-[1.01]"
-                    : "bg-zinc-950 border-2 border-zinc-800/80 hover:border-zinc-800"
+            {/* Empty placeholder if no recorded logs */}
+            {activeTxns.length === 0 && (
+              <div className="text-center py-20 text-zinc-500 text-xs font-sans space-y-2 select-none">
+                <div className="text-2xl animate-bounce">🎣</div>
+                <div className="font-bold">No transactions found for this source.</div>
+                <p className="text-[10.5px] text-zinc-600 max-w-sm mx-auto">
+                  Select or register a source chip above, pick your buyer nickname at the bottom, and enter weights on the custom keypad.
+                </p>
+              </div>
+            )}
+
+            {/* Table representation but mobile-first scrolling Cards */}
+            <div className="space-y-2 animate-fadeIn">
+              {[...activeTxns].reverse().map((t) => {
+                const b = store.buyers.find((x) => x.id === t.buyer_id);
+                const canEdit = canWrite;
+                return (
+                  <div
+                    key={t.id}
+                    className="flex justify-between items-center bg-zinc-900/40 border border-zinc-800 rounded-2xl p-3 shadow-inner hover:bg-zinc-900 transition duration-150"
+                  >
+                    <div className="flex-grow">
+                      <div className="text-xs md:text-sm font-extrabold text-zinc-200 uppercase tracking-tight flex items-center flex-wrap gap-1.5 font-sans">
+                        <span>{b?.nickname || "Direct Spot Cash"}</span>
+                        {t.fish_type && (
+                          <span className="text-[9.5px] uppercase font-bold text-sky-500 text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded-full border border-sky-400/10">
+                            {t.fish_type}
+                          </span>
+                        )}
+                        {t.added_by && (
+                          <span className="text-[9px] font-medium font-mono text-zinc-500 lowercase">
+                            ({t.added_by})
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10.5px] text-zinc-400 font-mono mt-1">
+                        {t.weight.toFixed(2)} kg × ₹{t.price_per_kg}/kg
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs md:text-sm font-black font-mono text-emerald-400 text-right">
+                        {fmt(t.total_price)}
+                      </div>
+                      {canEdit && (
+                        <button
+                          onClick={() => setEditTxn(t)}
+                          className="p-1.5 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-white rounded-2xl cursor-pointer transition text-[11px]"
+                          title="Adjust Record"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3. Static Tactile POS Entry Drawer */}
+          <div className="shrink-0 border-t-2 border-zinc-800 bg-zinc-900 p-3 select-none flex flex-col gap-2.5 z-10 shadow-[0_-5px_20px_rgba(0,0,0,0.3)]">
+            {/* Compact Wholesale Buyer Box and Mini Keypad Toggle side-by-side */}
+            <div className="flex gap-1.5 items-center justify-between">
+              <button
+                onClick={() => setShowPicker(true)}
+                className={`w-[84%] py-1.5 px-2.5 rounded-2xl text-center cursor-pointer flex items-center justify-center gap-1 border font-extrabold text-[10px] uppercase tracking-wider select-none selection:hidden transition-all duration-150 focus:outline-none ${
+                  buyer
+                    ? "bg-amber-600 text-white border-amber-500 shadow-md"
+                    : "bg-zinc-950 text-zinc-400 border-zinc-800 hover:bg-zinc-900"
                 }`}
               >
-                <div className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider font-sans select-none">{label}</div>
-                <div className="text-lg md:text-xl font-bold font-mono text-zinc-100 flex items-baseline justify-between pt-1">
-                  <span>{val || <span className="text-zinc-700">0</span>}</span>
-                  {isActive && <span className="w-1.5 h-4 bg-amber-500 animate-pulse inline-block" />}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-
-
-        {/* Calculated Total summary overlay */}
-        {parseFloat(weight) > 0 && parseFloat(price) > 0 && (
-          <div className="bg-emerald-950/20 border border-emerald-900/40 text-emerald-400 p-2 rounded-2xl flex justify-between items-center font-mono selection:hidden select-none px-4 shadow-sm">
-            <span className="text-[11px] font-sans font-bold text-emerald-500">Commit Sum:</span>
-            <span className="text-base font-black">{fmt(parseFloat(weight) * parseFloat(price))}</span>
-          </div>
-        )}
-
-        {/* Saving / update system notifications overlays */}
-        {flash && (
-          <div className="pop-flash text-center text-emerald-400 font-extrabold text-[11px] tracking-wider font-sans uppercase animate-pulse select-none">
-            {flash}
-          </div>
-        )}
-
-
-
-        {/* Highly tactile specialized mobile numpad layout */}
-        {!isNumpadDown && (
-          <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
-            {/* Row 1 */}
-            <button
-              onClick={() => handleKeyTap("7")}
-              className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-            >
-              7
-            </button>
-            <button
-              onClick={() => handleKeyTap("8")}
-              className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-            >
-              8
-            </button>
-            <button
-              onClick={() => handleKeyTap("9")}
-              className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-            >
-              9
-            </button>
-            <button
-              onClick={() => handleKeyTap("back")}
-              className="py-2.5 text-sm font-extrabold bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-rose-500 rounded-2xl cursor-pointer flex items-center justify-center font-mono"
-            >
-              ⌫
-            </button>
-
-            {/* Row 2 */}
-            <button
-              onClick={() => handleKeyTap("4")}
-              className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-            >
-              4
-            </button>
-            <button
-              onClick={() => handleKeyTap("5")}
-              className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-            >
-              5
-            </button>
-            <button
-              onClick={() => handleKeyTap("6")}
-              className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-            >
-              6
-            </button>
-            <button
-              onClick={() => handleKeyTap("C")}
-              className="py-2.5 text-xs font-black bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-rose-500 rounded-2xl cursor-pointer flex items-center justify-center"
-            >
-              C
-            </button>
-
-            {/* Row 3 and 4 with spanning NEXT button */}
-            <div className="col-span-3 grid grid-cols-3 gap-1.5">
-              {/* Row 3 keys */}
-              <button
-                onClick={() => handleKeyTap("1")}
-                className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-              >
-                1
-              </button>
-              <button
-                onClick={() => handleKeyTap("2")}
-                className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-              >
-                2
-              </button>
-              <button
-                onClick={() => handleKeyTap("3")}
-                className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-              >
-                3
+                <User className="w-2.5 h-2.5 shrink-0" />
+                <span className="truncate">{buyer ? `🧑 ${buyer.nickname}` : "👤 Pick Buyer"}</span>
               </button>
 
-              {/* Row 4 keys */}
               <button
-                onClick={() => handleKeyTap("0")}
-                className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                type="button"
+                onClick={() => setIsNumpadDown(!isNumpadDown)}
+                className={`w-[14%] flex-shrink-0 py-1.5 px-1 border rounded-2xl font-black text-[10px] uppercase cursor-pointer flex items-center justify-center select-none transition-all ${
+                  isNumpadDown
+                    ? "bg-zinc-950 text-zinc-500 border-zinc-800 hover:bg-zinc-900"
+                    : "bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-700"
+                }`}
+                title={isNumpadDown ? "Show Custom Keypad" : "Hide Custom Keypad"}
               >
-                0
-              </button>
-              <button
-                onClick={() => handleKeyTap(".")}
-                className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-              >
-                .
-              </button>
-              <button
-                onClick={() => handleKeyTap("00")}
-                className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
-              >
-                00
+                <span>{isNumpadDown ? "⌨️" : "✕ ⌨️"}</span>
               </button>
             </div>
 
-            {/* Spanned NEXT element */}
-            <button
-              onClick={() => handleKeyTap("NEXT")}
-              className={`py-6 text-xs md:text-sm font-black text-white hover:opacity-90 rounded-2xl cursor-pointer transition-all uppercase flex flex-col justify-center items-center shadow-lg gap-1 select-none ${
-                field === "weight" ? "bg-amber-600 shadow-amber-900/30" : "bg-emerald-600 shadow-emerald-900/30"
-              }`}
-            >
-              <span>{field === "weight" ? "NEXT" : "SAVE"}</span>
-              <span className="text-[9px] font-bold">{field === "weight" ? "➔" : "✔"}</span>
-            </button>
+
+
+              {/* Crate Name / No. entry & chip helper row */}
+            <div className="flex flex-col gap-1.5 relative">
+              <div className="flex gap-2 relative">
+                <input
+                  type="text"
+                  value={fishType}
+                  onChange={(e) => setFishType(e.target.value)}
+                  onFocus={() => setIsFishInputFocused(true)}
+                  onBlur={() => setTimeout(() => setIsFishInputFocused(false), 200)}
+                  placeholder="📦 Enter Crate Name / No...."
+                  className={`w-full text-xs font-semibold bg-zinc-950 p-2 text-zinc-200 placeholder-slate-600 rounded-2xl border outline-none focus:ring-1 focus:ring-sky-500 transition-all font-sans ${
+                    fishType ? "border-sky-500/60" : "border-zinc-800"
+                  }`}
+                />
+                {fishType && (
+                  <button
+                    onClick={() => setFishType("")}
+                    className="absolute right-2 top-2 text-rose-500 p-0.5 hover:bg-rose-500/10 rounded cursor-pointer z-10"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Crate contextual pill tags suggestions */}
+              {isFishInputFocused && fishSuggestions.length > 0 && !fishSuggestions.some(s => s.toLowerCase() === fishType.toLowerCase()) && (
+                <div className="flex flex-wrap gap-1.5 overflow-x-auto scrollbar-none py-0.5 select-none absolute top-full left-0 right-0 z-20 bg-zinc-900 border border-zinc-800 p-2 rounded-2xl shadow-2xl shadow-black/10 mt-1">
+                  {fishSuggestions
+                    .filter((s) => !fishType || s.toLowerCase().startsWith(fishType.toLowerCase()))
+                    .map((s) => (
+                      <button
+                        key={s}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Prevent blur when clicking
+                        }}
+                        onClick={() => {
+                          setFishType(s);
+                          setIsFishInputFocused(false);
+                        }}
+                        className="px-3 py-1.5 text-[10.5px] font-extrabold rounded-full border transition flex items-center justify-center cursor-pointer select-none bg-zinc-950 border-zinc-800/70 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Side-by-side WEIGHT (kg) and PRICE/kg box containers */}
+            <div className="grid grid-cols-2 gap-2 text-left shrink-0">
+              {[
+                ["WEIGHT (kg)", weight, "weight"],
+                ["PRICE/kg (₹)", price, "price"],
+              ].map(([label, val, f]) => {
+                const isActive = field === f;
+                return (
+                  <div
+                    key={f}
+                    onClick={() => setField(f as any)}
+                    className={`p-2 rounded-2xl transition duration-155 cursor-pointer flex flex-col justify-between select-none ${
+                      isActive
+                        ? "bg-zinc-955 border-2 border-amber-500 bg-zinc-950 shadow-inner scale-[1.01]"
+                        : "bg-zinc-950 border-2 border-zinc-800/80 hover:border-zinc-800"
+                    }`}
+                  >
+                    <div className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider font-sans select-none">{label}</div>
+                    <div className="text-lg md:text-xl font-bold font-mono text-zinc-100 flex items-baseline justify-between pt-1">
+                      <span>{val || <span className="text-zinc-700">0</span>}</span>
+                      {isActive && <span className="w-1.5 h-4 bg-amber-500 animate-pulse inline-block" />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Calculated Total summary overlay */}
+            {parseFloat(weight) > 0 && parseFloat(price) > 0 && (
+              <div className="bg-emerald-950/20 border border-emerald-900/40 text-emerald-400 p-2 rounded-2xl flex justify-between items-center font-mono selection:hidden select-none px-4 shadow-sm">
+                <span className="text-[11px] font-sans font-bold text-emerald-500">Commit Sum:</span>
+                <span className="text-base font-black">{fmt(parseFloat(weight) * parseFloat(price))}</span>
+              </div>
+            )}
+
+            {/* Saving / update system notifications overlays */}
+            {flash && (
+              <div className="pop-flash text-center text-emerald-400 font-extrabold text-[11px] tracking-wider font-sans uppercase animate-pulse select-none">
+                {flash}
+              </div>
+            )}
+
+            {/* Highly tactile specialized mobile numpad layout */}
+            {!isNumpadDown && (
+              <div className="grid grid-cols-4 gap-1.5 shrink-0 select-none animate-fadeIn">
+                {/* Row 1 */}
+                <button
+                  onClick={() => handleKeyTap("7")}
+                  className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                >
+                  7
+                </button>
+                <button
+                  onClick={() => handleKeyTap("8")}
+                  className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                >
+                  8
+                </button>
+                <button
+                  onClick={() => handleKeyTap("9")}
+                  className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                >
+                  9
+                </button>
+                <button
+                  onClick={() => handleKeyTap("back")}
+                  className="py-2.5 text-sm font-extrabold bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-rose-500 rounded-2xl cursor-pointer flex items-center justify-center font-mono"
+                >
+                  ⌫
+                </button>
+
+                {/* Row 2 */}
+                <button
+                  onClick={() => handleKeyTap("4")}
+                  className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                >
+                  4
+                </button>
+                <button
+                  onClick={() => handleKeyTap("5")}
+                  className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                >
+                  5
+                </button>
+                <button
+                  onClick={() => handleKeyTap("6")}
+                  className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                >
+                  6
+                </button>
+                <button
+                  onClick={() => handleKeyTap("C")}
+                  className="py-2.5 text-xs font-black bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-rose-500 rounded-2xl cursor-pointer flex items-center justify-center"
+                >
+                  C
+                </button>
+
+                {/* Row 3 and 4 with spanning NEXT button */}
+                <div className="col-span-3 grid grid-cols-3 gap-1.5">
+                  {/* Row 3 keys */}
+                  <button
+                    onClick={() => handleKeyTap("1")}
+                    className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                  >
+                    1
+                  </button>
+                  <button
+                    onClick={() => handleKeyTap("2")}
+                    className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                  >
+                    2
+                  </button>
+                  <button
+                    onClick={() => handleKeyTap("3")}
+                    className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                  >
+                    3
+                  </button>
+
+                  {/* Row 4 keys */}
+                  <button
+                    onClick={() => handleKeyTap("0")}
+                    className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={() => handleKeyTap(".")}
+                    className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                  >
+                    .
+                  </button>
+                  <button
+                    onClick={() => handleKeyTap("00")}
+                    className="py-2.5 text-sm md:text-base font-black font-mono bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-2xl cursor-pointer"
+                  >
+                    00
+                  </button>
+                </div>
+
+                {/* Spanned NEXT element */}
+                <button
+                  onClick={() => handleKeyTap("NEXT")}
+                  className={`py-6 text-xs md:text-sm font-black text-white hover:opacity-90 rounded-2xl cursor-pointer transition-all uppercase flex flex-col justify-center items-center shadow-lg gap-1 select-none ${
+                    field === "weight" ? "bg-amber-600 shadow-amber-900/30" : "bg-emerald-600 shadow-emerald-900/30"
+                  }`}
+                >
+                  <span>{field === "weight" ? "NEXT" : "SAVE"}</span>
+                  <span className="text-[9px] font-bold">{field === "weight" ? "➔" : "✔"}</span>
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };
