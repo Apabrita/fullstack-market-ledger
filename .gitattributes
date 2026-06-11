@@ -1,0 +1,13 @@
+# Auto-detect text files and perform LF normalization
+* text=auto
+
+# Declare files that must have LF line endings on checkout
+*.sh text eol=lf
+
+# Explicitly mark binary files to prevent Git from converting their line endings and corrupting them
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
