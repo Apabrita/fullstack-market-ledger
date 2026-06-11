@@ -577,7 +577,8 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                               source={src} 
                               transactions={srcTx} 
                               appDate={appDate} 
-                              onClose={() => setExpandedReportSourceId(null)} 
+                              onClose={() => setExpandedReportSourceId(null)}
+                              existingPayment={sourcePayments.find(p => String(p.source_id) === String(src.id))}
                             />
                           </div>
                         )}

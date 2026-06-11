@@ -387,7 +387,7 @@ export async function executeWrite<K extends keyof NFCData>(
   table: K,
   action: "insert" | "update" | "upsert" | "delete",
   payload: any
-): Promise<{ success: boolean; data: any; queued: boolean }> {
+): Promise<{ success: boolean; data: any; queued: boolean; error?: string }> {
   if ((action === "insert" || action === "upsert") && !payload.id && table !== 'settings') {
     payload.id = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
   }

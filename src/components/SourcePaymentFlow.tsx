@@ -8,9 +8,10 @@ interface SourcePaymentFlowProps {
   transactions: any[];
   appDate: string;
   onClose: () => void;
+  existingPayment?: any;
 }
 
-export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, transactions, appDate, onClose }) => {
+export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, transactions, appDate, onClose, existingPayment }) => {
   const { write } = useData();
   const [fishItems, setFishItems] = useState<any[]>([]);
   const [manualCommission, setManualCommission] = useState<string>("0");
@@ -120,22 +121,36 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
   const netPaidToSource = Math.max(0, totalPayoutGross - parsedCommission);
 
   const handleSettle = async () => {
-    const newPayment = {
-      id: `temp_p_${Date.now()}`,
-      source_id: source.id,
-      date: source.date || appDate,
-      total_kg: totalPayoutWeight,
-      rate_per_kg: source.rate_per_kg,
-      sale_total: totalActualRevenue,
-      amount_paid_to_source: netPaidToSource,
-      commission: parsedCommission,
-      is_settled: true,
-    };
-    await write("source_payments", "insert", newPayment);
-    await write("sources", "update", { ...source, is_completed: true });
-    
-    // Auto-trigger PDF generation after confirming
-    handlePrint();
+    const isConfirmed = window.confirm("Are you confirm it?");
+    if (!isConfirmed) return;
+
+    if (existingPayment) {
+      const updatedPayment = {
+        ...existingPayment,
+        date: source.date || appDate,
+        total_kg: totalPayoutWeight,
+        rate_per_kg: source.rate_per_kg,
+        sale_total: totalActualRevenue,
+        amount_paid_to_source: netPaidToSource,
+        commission: parsedCommission,
+        is_settled: true,
+      };
+      await write("source_payments", "update", updatedPayment);
+    } else {
+      const newPayment = {
+        id: `temp_p_${Date.now()}`,
+        source_id: source.id,
+        date: source.date || appDate,
+        total_kg: totalPayoutWeight,
+        rate_per_kg: source.rate_per_kg,
+        sale_total: totalActualRevenue,
+        amount_paid_to_source: netPaidToSource,
+        commission: parsedCommission,
+        is_settled: true,
+      };
+      await write("source_payments", "insert", newPayment);
+      await write("sources", "update", { ...source, is_completed: true });
+    }
   };
 
   const handlePrint = async () => {
@@ -314,14 +329,6 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
         <div className="mt-8 border-t border-zinc-200 pt-6 font-sans animate-fadeIn">
            <h4 className="font-bold text-zinc-700 text-sm mb-4 flex justify-between items-center">
               <span>📄 Print Preview (A4 Invoice Copy)</span>
-              <button 
-                onClick={handlePrint}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-4 rounded-2xl flex items-center justify-center gap-1.5 text-xs shadow-sm shadow-indigo-900/20 active:scale-95 transition cursor-pointer"
-                disabled={isGeneratingPdf}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                {isGeneratingPdf ? "Building PDF..." : "Generate & Download PDF"}
-              </button>
            </h4>
            
            <div 
@@ -414,21 +421,34 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
         </div>
       )}
 
-      <div className="flex gap-2 justify-end pt-4">
+          <div className="flex gap-2 justify-end pt-4">
         {!source.is_completed ? (
-          <button 
-            onClick={handleSettle}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto cursor-pointer"
-          >
-            <CheckCircle2 className="w-5 h-5" />
-            Paid (Confirm Final Payment)
-          </button>
-        ) : (
-          <div className="flex bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-sm font-bold items-center gap-2 border border-emerald-200">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            Payment is Confirmed and Settled
-          </div>
-        )}
+           <button 
+             onClick={handleSettle}
+             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto cursor-pointer"
+           >
+             <CheckCircle2 className="w-5 h-5" />
+             Pay the sources
+           </button>
+         ) : (
+           <div className="flex flex-col sm:flex-row gap-2 w-full justify-end">
+             <button
+               onClick={handleSettle}
+               className="bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-sm cursor-pointer border border-emerald-300"
+             >
+               <CheckCircle2 className="w-5 h-5" />
+               Update Payment
+             </button>
+             <button 
+               onClick={handlePrint}
+               className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+               disabled={isGeneratingPdf}
+             >
+               <FileText className="w-5 h-5" />
+               {isGeneratingPdf ? "Building PDF..." : "Download or share the PDF"}
+             </button>
+           </div>
+         )}
       </div>
     </div>
   );
