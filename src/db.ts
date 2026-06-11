@@ -373,6 +373,7 @@ export async function executeWrite<K extends keyof NFCData>(
   await syncLocalCacheItem(table, action, payload);
 
   let successToCloud = false;
+  let lastError: any = null;
 
   if (supabaseInitialized && isOnline()) {
     try {
@@ -390,6 +391,7 @@ export async function executeWrite<K extends keyof NFCData>(
       successToCloud = true;
     } catch (e) {
       console.warn(`Supabase write fail on '${table}'. Storing inside queue for background sync.`, e);
+      lastError = e;
     }
   }
 
@@ -412,7 +414,7 @@ export async function executeWrite<K extends keyof NFCData>(
     window.dispatchEvent(new Event("queue_updated"));
   }
 
-  return { success: true, data: payload, queued: true };
+  return { success: true, data: payload, queued: true, error: lastError?.message || lastError?.details || "Offline or configuration error" };
 }
 
 export async function processQueue(): Promise<{ success: boolean; processed: number; remaining: number }> {

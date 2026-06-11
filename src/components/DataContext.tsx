@@ -194,20 +194,47 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const handleOnlineStatus = () => {
       setOnline(isOnline());
+      if (isOnline()) {
+        processQueue().then((res) => {
+           if (res && res.processed > 0) handleQueueUpdated();
+        });
+        refreshData();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        if (isOnline()) {
+           processQueue().then((res) => {
+               if (res && res.processed > 0) handleQueueUpdated();
+           });
+           refreshData();
+        }
+      }
     };
 
     if (typeof window !== "undefined") {
       window.addEventListener("queue_updated", handleQueueUpdated);
       window.addEventListener("online", handleOnlineStatus);
       window.addEventListener("offline", handleOnlineStatus);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
     }
+
+    // Fallback Background Polling for Mobile wrappers where WebSockets might sleep
+    const syncInterval = setInterval(() => {
+        if (isOnline()) {
+            refreshData();
+        }
+    }, 45000); // Poll every 45 secs
 
     return () => {
       if (typeof window !== "undefined") {
         window.removeEventListener("queue_updated", handleQueueUpdated);
         window.removeEventListener("online", handleOnlineStatus);
         window.removeEventListener("offline", handleOnlineStatus);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
+      clearInterval(syncInterval);
     };
   }, []);
 

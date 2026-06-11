@@ -314,10 +314,11 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
                 setTimeout(async () => {
                   try {
                     await shareAsPDF(
-                      `source-bill-${source.id}`,
+                      `print-sheet-canvas`,
                       `Payout_Bill_${source.name.replace(/\s+/g, '_')}_${appDate}.pdf`,
                       `Source Payout Invoice: ${source.name}`,
                       `Generated electronic payout invoice for ${source.name} on ${appDate}.`,
+
                       'download'
                     );
                   } catch (err) {
@@ -351,7 +352,7 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
              }}
            >
              <div 
-               id={`source-bill-${source.id}`}
+               id="print-sheet-canvas"
                className="bg-white text-zinc-900 space-y-6 shrink-0 relative"
                style={{ 
                  width: '794px', 

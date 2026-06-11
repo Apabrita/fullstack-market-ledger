@@ -247,9 +247,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
       const q = getQueue().filter(i => i.timestamp !== item.timestamp);
       saveQueue(q);
 
-      const result = await executeWrite(item.table, item.action, item.payload);
+      const result = await executeWrite(item.table, item.action, item.payload) as any;
       if (result.queued) {
-         alert("Sync failed, operation was placed back in the queue.");
+         alert(`Sync failed: ${result.error || 'Unknown error'}`);
       } else {
          alert("Operation successfully verified and synced!");
       }
@@ -271,15 +271,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
 
     let successCount = 0;
     let failCount = 0;
+    let lastErrorMsg = "";
     
     // Clear out the current queue so we can retry them sequentially
     saveQueue([]);
     
     for (const item of currentQueue) {
       try {
-         const result = await executeWrite(item.table, item.action, item.payload);
+         const result = await executeWrite(item.table, item.action, item.payload) as any;
          if (result.queued) {
             failCount++;
+            if (result.error) lastErrorMsg = result.error;
          } else {
             successCount++;
          }
@@ -293,7 +295,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
     }
     
     if (failCount > 0) {
-      alert(`Sync completed with issues: ${successCount} synced, ${failCount} failed to sync and re-queued. Make sure you are online.`);
+      alert(`Sync completed with issues: ${successCount} synced, ${failCount} failed. Last error: ${lastErrorMsg || 'Make sure you are online.'}`);
     } else {
       alert(`Successfully synced ${successCount} operations to the server!`);
     }

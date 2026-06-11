@@ -204,13 +204,43 @@ export const NetworkSimulator: React.FC = () => {
           <textarea 
              readOnly 
              className="w-full h-24 bg-zinc-950 border border-zinc-800 text-zinc-400 p-2 text-[9px] font-mono rounded"
-             defaultValue={`CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT );
+             defaultValue={`-- Core Tables
+CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT );
 CREATE TABLE IF NOT EXISTS buyers ( id TEXT PRIMARY KEY, nickname TEXT, lifetime_debt NUMERIC, credit_limit NUMERIC );
 CREATE TABLE IF NOT EXISTS sources ( id TEXT PRIMARY KEY, name TEXT, rate_per_kg NUMERIC, date TEXT, is_completed BOOLEAN, is_archived BOOLEAN );
 CREATE TABLE IF NOT EXISTS transactions ( id TEXT PRIMARY KEY, source_id TEXT, buyer_id TEXT, weight NUMERIC, price_per_kg NUMERIC, total_price NUMERIC, date TEXT, fish_type TEXT, added_by TEXT );
 CREATE TABLE IF NOT EXISTS daily_collections ( id TEXT PRIMARY KEY, buyer_id TEXT, date TEXT, total_owed_today NUMERIC, amount_paid NUMERIC, is_rolled_over BOOLEAN, is_approved BOOLEAN );
 CREATE TABLE IF NOT EXISTS source_payments ( id TEXT PRIMARY KEY, source_id TEXT, date TEXT, total_kg NUMERIC, rate_per_kg NUMERIC, sale_total NUMERIC, amount_paid_to_source NUMERIC, commission NUMERIC, is_settled BOOLEAN );
-CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );`}
+CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );
+
+-- MANDATORY: Enable Realtime for Auto-Sync across devices
+BEGIN;
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN 
+    CREATE PUBLICATION supabase_realtime FOR ALL TABLES; 
+  ELSE 
+    ALTER PUBLICATION supabase_realtime ADD TABLE users, buyers, sources, transactions, daily_collections, source_payments, settings; 
+  END IF; 
+END $$;
+COMMIT;
+
+-- MANDATORY: Grant permissions to anon client so the App can successfully Sync without blocking
+GRANT ALL ON TABLE users TO anon;
+GRANT ALL ON TABLE buyers TO anon;
+GRANT ALL ON TABLE sources TO anon;
+GRANT ALL ON TABLE transactions TO anon;
+GRANT ALL ON TABLE daily_collections TO anon;
+GRANT ALL ON TABLE source_payments TO anon;
+GRANT ALL ON TABLE settings TO anon;
+GRANT ALL ON TABLE users TO authenticated;
+GRANT ALL ON TABLE buyers TO authenticated;
+GRANT ALL ON TABLE sources TO authenticated;
+GRANT ALL ON TABLE transactions TO authenticated;
+GRANT ALL ON TABLE daily_collections TO authenticated;
+GRANT ALL ON TABLE source_payments TO authenticated;
+GRANT ALL ON TABLE settings TO authenticated;
+`}
           />
         </div>
       )}

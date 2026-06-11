@@ -463,3 +463,29 @@
 .pdf-export svg {
   stroke: black !important;
 }
+
+/* Force Print Canvas to retain original Light styles in Dark Mode for accurate preview */
+.theme-dark #print-sheet-canvas.bg-white { background-color: #ffffff !important; }
+.theme-dark #print-sheet-canvas .text-zinc-900,
+.theme-dark #print-sheet-canvas .text-zinc-950 { color: #18181b !important; }
+.theme-dark #print-sheet-canvas .text-zinc-800,
+.theme-dark #print-sheet-canvas .text-zinc-805 { color: #27272a !important; }
+.theme-dark #print-sheet-canvas .text-zinc-600 { color: #525252 !important; }
+.theme-dark #print-sheet-canvas .text-zinc-500 { color: #71717a !important; }
+.theme-dark #print-sheet-canvas .text-zinc-400 { color: #a1a1aa !important; }
+.theme-dark #print-sheet-canvas .border-zinc-900 { border-color: #18181b !important; border-bottom-color: #18181b !important; border-bottom-width: 2px !important; }
+.theme-dark #print-sheet-canvas .border-zinc-300 { border-color: #d4d4d8 !important; }
+.theme-dark #print-sheet-canvas .border-zinc-200 { border-color: #e4e4e7 !important; border-bottom-color: #e4e4e7 !important; }
+.theme-dark #print-sheet-canvas .border-zinc-100 { border-color: #f4f4f5 !important; }
+.theme-dark #print-sheet-canvas .bg-zinc-50 { background-color: #fafafa !important; }
+.theme-dark #print-sheet-canvas .bg-zinc-100 { background-color: #f4f4f5 !important; }
+.theme-dark #print-sheet-canvas .bg-amber-100 { background-color: #fef3c7 !important; color: #92400e !important; }
+.theme-dark #print-sheet-canvas .bg-amber-50 { background-color: #fffbeb !important; }
+.theme-dark #print-sheet-canvas .bg-rose-50 { background-color: #fff1f2 !important; }
+.theme-dark #print-sheet-canvas .text-emerald-700 { color: #047857 !important; }
+.theme-dark #print-sheet-canvas .text-rose-700,
+.theme-dark #print-sheet-canvas .text-red-500 { color: #be123c !important; }
+.theme-dark #print-sheet-canvas .text-amber-700 { color: #b45309 !important; }
+.theme-dark #print-sheet-canvas .text-amber-900 { color: #78350f !important; }
+.theme-dark #print-sheet-canvas th { color: #71717a !important; }
+
