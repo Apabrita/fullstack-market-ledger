@@ -22,8 +22,8 @@ const getSmartFishSuggestions = (transactions: any[], sourceId: string | number 
   const counts: { [key: string]: number } = {};
   transactions.forEach((t) => {
     if (t.fish_type) {
-      const matchSource = sourceId && t.source_id === sourceId;
-      const matchBuyer = buyerId && t.buyer_id === buyerId;
+      const matchSource = sourceId && String(t.source_id) === String(sourceId);
+      const matchBuyer = buyerId && String(t.buyer_id) === String(buyerId);
       const weightBonus = (matchSource ? 5 : 0) + (matchBuyer ? 5 : 0) + 1;
       counts[t.fish_type] = (counts[t.fish_type] || 0) + weightBonus;
     }
@@ -36,7 +36,7 @@ const getSmartBuyerSuggestions = (transactions: any[], buyers: any[], sourceId: 
   const counts: { [key: string]: number } = {};
   transactions.forEach((t) => {
     if (t.buyer_id) {
-      const matchSource = sourceId && t.source_id === sourceId;
+      const matchSource = sourceId && String(t.source_id) === String(sourceId);
       const matchFish = fishType && t.fish_type?.toLowerCase() === fishType.toLowerCase();
       const weightBonus = (matchSource ? 5 : 0) + (matchFish ? 5 : 0) + 1;
       counts[t.buyer_id] = (counts[t.buyer_id] || 0) + weightBonus;
@@ -56,10 +56,10 @@ const fmtKg = (v: number) => v.toFixed(2) + " kg";
 // THE COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, isAuthenticated, deviceMode }) => {
-  const { data, write, appDate } = useData();
+  const { data, write, writeBatch, appDate } = useData();
 
   const store = {
-    transactions: (data?.transactions || []).filter((t: any) => t.date === appDate),
+    transactions: data?.transactions || [],
     sources: data?.sources || [],
     buyers: data?.buyers || [],
     source_payments: data?.source_payments || [],
@@ -200,8 +200,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const fishSuggestions = getSmartFishSuggestions(store.transactions, activeSourceId, buyer?.id);
   const buyerSuggestions = getSmartBuyerSuggestions(store.transactions, store.buyers, activeSourceId, fishType);
   const todaySources = store.sources.filter((s) => s.date === appDate && !s.is_archived);
-  const activeSrc = store.sources.find((s) => s.id === activeSourceId);
-  const activeTxns = store.transactions.filter((t) => t.source_id === activeSourceId);
+  const activeSrc = store.sources.find((s) => String(s.id) === String(activeSourceId));
+  const activeTxns = store.transactions.filter((t) => String(t.source_id) === String(activeSourceId));
   const totalKg = activeTxns.reduce((sum, t) => sum + (t.weight || 0), 0);
   const totalAmt = activeTxns.reduce((sum, t) => sum + (t.total_price || 0), 0);
 
@@ -299,7 +299,6 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         sale_total: totalAmt,
       });
     }
-    setActiveSourceId(null);
     doFlash("🔒 Source Marked Sold!");
   };
 
@@ -313,14 +312,12 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   };
 
   const rebuildCollection = async (buyerId: string, date: string) => {
-    // To ensure precision immediately after a write, we pull the freshest data (queue merged)
-    const latestData = await loadAll();
-    const txns = latestData.transactions.filter((t) => t.buyer_id === buyerId && t.date === date);
+    // In-memory calculation using the responsive state store for instantaneous speed
+    const txns = store.transactions.filter((t) => String(t.buyer_id) === String(buyerId) && t.date === date);
     const total = txns.reduce((sum, t) => sum + (t.total_price || 0), 0);
     
-    // We can still use data?.daily_collections here to find the entity ID structure
-    const dailyCollections = latestData.daily_collections || [];
-    const existing = dailyCollections.find((c) => c.buyer_id === buyerId && c.date === date);
+    const dailyCollections = data?.daily_collections || [];
+    const existing = dailyCollections.find((c) => String(c.buyer_id) === String(buyerId) && c.date === date);
 
     if (total > 0) {
       if (existing) {
@@ -354,13 +351,13 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
     }
     if (!buyer || !weight || !price || !activeSourceId) return;
     
-    // Capture values and clear instantly to prevent double-tap
     const w = parseFloat(weight);
     const p = parseFloat(price);
     const currentBuyer = buyer;
     const currentFishType = fishType;
     const currentActiveSourceId = activeSourceId;
     
+    // Smooth reset of inputs to keep client interaction instantaneous
     setWeight("");
     setPrice("");
     setFishType("");
@@ -375,8 +372,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       const totalNum = w * p;
       const tempTxId = `tx_${Date.now()}`;
 
-      // Insert transaction
-      await write("transactions", "insert", {
+      // Build Transaction Payload
+      const newTxn = {
         id: tempTxId,
         source_id: currentActiveSourceId,
         buyer_id: currentBuyer.id,
@@ -387,23 +384,57 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         fish_type: currentFishType.trim() || "Unsorted Lot",
         timestamp: new Date().toISOString(),
         added_by: activeUser?.name || "System Staff",
-      });
+      };
 
-      // Cascade update buyer lifetime debt
+      // Build updated Buyer model with cascading lifetime debt
       const updatedBuyer = {
         ...currentBuyer,
         lifetime_debt: (currentBuyer.lifetime_debt || 0) + totalNum,
       };
-      await write("buyers", "update", updatedBuyer);
 
-      // Rebuild buyer collections statement
-      await rebuildCollection(currentBuyer.id, appDate);
+      // In-memory lookups to compile correct and accurate daily statement increments
+      const dailyCollections = data?.daily_collections || [];
+      const existingCollection = dailyCollections.find((c: any) => String(c.buyer_id) === String(currentBuyer.id) && c.date === appDate);
+      const oldTxns = store.transactions.filter((t: any) => String(t.buyer_id) === String(currentBuyer.id) && t.date === appDate);
+      const newTotalOwed = oldTxns.reduce((sum, t) => sum + (t.total_price || 0), 0) + totalNum;
 
-      doFlash("✔ Auction commit recorded successful!");
+      const batchItems: any[] = [
+        { table: "transactions", action: "insert", payload: newTxn },
+        { table: "buyers", action: "update", payload: updatedBuyer }
+      ];
+
+      if (existingCollection) {
+        batchItems.push({
+          table: "daily_collections",
+          action: "update",
+          payload: {
+            ...existingCollection,
+            total_owed_today: newTotalOwed,
+          }
+        });
+      } else {
+        batchItems.push({
+          table: "daily_collections",
+          action: "insert",
+          payload: {
+            id: `dc_${Date.now()}`,
+            buyer_id: currentBuyer.id,
+            date: appDate,
+            total_owed_today: newTotalOwed,
+            amount_paid: 0,
+            is_rolled_over: false,
+            is_approved: false,
+          }
+        });
+      }
+
+      // Execute as a single atomic batch locally and register for sync
+      await writeBatch(batchItems);
+
+      doFlash("✔ AUCTION COMMIT RECORDED SUCCESSFUL!");
     } catch (err: any) {
       console.error("Save Txn Error:", err);
       alert("An error occurred saving the record: " + err.message);
-      // Optional: restore state on error if needed
     } finally {
       setLoading(false);
     }
@@ -532,7 +563,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         <div className="flex flex-wrap gap-2 items-center justify-between">
           <div className="flex flex-wrap gap-1.5 items-center">
             {todaySources.map((src) => {
-              const isActive = src.id === activeSourceId && !src.is_completed;
+              const isActive = src.id === activeSourceId;
               const isCompleted = src.is_completed;
               return (
                 <button
@@ -807,11 +838,11 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
           <div className="grid grid-cols-2 gap-2.5 w-full max-w-sm bg-zinc-900/60 border border-zinc-800 p-4 rounded-2xl text-left shadow-md">
             <div className="border-r border-zinc-800/80 pr-2">
               <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider block">Daily Total Volume</span>
-              <span className="text-xs font-black text-amber-500 font-mono mt-0.5 block">{fmtKg(store.transactions.reduce((sum, t) => sum + (t.weight || 0), 0))}</span>
+              <span className="text-xs font-black text-amber-500 font-mono mt-0.5 block">{fmtKg(store.transactions.filter((t: any) => t.date === appDate).reduce((sum, t) => sum + (t.weight || 0), 0))}</span>
             </div>
             <div className="pl-3">
               <span className="text-[9px] text-zinc-500 uppercase font-black tracking-wider block">Completed Turnover</span>
-              <span className="text-xs font-black text-emerald-400 font-mono mt-0.5 block">{fmt(store.transactions.reduce((sum, t) => sum + (t.total_price || 0), 0))}</span>
+              <span className="text-xs font-black text-emerald-400 font-mono mt-0.5 block">{fmt(store.transactions.filter((t: any) => t.date === appDate).reduce((sum, t) => sum + (t.total_price || 0), 0))}</span>
             </div>
           </div>
 
@@ -868,7 +899,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
             {/* Table representation but mobile-first scrolling Cards */}
             <div className="space-y-2 animate-fadeIn">
               {[...activeTxns].reverse().map((t) => {
-                const b = store.buyers.find((x) => x.id === t.buyer_id);
+                const b = store.buyers.find((x) => String(x.id) === String(t.buyer_id));
                 const canEdit = canWrite;
                 return (
                   <div

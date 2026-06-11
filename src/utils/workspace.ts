@@ -165,8 +165,8 @@ export async function appendSheetValues(spreadsheetId: string, range: string, va
 /**
  * Triggers full workspace synchronization of PDFs equivalent data to Sheets
  */
-export async function syncDataToGoogleSheets(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip"): Promise<SheetsSyncResult> {
-  const dateStr = "2026-06-09";
+export async function syncDataToGoogleSheets(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip", currentDate: string = "2026-06-09"): Promise<SheetsSyncResult> {
+  const dateStr = currentDate;
   
   // Decide sheet headers and body rows based on the report type
   let sheetName = "";
@@ -246,7 +246,7 @@ export async function syncDataToGoogleSheets(data: NFCData, reportType: "auction
   }
 
   // Combine title
-  const spreadsheetTitle = `New Fish Center - ${sheetName} Register [2026-06-09]`;
+  const spreadsheetTitle = `New Fish Center - ${sheetName} Register [${currentDate}]`;
   const spreadsheetId = await createSpreadsheet(spreadsheetTitle, [sheetName]);
   
   // Append headers
@@ -323,8 +323,8 @@ export async function uploadFileToGoogleDrive(
   };
 }
 
-export function constructPlainReportText(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip"): string {
-  const dateStr = "2026-06-09";
+export function constructPlainReportText(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip", currentDate: string = "2026-06-09"): string {
+  const dateStr = currentDate;
   let txt = `========================================================================\n`;
   txt += `                      NEW FISH CENTER                     \n`;
   txt += `        Commission Agent and Wholesaler • Proprietor: Chanchal Das       \n`;
@@ -472,13 +472,13 @@ export async function insertDocumentText(documentId: string, text: string): Prom
   }
 }
 
-export async function syncReportToGoogleDocs(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip"): Promise<DocsDraftResult> {
-  const formattedText = constructPlainReportText(data, reportType);
+export async function syncReportToGoogleDocs(data: NFCData, reportType: "auction" | "source_payment" | "collection" | "collection_slip", currentDate: string = "2026-06-09"): Promise<DocsDraftResult> {
+  const formattedText = constructPlainReportText(data, reportType, currentDate);
   const titles = {
-    auction: "New Fish Center - Daily Auction Log [2026-06-09]",
-    source_payment: "New Fish Center - Source Commission settlements [2026-06-09]",
-    collection: "New Fish Center - Daily Revenue & Cash Logs [2026-06-09]",
-    collection_slip: "New Fish Center - Buyer Invoices [2026-06-09]"
+    auction: `New Fish Center - Daily Auction Log [${currentDate}]`,
+    source_payment: `New Fish Center - Source Commission settlements [${currentDate}]`,
+    collection: `New Fish Center - Daily Revenue & Cash Logs [${currentDate}]`,
+    collection_slip: `New Fish Center - Buyer Invoices [${currentDate}]`
   };
   
   const title = titles[reportType];
@@ -543,7 +543,7 @@ export async function createCalendarEvent(
 /**
  * Sync active vessel arrivals as calendar events to organize work shifts
  */
-export async function syncSourcesToGoogleCalendar(data: NFCData): Promise<CalendarLandingSyncResult> {
+export async function syncSourcesToGoogleCalendar(data: NFCData, currentDate: string = "2026-06-09"): Promise<CalendarLandingSyncResult> {
   const sources = data.sources || [];
   let eventsCreated = 0;
 
@@ -557,8 +557,8 @@ export async function syncSourcesToGoogleCalendar(data: NFCData): Promise<Calend
     description += `Status: ${isCompleted ? "Completed Landing Trade" : "ACTIVE LANDING UNDERWAY"}\n`;
 
     // Construct startTime and endTime
-    const startTime = "2026-06-09T08:00:00+06:00"; // Market opens early morning 8 AM
-    const endTime = "2026-06-09T13:00:00+06:00";   // Main landings finish by noon
+    const startTime = `${currentDate}T08:00:00+06:00`; // Market opens early morning 8 AM
+    const endTime = `${currentDate}T13:00:00+06:00`;   // Main landings finish by noon
 
     await createCalendarEvent(summary, description, startTime, endTime);
     eventsCreated++;

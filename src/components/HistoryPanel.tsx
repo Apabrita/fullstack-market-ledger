@@ -31,7 +31,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   activeUser,
   isAuthenticated,
 }) => {
-  const { data, queue } = useData();
+  const { data, queue, appDate } = useData();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "purchases" | "collections" | "settlements" | "crew">("all");
 
@@ -57,9 +57,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   // 1. Gather auctions
   transactions.forEach((tx) => {
-    const buyer = buyers.find((b) => b.id === tx.buyer_id);
+    const buyer = buyers.find((b) => String(b.id) === String(tx.buyer_id));
     const buyerName = buyer ? buyer.nickname : `Buyer: ID-${tx.buyer_id}`;
-    const source = sources.find((s) => s.id === tx.source_id);
+    const source = sources.find((s) => String(s.id) === String(tx.source_id));
     const sourceName = source ? source.name : `Source: ID-${tx.source_id}`;
 
     const isQueued = queue.some((q) => q.table === "transactions" && q.id === tx.id);
@@ -69,7 +69,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       timestamp: tx.id && typeof tx.id === "string" && tx.id.startsWith("temp_t_") 
         ? parseInt(tx.id.replace("temp_t_", "")) 
         : new Date(tx.date).getTime() || Date.now() - 3600000,
-      date: tx.date || "2026-06-09",
+      date: tx.date || appDate,
       category: "purchases",
       title: "Auction Transaction Registered",
       detail: `${buyerName} bought ${tx.weight}kg of ${tx.fish_type} from ${sourceName} @ ₹${tx.price_per_kg}/kg`,
@@ -81,7 +81,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   // 2. Gather collections payments
   collections.forEach((col) => {
-    const buyer = buyers.find((b) => b.id === col.buyer_id);
+    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
     const buyerName = buyer ? buyer.nickname : `Buyer: ID-${col.buyer_id}`;
 
     const isQueued = queue.some((q) => q.table === "daily_collections" && q.id === col.id);
@@ -93,7 +93,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         : col.id && typeof col.id === "string" && col.id.startsWith("temp_c_")
         ? parseInt(col.id.replace("temp_c_", ""))
         : new Date(col.date).getTime() || Date.now() - 5400000,
-      date: col.date || "2026-06-09",
+      date: col.date || appDate,
       category: "collections",
       title: col.is_approved ? "Payment Approved & Credited" : "Payment Collected (Pending)",
       detail: `Received ${col.is_approved ? "Approved" : "Draft"} Cash Collection receipt sum from ${buyerName}`,
@@ -115,7 +115,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
       timestamp: p.id && typeof p.id === "string" && p.id.startsWith("temp_p_")
         ? parseInt(p.id.replace("temp_p_", ""))
         : new Date(p.date).getTime() || Date.now() - 7200000,
-      date: p.date || "2026-06-09",
+      date: p.date || appDate,
       category: "settlements",
       title: "Source Outflow Settled",
       detail: `Settled ship account ${sourceName} for total ${p.total_kg}kg sales. Commission deducted: ₹${p.commission}`,
@@ -159,8 +159,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   // Aggregate collections (inflows)
   collections.forEach((col) => {
     if (!col.amount_paid) return;
-    const dateStr = col.date || "2026-06-09";
-    const buyer = buyers.find((b) => b.id === col.buyer_id);
+    const dateStr = col.date || appDate;
+    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
     const name = buyer ? buyer.nickname : "Buyer";
 
     if (!dayWiseCashbook[dateStr]) {
@@ -174,8 +174,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   // Aggregate source payments (outflows)
   sourcePayments.forEach((sp) => {
     if (!sp.amount_paid_to_source) return;
-    const dateStr = sp.date || "2026-06-09";
-    const source = sources.find((s) => s.id === sp.source_id);
+    const dateStr = sp.date || appDate;
+    const source = sources.find((s) => String(s.id) === String(sp.source_id));
     const name = source ? source.name : "Source";
 
     if (!dayWiseCashbook[dateStr]) {

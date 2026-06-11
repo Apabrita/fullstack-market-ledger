@@ -32,7 +32,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
   activeUser,
   isAuthenticated,
 }) => {
-  const { data, write } = useData();
+  const { data, write, appDate } = useData();
 
   const [showForm, setShowForm] = useState(true); // default to open for direct floor use
   const [showNumpad, setShowNumpad] = useState(false);
@@ -46,10 +46,12 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
   // Form states
   const [buyerId, setBuyerId] = useState("");
   const [amountPaidInput, setAmountPaidInput] = useState("");
-  const [collectionDate, setCollectionDate] = useState(() => {
-    // Record device local date automatically
-    return new Date().toLocaleDateString("en-CA"); // retrieves "YYYY-MM-DD" style
-  });
+  const [collectionDate, setCollectionDate] = useState(appDate);
+
+  // Sync collectionDate with appDate when appDate changes
+  React.useEffect(() => {
+    setCollectionDate(appDate);
+  }, [appDate]);
   const [editingCollectionId, setEditingCollectionId] = useState<string | number | null>(null);
   
   // Cash Denomination Calculator states
@@ -109,7 +111,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
     } else {
       // Find if an unapproved collection for this buyer already exists today on this date
       const existingDraft = collections.find(
-        (c) => c.buyer_id === buyerId && c.date === collectionDate && !c.is_approved
+        (c) => String(c.buyer_id) === String(buyerId) && c.date === collectionDate && !c.is_approved
       );
       if (existingDraft) {
         const updated = {
@@ -147,11 +149,11 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       return;
     }
 
-    const col = collections.find((c) => c.id === colId);
+    const col = collections.find((c) => String(c.id) === String(colId));
     if (!col) return;
 
     // Reduce buyer lifetime debt
-    const buyer = buyers.find((b) => b.id === col.buyer_id);
+    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
     if (buyer) {
       const updatedBuyer = {
         ...buyer,
@@ -720,11 +722,11 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                 {collections
                   .filter((col) => {
                     if (!ledgerSearch) return true;
-                    const buyer = buyers.find((b) => b.id === col.buyer_id);
+                    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
                     return buyer?.nickname.toLowerCase().includes(ledgerSearch.toLowerCase());
                   })
                   .map((col) => {
-                    const buyer = buyers.find((b) => b.id === col.buyer_id);
+                    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
                     return (
                       <motion.div
                         key={col.id}

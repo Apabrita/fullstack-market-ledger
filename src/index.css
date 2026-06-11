@@ -54,22 +54,49 @@
 .theme-dark .bg-white,
 .theme-dark .bg-slate-950,
 .theme-dark .bg-slate-900,
-.theme-dark [class*="bg-slate-"] {
+.theme-dark [class*="bg-slate-"],
+.theme-dark .bg-zinc-50,
+.theme-dark .bg-zinc-100,
+.theme-dark .bg-zinc-200,
+.theme-dark .bg-zinc-300,
+.theme-dark [class*="bg-zinc-"] {
   background-color: #0d0d0d !important;
   color: #ffffff !important;
   border-color: #262626 !important;
 }
 
+.theme-dark .bg-zinc-50 {
+  background-color: #080808 !important;
+}
+
+.theme-dark .bg-zinc-100,
+.theme-dark .bg-zinc-150,
+.theme-dark .bg-zinc-200 {
+  background-color: #121212 !important;
+}
+
+.theme-dark .hover\:bg-zinc-50:hover,
+.theme-dark .hover\:bg-zinc-100:hover {
+  background-color: #1c1c1c !important;
+}
+
 .theme-dark [class*="text-slate-6"],
 .theme-dark [class*="text-slate-7"],
 .theme-dark [class*="text-slate-8"],
-.theme-dark [class*="text-slate-9"] {
+.theme-dark [class*="text-slate-9"],
+.theme-dark [class*="text-zinc-6"],
+.theme-dark [class*="text-zinc-7"],
+.theme-dark [class*="text-zinc-8"],
+.theme-dark [class*="text-zinc-9"],
+.theme-dark .text-white {
   color: #ffffff !important;
 }
 
 .theme-dark [class*="text-slate-4"],
-.theme-dark [class*="text-slate-5"] {
-  color: #a3a3a3 !important;
+.theme-dark [class*="text-slate-5"],
+.theme-dark [class*="text-zinc-4"],
+.theme-dark [class*="text-zinc-5"] {
+  color: #d4d4d8 !important;
 }
 
 .theme-dark h1,
@@ -122,9 +149,12 @@
 
 .theme-light .bg-slate-950,
 .theme-light .bg-slate-900,
-.theme-light [class*="bg-slate-"] {
-  background-color: #fafafa !important;
-  color: #000000 !important;
+.theme-light [class*="bg-slate-"],
+.theme-light .bg-zinc-950,
+.theme-light .bg-zinc-900,
+.theme-light [class*="bg-zinc-"] {
+  background-color: #ffffff !important;
+  color: #0d0e15 !important;
   border-color: #e5e5e5 !important;
 }
 
@@ -132,8 +162,31 @@
 .theme-light [class*="text-slate-2"],
 .theme-light [class*="text-slate-3"],
 .theme-light [class*="text-slate-4"],
-.theme-light [class*="text-slate-5"] {
-  color: #000000 !important;
+.theme-light [class*="text-slate-5"],
+.theme-light [class*="text-zinc-1"],
+.theme-light [class*="text-zinc-2"],
+.theme-light [class*="text-zinc-3"],
+.theme-light [class*="text-zinc-4"],
+.theme-light [class*="text-zinc-5"] {
+  color: #1f2937 !important;
+}
+
+.theme-light .text-zinc-400,
+.theme-light .text-zinc-500,
+.theme-light [class*="text-zinc-4"],
+.theme-light [class*="text-zinc-5"] {
+  color: #4b5563 !important;
+}
+
+.theme-light [class*="text-zinc-6"],
+.theme-light [class*="text-zinc-7"],
+.theme-light [class*="text-zinc-8"],
+.theme-light [class*="text-zinc-9"] {
+  color: #111827 !important;
+}
+
+.theme-light [class*="border-zinc-"] {
+  border-color: #e5e5e5 !important;
 }
 
 .theme-light h1:not([class*="text-"]),
@@ -153,16 +206,43 @@
 }
 
 /* Exempt child elements inside colored text containers or explicitly white/light text */
-.theme-light .text-white, .theme-light .text-white * { color: #ffffff !important; }
-.theme-light .text-zinc-50, .theme-light .text-zinc-50 * { color: #fafafa !important; }
-.theme-light .text-zinc-100, .theme-light .text-zinc-100 * { color: #f4f4f5 !important; }
-.theme-light .text-zinc-200, .theme-light .text-zinc-200 * { color: #e4e4e7 !important; }
-.theme-light .text-zinc-300, .theme-light .text-zinc-300 * { color: #d4d4d8 !important; }
-.theme-light .text-teal-400, .theme-light .text-teal-400 * { color: #0d9488 !important; }
-.theme-light .text-emerald-400, .theme-light .text-emerald-400 * { color: #16a34a !important; }
+.theme-light .text-white, .theme-light .text-white * { color: #090f1d !important; }
+.theme-light .text-zinc-50, .theme-light .text-zinc-50 * { color: #0d121f !important; }
+.theme-light .text-zinc-100, .theme-light .text-zinc-100 * { color: #181c24 !important; }
+.theme-light .text-zinc-200, .theme-light .text-zinc-200 * { color: #22252a !important; }
+.theme-light .text-zinc-300, .theme-light .text-zinc-300 * { color: #2d3139 !important; }
+
+/* Preserve white text inside solid colored active buttons and progress badges */
+.theme-light .bg-indigo-500, .theme-light .bg-indigo-500 *,
+.theme-light .bg-indigo-600 *, .theme-light .bg-indigo-650 *, .theme-light .bg-indigo-600,
+.theme-light .bg-teal-600 *, .theme-light .bg-teal-650 *, .theme-light .bg-teal-600,
+.theme-light .bg-emerald-600 *, .theme-light .bg-emerald-700 *, .theme-light .bg-emerald-600,
+.theme-light .bg-rose-500 *, .theme-light .bg-rose-600 *, .theme-light .bg-rose-600,
+.theme-light .bg-sky-600 *, .theme-light .bg-sky-600,
+.theme-light button.bg-indigo-600 *, .theme-light button.bg-teal-600 *,
+.theme-light button.bg-emerald-600 * { 
+  color: #ffffff !important; 
+}
+
+/* Force all text elements inside standard rich colored buttons to stay white in theme-light */
+.theme-light button.bg-indigo-600 *,
+.theme-light button.bg-teal-605, .theme-light button.bg-teal-600 *,
+.theme-light button.bg-teal-700 *,
+.theme-light button.bg-emerald-600 *,
+.theme-light button.bg-rose-600 *,
+.theme-light button.bg-sky-600 *,
+.theme-light button.bg-amber-600 *,
+.theme-light button.bg-fuchsia-600 *,
+.theme-light button .text-white,
+.theme-light button .text-white * {
+  color: #ffffff !important;
+}
+
+.theme-light .text-indigo-400, .theme-light .text-indigo-400 * { color: #4f46e5 !important; }
+.theme-light .text-emerald-400, .theme-light .text-emerald-400 * { color: #059669 !important; }
 .theme-light .text-sky-400, .theme-light .text-sky-400 * { color: #0284c7 !important; }
-.theme-light .text-amber-400, .theme-light .text-amber-400 * { color: #d97706 !important; }
-.theme-light .text-rose-400, .theme-light .text-rose-400 * { color: #e11d48 !important; }
+.theme-light .text-amber-400, .theme-light .text-amber-400 * { color: #b45309 !important; }
+.theme-light .text-rose-400, .theme-light .text-rose-400 * { color: #be123c !important; }
 
 /* Keep buttons color systems safe from theme-light force overrides */
 .theme-light button span,
@@ -188,6 +268,22 @@
 }
 
 /* Beautiful color-balanced highlight blocks under Light model */
+.theme-light .bg-gradient-to-r {
+  background: linear-gradient(to right, #f8fafc, #f1f5f9) !important;
+  background-image: linear-gradient(to right, #f8fafc, #f1f5f9) !important;
+  border-color: #cbd5e1 !important;
+}
+.theme-light .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #f8fafc, #f1f5f9) !important;
+  background-image: linear-gradient(to bottom right, #f8fafc, #f1f5f9) !important;
+  border-color: #cbd5e1 !important;
+}
+.theme-light .bg-gradient-to-b {
+  background: linear-gradient(to bottom, #ffffff, #f1f5f9) !important;
+  background-image: linear-gradient(to bottom, #ffffff, #f1f5f9) !important;
+  border-color: #cbd5e1 !important;
+}
+
 .theme-light .bg-teal-950\/80,
 .theme-light .bg-teal-950\/50,
 .theme-light .bg-teal-50\/10,

@@ -36,6 +36,13 @@ interface DataContextType {
     action: "insert" | "update" | "upsert" | "delete",
     payload: any
   ) => Promise<boolean>;
+  writeBatch: (
+    items: {
+      table: keyof NFCData;
+      action: "insert" | "update" | "upsert" | "delete";
+      payload: any;
+    }[]
+  ) => Promise<boolean>;
   toggleNetworkSimulation: () => void;
   triggerSync: () => Promise<{ success: boolean; processed: number; remaining: number }>;
   resetToDefault: () => void;
@@ -232,6 +239,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return res.success;
   };
 
+  const writeBatch = async (
+    items: {
+      table: keyof NFCData;
+      action: "insert" | "update" | "upsert" | "delete";
+      payload: any;
+    }[]
+  ) => {
+    for (const item of items) {
+      await executeWrite(item.table, item.action, item.payload);
+    }
+    await refreshData();
+    return true;
+  };
+
   // Toggle simulate online/offline
   const toggleNetworkSimulation = () => {
     const current = localStorage.getItem("nfc_simulated_offline") === "true";
@@ -274,6 +295,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAppDate,
         refreshData,
         write,
+        writeBatch,
         toggleNetworkSimulation,
         triggerSync,
         resetToDefault,

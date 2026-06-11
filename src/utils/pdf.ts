@@ -35,11 +35,13 @@ export const shareAsPDF = async (
   const clone = originalElement.cloneNode(true) as HTMLElement;
   
   // Force desktop-width layout bounds so flex/grids don't collapse on mobile screens
-  clone.style.width = '1000px'; 
-  clone.style.height = 'auto'; 
-  clone.style.overflow = 'visible'; 
-  clone.style.position = 'relative'; 
-  clone.style.maxHeight = 'none';
+  clone.style.setProperty('width', '1000px', 'important'); 
+  clone.style.removeProperty('height');
+  clone.style.setProperty('height', 'auto', 'important'); 
+  clone.style.setProperty('overflow', 'visible', 'important'); 
+  clone.style.setProperty('position', 'relative', 'important'); 
+  clone.style.removeProperty('max-height');
+  clone.style.setProperty('max-height', 'none', 'important');
   clone.style.margin = '0 auto'; // Centered for the visual flash
   
   // Temporarily remove print:hidden elements or buttons on the clone
@@ -70,7 +72,7 @@ export const shareAsPDF = async (
     const imgDataUrl = await toJpeg(clone, {
       quality: 1.0,
       backgroundColor: '#ffffff',
-      pixelRatio: 4, // Ultra crisp
+      pixelRatio: canvasScale, // Safe resolution to prevent crashes
       style: {
         transform: 'scale(1)',
         transformOrigin: 'top left',

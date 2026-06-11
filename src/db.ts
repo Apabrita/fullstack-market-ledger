@@ -230,12 +230,16 @@ export async function loadAll(): Promise<NFCData> {
           if (!error && data) {
             dbData[key] = data as any;
           } else {
-             dbData[key] = [];
+             // Retain the existing local cache values on query error rather than wiping it!
+             dbData[key] = ((fetched && fetched[key]) ? fetched[key] : []) as any;
+             if (error) {
+               console.warn(`Supabase query failed on table '${key}':`, error);
+             }
           }
         })
       );
 
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 3000));
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 10000));
       await Promise.race([fetchCloud, timeout]);
 
       // Seed check
@@ -365,22 +369,35 @@ export async function executeWrite<K extends keyof NFCData>(
 
   const itemId = payload.id || payload.key || ""; 
 
+  // ALWAYS update the local, high-fidelity offline cache first!
+  await syncLocalCacheItem(table, action, payload);
+
+  let successToCloud = false;
+
   if (supabaseInitialized && isOnline()) {
     try {
+      let res;
       if (action === "insert" || action === "upsert" || action === "update") {
-         await supabase.from(table).upsert(payload, { onConflict: table === 'settings' ? 'key' : 'id' });
+         res = await supabase.from(table).upsert(payload, { onConflict: table === 'settings' ? 'key' : 'id' });
       } else if (action === "delete") {
          const pKey = table === 'settings' ? 'key' : 'id';
-         await supabase.from(table).delete().eq(pKey, itemId);
+         res = await supabase.from(table).delete().eq(pKey, itemId);
       }
-
-      await syncLocalCacheItem(table, action, payload);
-      return { success: true, data: payload, queued: false };
+      
+      if (res && res.error) {
+        throw res.error; // Throw so catch block queues it
+      }
+      successToCloud = true;
     } catch (e) {
-      console.warn(`Supabase write fail on '${table}'. Storing inside queue.`, e);
+      console.warn(`Supabase write fail on '${table}'. Storing inside queue for background sync.`, e);
     }
   }
 
+  if (successToCloud) {
+    return { success: true, data: payload, queued: false };
+  }
+
+  // Store in queue so it retries until committed
   const queue = getQueue();
   queue.push({
     id: itemId,
@@ -390,8 +407,6 @@ export async function executeWrite<K extends keyof NFCData>(
     timestamp: Date.now(),
   });
   saveQueue(queue);
-
-  await syncLocalCacheItem(table, action, payload);
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("queue_updated"));
@@ -418,10 +433,15 @@ export async function processQueue(): Promise<{ success: boolean; processed: num
       const itemId = idTempMap[item.id] || item.id;
       const pKey = item.table === 'settings' ? 'key' : 'id';
 
+      let res;
       if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
-        await supabase.from(item.table).upsert(resolvedPayload, { onConflict: pKey });
+        res = await supabase.from(item.table).upsert(resolvedPayload, { onConflict: pKey });
       } else if (item.action === "delete") {
-        await supabase.from(item.table).delete().eq(pKey, itemId);
+        res = await supabase.from(item.table).delete().eq(pKey, itemId);
+      }
+
+      if (res && res.error) {
+        throw res.error;
       }
 
       processedCount++;

@@ -491,7 +491,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                 To synchronize your live wholesale entries, prices, and bills across multiple laptops or Android tablets, connect them to the same cloud system.
               </p>
 
-              {isSyncConfigured() && (
+              {(supUrl && supKey) && (
                 <div className="pt-2 space-y-2">
                   <span className="block font-bold">Copy connection key to other device:</span>
                   <button

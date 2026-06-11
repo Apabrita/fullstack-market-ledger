@@ -89,16 +89,16 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
   const isDayClosed = settings.find((s) => s.key === `day_closed_${appDate}`)?.value === "true";
 
   // Calculations for Close Day
-  const sourcePaymentsForDay = data?.source_payments?.filter((p) => p.date === appDate) || [];
-  const amountPaidToSources = sourcePaymentsForDay.reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0);
+  const sourcePaymentsForDay = data?.source_payments?.filter((p) => String(p.date) === String(appDate)) || [];
+  const amountPaidToSources = sourcePaymentsForDay.reduce((sum, p) => sum + Number(p.amount_paid_to_source || 0), 0);
 
-  const collectionsForDay = collections.filter((c) => c.date === appDate);
-  const amountReceivedFromBuyers = collectionsForDay.reduce((sum, c) => sum + (c.amount_paid || 0), 0);
-  const approvedCollectionsForDay = collectionsForDay.filter((c) => c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0);
-  const pendingCollectionsForDay = collectionsForDay.filter((c) => !c.is_approved).reduce((sum, c) => sum + (c.amount_paid || 0), 0);
+  const collectionsForDay = collections.filter((c) => String(c.date) === String(appDate));
+  const amountReceivedFromBuyers = collectionsForDay.reduce((sum, c) => sum + Number(c.amount_paid || 0), 0);
+  const approvedCollectionsForDay = collectionsForDay.filter((c) => c.is_approved).reduce((sum, c) => sum + Number(c.amount_paid || 0), 0);
+  const pendingCollectionsForDay = collectionsForDay.filter((c) => !c.is_approved).reduce((sum, c) => sum + Number(c.amount_paid || 0), 0);
 
-  const salesForDay = transactions.filter((t) => t.date === appDate);
-  const totalSalesToday = salesForDay.reduce((sum, t) => sum + (t.total_price || 0), 0);
+  const salesForDay = transactions.filter((t) => String(t.date) === String(appDate));
+  const totalSalesToday = salesForDay.reduce((sum, t) => sum + Number(t.total_price || 0), 0);
   const amountOwedToUs = Math.max(0, totalSalesToday - amountReceivedFromBuyers);
 
   const handleCloseDayToggle = async () => {
@@ -164,7 +164,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
 
   if (activeBuyer) {
     // 1. Grab purchases/transactions
-    const buyerTxs = transactions.filter((tx) => tx.buyer_id === selectedBuyerId);
+    const buyerTxs = transactions.filter((tx) => String(tx.buyer_id) === String(selectedBuyerId));
     buyerTxs.forEach((tx) => {
       timelineItems.push({
         type: "purchase",
@@ -180,7 +180,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
     });
 
     // 2. Grab collections
-    const buyerCollections = collections.filter((col) => col.buyer_id === selectedBuyerId);
+    const buyerCollections = collections.filter((col) => String(col.buyer_id) === String(selectedBuyerId));
     buyerCollections.forEach((col) => {
       timelineItems.push({
         type: "payment",

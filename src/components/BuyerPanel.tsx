@@ -14,7 +14,7 @@ interface BuyerPanelProps {
 }
 
 export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthenticated }) => {
-  const { data, write } = useData();
+  const { data, write, appDate } = useData();
   const [showAddBuyerForm, setShowAddBuyerForm] = useState(false);
   const [showCollectionForm, setShowCollectionForm] = useState(false);
 
@@ -31,7 +31,12 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
   // Daily Collection Form States
   const [collectBuyerId, setCollectBuyerId] = useState("");
   const [collectAmount, setCollectAmount] = useState("");
-  const [collectDate, setCollectDate] = useState("2026-06-09");
+  const [collectDate, setCollectDate] = useState(appDate);
+
+  // Sync collectDate with appDate when appDate changes
+  React.useEffect(() => {
+    setCollectDate(appDate);
+  }, [appDate]);
 
   // Search/Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -65,12 +70,12 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
     const amountNum = parseFloat(collectAmount);
     
     // Find outstanding transactions total to calculate owed total (or default to current debt)
-    const selectedBuyer = buyers.find((b) => b.id === collectBuyerId);
+    const selectedBuyer = buyers.find((b) => String(b.id) === String(collectBuyerId));
     if (!selectedBuyer) return;
 
     // Check if there is already a collection entry for this buyer on this date
     const existing = dailyCollections.find(
-      (c) => c.buyer_id === collectBuyerId && c.date === collectDate
+      (c) => String(c.buyer_id) === String(collectBuyerId) && c.date === collectDate
     );
 
     if (existing) {
@@ -103,11 +108,11 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
       return;
     }
 
-    const col = dailyCollections.find((c) => c.id === colId);
+    const col = dailyCollections.find((c) => String(c.id) === String(colId));
     if (!col) return;
 
     // 1. Get associated buyer
-    const buyer = buyers.find((b) => b.id === col.buyer_id);
+    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
     if (buyer) {
       // 2. Reduce the buyer's outstanding lifetime debt
       const updatedBuyer = {
@@ -167,15 +172,13 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
   );
 
   // Derive active selected buyer variables
-  const selectedBuyer = buyers.find(x => x.id === selectedBuyerId);
+  const selectedBuyer = buyers.find(x => String(x.id) === String(selectedBuyerId));
   const buyerTxns = selectedBuyer 
-    ? (data?.transactions || []).filter(t => t.buyer_id === selectedBuyer.id)
+    ? (data?.transactions || []).filter(t => String(t.buyer_id) === String(selectedBuyer.id))
     : [];
   const buyerCollections = selectedBuyer
-    ? (data?.daily_collections || []).filter(c => c.buyer_id === selectedBuyer.id)
+    ? (data?.daily_collections || []).filter(c => String(c.buyer_id) === String(selectedBuyer.id))
     : [];
-
-  const { appDate } = useData();
 
   const totalBoughtWeight = buyerTxns.reduce((sum, t) => sum + (t.weight || 0), 0);
   const totalBoughtValue = buyerTxns.reduce((sum, t) => sum + (t.total_price || t.weight * t.price_per_kg || 0), 0);
@@ -656,7 +659,7 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 </div>
               ) : (
                 dailyCollections.map((col) => {
-                  const buyer = buyers.find((b) => b.id === col.buyer_id);
+                  const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
                   const isTemp = String(col.id).startsWith("temp_");
 
                   return (

@@ -146,7 +146,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     setWcErrorMessage(null);
     setWcSuccessMessage(null);
     try {
-      const res = await syncDataToGoogleSheets(data, selectedWcReport);
+      const res = await syncDataToGoogleSheets(data, selectedWcReport, appDate);
       setWcSuccessMessage(`📋 Successfully compiled & synced to Google Sheets! Rows updated: ${res.rowsAdded}. Spreadsheet link: ${res.spreadsheetUrl}`);
     } catch (err: any) {
       console.error(err);
@@ -162,7 +162,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     setWcErrorMessage(null);
     setWcSuccessMessage(null);
     try {
-      const reportContent = constructPlainReportText(data, selectedWcReport);
+      const reportContent = constructPlainReportText(data, selectedWcReport, appDate);
       const filename = `New_Fish_Center_${selectedWcReport.toUpperCase()}_JOURNAL_${appDate}.txt`;
       const res = await uploadFileToGoogleDrive(filename, reportContent, "text/plain");
       setWcSuccessMessage(`💾 Document parsed as digital format and loaded to Google Drive! File ID: ${res.fileId}. File Link: ${res.webViewLink}`);
@@ -180,7 +180,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     setWcErrorMessage(null);
     setWcSuccessMessage(null);
     try {
-      const res = await syncReportToGoogleDocs(data, selectedWcReport);
+      const res = await syncReportToGoogleDocs(data, selectedWcReport, appDate);
       setWcSuccessMessage(`📝 Google Document draft created successfully! Doc ID: ${res.documentId}. Document Link: ${res.documentUrl}`);
     } catch (err: any) {
       console.error(err);
@@ -196,7 +196,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     setWcErrorMessage(null);
     setWcSuccessMessage(null);
     try {
-      const res = await syncSourcesToGoogleCalendar(data);
+      const res = await syncSourcesToGoogleCalendar(data, appDate);
       setWcSuccessMessage(`📅 Logged ${res.eventsCreated} Active Vessel Landing slots on your Google Calendar!`);
     } catch (err: any) {
       console.error(err);
@@ -247,9 +247,9 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
 
   const buyers = data?.buyers || [];
   const sources = data?.sources || [];
-  const transactions = data?.transactions || [];
-  const collections = data?.daily_collections || [];
-  const sourcePayments = data?.source_payments || [];
+  const transactions = (data?.transactions || []).filter((tx: any) => tx.date === appDate);
+  const collections = (data?.daily_collections || []).filter((c: any) => c.date === appDate);
+  const sourcePayments = (data?.source_payments || []).filter((p: any) => p.date === appDate);
 
   // Distinct list of auctioneers who sold today
   const uniqueAuctioneers = Array.from(
@@ -283,11 +283,11 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
 
   // Dynamic Ledger calculations for each buyer to show accurate rollover balances
   const buyerBalancesList = buyers.map((b) => {
-    const bTxList = transactions.filter((tx) => tx.buyer_id === b.id);
+    const bTxList = transactions.filter((tx) => String(tx.buyer_id) === String(b.id));
     const todayPurchases = bTxList.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
     const todayWeight = bTxList.reduce((sum, tx) => sum + (tx.weight || 0), 0);
     
-    const bColList = collections.filter((col) => col.buyer_id === b.id);
+    const bColList = collections.filter((col) => String(col.buyer_id) === String(b.id));
     const todayPaid = bColList.reduce((sum, col) => sum + (col.amount_paid || 0), 0);
     const approvedCash = bColList.filter(col => col.is_approved).reduce((sum, col) => sum + (col.amount_paid || 0), 0);
     const pendingCash = bColList.filter(col => !col.is_approved).reduce((sum, col) => sum + (col.amount_paid || 0), 0);
@@ -1163,8 +1163,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                         </thead>
                         <tbody>
                           {filteredPrintedTransactions.map((tx, idx) => {
-                            const sourceName = sources.find((s) => s.id === tx.source_id)?.name || "Unknown Source";
-                            const buyerNick = buyers.find((b) => b.id === tx.buyer_id)?.nickname || tx.buyer_id;
+                            const sourceName = sources.find((s) => String(s.id) === String(tx.source_id))?.name || "Unknown Source";
+                            const buyerNick = buyers.find((b) => String(b.id) === String(tx.buyer_id))?.nickname || tx.buyer_id;
                             const clerkName = tx.added_by || activeUser?.name || "Apon Das (Admin)";
                             return (
                               <tr key={tx.id || idx} className="border-b border-zinc-200">
@@ -1643,8 +1643,19 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      // Trigger device native print, which handles multi-page automatically
-                      window.print();
+                      const prevScale = scaleFactor;
+                      setScaleFactor(1.0); // force unscaled crisp font capturing
+                      const filename = `NFC_${activePdfTab.toUpperCase()}_${appDate}.pdf`;
+                      const title = `New Fish Center - ${activePdfTab.toUpperCase()} - ${appDate}`;
+                      const text = `I am downloading the ${activePdfTab.toUpperCase()} ledger sheet from New Fish Center for ${appDate}.`;
+                      
+                      setTimeout(async () => {
+                        try {
+                          await shareAsPDF('print-sheet-canvas', filename, title, text, 'download');
+                        } finally {
+                          setScaleFactor(prevScale);
+                        }
+                      }, 250);
                     }}
                     className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-900/40 cursor-pointer active:scale-95 transition"
                   >

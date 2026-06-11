@@ -227,7 +227,7 @@ const SourceBillGenerator: React.FC<{
 };
 
 export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenticated }) => {
-  const { data, write } = useData();
+  const { data, write, appDate } = useData();
   const [showAddSourceForm, setShowAddSourceForm] = useState(false);
   const [activeSettleSourceId, setActiveSettleSourceId] = useState<string | number | null>(null);
   const [expandedReportSourceId, setExpandedReportSourceId] = useState<string | number | null>(null);
@@ -235,7 +235,12 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
   // New Source form states
   const [sourceName, setSourceName] = useState("");
   const [ratePerKg, setRatePerKg] = useState("");
-  const [sourceDate, setSourceDate] = useState("2026-06-09");
+  const [sourceDate, setSourceDate] = useState(appDate);
+
+  // Sync sourceDate with appDate when appDate changes
+  React.useEffect(() => {
+    setSourceDate(appDate);
+  }, [appDate]);
 
   // Credit Settlement Form States
   const [amountPaidToSource, setAmountPaidToSource] = useState("");
@@ -249,7 +254,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
   const sources = data?.sources || [];
   const transactions = data?.transactions || [];
   const sourcePayments = data?.source_payments || [];
-  const appDate = "2026-06-09";
 
   const handleAddSource = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,11 +286,11 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
   // Run Settle Calculation on a Source
   const handleInitiateSettle = (srcId: string | number) => {
-    const src = sources.find((s) => s.id === srcId);
+    const src = sources.find((s) => String(s.id) === String(srcId));
     if (!src) return;
 
     // Filter transactions for this source
-    const srcTx = transactions.filter((tx) => tx.source_id === srcId);
+    const srcTx = transactions.filter((tx) => String(tx.source_id) === String(srcId));
     const totalKg = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
     const saleTotal = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
 
@@ -312,10 +316,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
     e.preventDefault();
     if (!activeSettleSourceId) return;
 
-    const src = sources.find((s) => s.id === activeSettleSourceId);
+    const src = sources.find((s) => String(s.id) === String(activeSettleSourceId));
     if (!src) return;
 
-    const srcTx = transactions.filter((tx) => tx.source_id === activeSettleSourceId);
+    const srcTx = transactions.filter((tx) => String(tx.source_id) === String(activeSettleSourceId));
     const calculatedKg = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
     const calculatedProceeds = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
 
@@ -338,7 +342,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
     const newPayment = {
       id: `temp_p_${Date.now()}`,
       source_id: activeSettleSourceId,
-      date: src.date || "2026-06-09",
+      date: src.date || appDate,
       total_kg: activeWeight,
       rate_per_kg: activeRate,
       sale_total: saleTotal,
@@ -500,7 +504,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
               sources
                 .filter((s) => !s.is_archived)
                 .map((src) => {
-                  const srcTx = transactions.filter((tx) => tx.source_id === src.id);
+                  const srcTx = transactions.filter((tx) => String(tx.source_id) === String(src.id));
                   const kgSum = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
                   const saleSum = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
 
@@ -634,7 +638,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
               </thead>
               <tbody className="divide-y divide-zinc-100 text-zinc-700">
                 {sourcePayments.map((pay) => {
-                  const source = sources.find((s) => s.id === pay.source_id);
+                  const source = sources.find((s) => String(s.id) === String(pay.source_id));
                   return (
                     <tr key={pay.id} className="hover:bg-zinc-50 transition duration-150">
                       <td className="p-4 font-bold text-indigo-800 flex items-center gap-1.5">
@@ -652,7 +656,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                       </td>
                       <td className="p-4 text-right">
                         <span className="bg-indigo-50 border border-indigo-150 text-[10px] text-indigo-700 px-2.5 py-0.5 rounded-full font-bold">
-                          {pay.date || "2026-06-09"}
+                          {pay.date || appDate}
                         </span>
                       </td>
                     </tr>
