@@ -358,7 +358,32 @@ export function getLocalOptimisticData(): NFCData {
   return fetched;
 }
 
+const VALID_TABLE_COLUMNS: Record<keyof NFCData, string[]> = {
+  users: ["id", "name", "pin", "role"],
+  buyers: ["id", "nickname", "lifetime_debt", "credit_limit"],
+  sources: ["id", "name", "rate_per_kg", "date", "is_completed", "is_archived"],
+  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by", "timestamp"],
+  daily_collections: ["id", "buyer_id", "date", "total_owed_today", "amount_paid", "is_rolled_over", "is_approved", "created_at"],
+  source_payments: ["id", "source_id", "date", "total_kg", "rate_per_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled"],
+  settings: ["key", "value"],
+};
+
+function sanitizePayload(table: keyof NFCData, payload: any): any {
+  if (!payload || typeof payload !== "object") return payload;
+  const validKeys = VALID_TABLE_COLUMNS[table];
+  if (!validKeys) return payload;
+  
+  const sanitized: any = {};
+  for (const key of validKeys) {
+    if (payload[key] !== undefined) {
+      sanitized[key] = payload[key];
+    }
+  }
+  return sanitized;
+}
+
 export async function executeWrite<K extends keyof NFCData>(
+
   table: K,
   action: "insert" | "update" | "upsert" | "delete",
   payload: any
@@ -379,7 +404,8 @@ export async function executeWrite<K extends keyof NFCData>(
     try {
       let res;
       if (action === "insert" || action === "upsert" || action === "update") {
-         res = await supabase.from(table).upsert(payload, { onConflict: table === 'settings' ? 'key' : 'id' });
+         const cleanPayload = sanitizePayload(table, payload);
+         res = await supabase.from(table).upsert(cleanPayload, { onConflict: table === 'settings' ? 'key' : 'id' });
       } else if (action === "delete") {
          const pKey = table === 'settings' ? 'key' : 'id';
          res = await supabase.from(table).delete().eq(pKey, itemId);
@@ -432,12 +458,13 @@ export async function processQueue(): Promise<{ success: boolean; processed: num
   for (let item of queue) {
     try {
       const resolvedPayload = resolveTempIds(item.payload, idTempMap);
+      const cleanPayload = sanitizePayload(item.table, resolvedPayload);
       const itemId = idTempMap[item.id] || item.id;
       const pKey = item.table === 'settings' ? 'key' : 'id';
 
       let res;
       if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
-        res = await supabase.from(item.table).upsert(resolvedPayload, { onConflict: pKey });
+        res = await supabase.from(item.table).upsert(cleanPayload, { onConflict: pKey });
       } else if (item.action === "delete") {
         res = await supabase.from(item.table).delete().eq(pKey, itemId);
       }

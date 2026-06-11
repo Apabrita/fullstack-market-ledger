@@ -133,15 +133,21 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
     };
     await write("source_payments", "insert", newPayment);
     await write("sources", "update", { ...source, is_completed: true });
-    onClose();
+    
+    // Auto-trigger PDF generation after confirming
+    handlePrint();
   };
 
   const handlePrint = async () => {
     setIsGeneratingPdf(true);
+    // Reset scale to 1 for accurate PDF rendering
+    const prevScale = previewScale;
+    setPreviewScale(1);
+    
     setTimeout(async () => {
       try {
         await shareAsPDF(
-          `source-bill-${source.id}`,
+          `print-sheet-canvas`,
           `Payout_Bill_${source.name.replace(/\s+/g, '_')}_${appDate}.pdf`,
           `Source Payout Invoice: ${source.name}`,
           `Generated electronic payout invoice for ${source.name} on ${appDate}.`,
@@ -151,9 +157,10 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
         console.error("PDF generation failed", err);
         window.print();
       } finally {
+        setPreviewScale(prevScale);
         setIsGeneratingPdf(false);
       }
-    }, 150);
+    }, 800);
   };
 
   return (
@@ -303,139 +310,124 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
       </div>
 
       {/* A4 Document Preview Section */}
-      <div className="mt-8 border-t border-zinc-200 pt-6 font-sans">
-         <h4 className="font-bold text-zinc-700 text-sm mb-4 flex justify-between items-center">
-            <span>📄 Print Preview (A4 Invoice Copy)</span>
-            <button 
-              onClick={async () => {
-                setIsGeneratingPdf(true);
-                const prevScale = previewScale;
-                setPreviewScale(1);
-                setTimeout(async () => {
-                  try {
-                    await shareAsPDF(
-                      `print-sheet-canvas`,
-                      `Payout_Bill_${source.name.replace(/\s+/g, '_')}_${appDate}.pdf`,
-                      `Source Payout Invoice: ${source.name}`,
-                      `Generated electronic payout invoice for ${source.name} on ${appDate}.`,
-
-                      'download'
-                    );
-                  } catch (err) {
-                    console.error("PDF generation failed", err);
-                    window.print();
-                  } finally {
-                    setPreviewScale(prevScale);
-                    setIsGeneratingPdf(false);
-                  }
-                }, 250);
-              }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-4 rounded-2xl flex items-center justify-center gap-1.5 text-xs shadow-sm shadow-indigo-900/20 active:scale-95 transition"
-              disabled={isGeneratingPdf}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              {isGeneratingPdf ? "Building PDF..." : "Generate & Download PDF"}
-            </button>
-         </h4>
-         
-         <div 
-           id="payout-preview-parent"
-           className="bg-zinc-200 p-4 rounded-2xl flex justify-center shadow-inner overflow-hidden items-start"
-         >
-           {/* A4 Aspect Ratio container (~210x297mm) */}
+      {source.is_completed && (
+        <div className="mt-8 border-t border-zinc-200 pt-6 font-sans animate-fadeIn">
+           <h4 className="font-bold text-zinc-700 text-sm mb-4 flex justify-between items-center">
+              <span>📄 Print Preview (A4 Invoice Copy)</span>
+              <button 
+                onClick={handlePrint}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1.5 px-4 rounded-2xl flex items-center justify-center gap-1.5 text-xs shadow-sm shadow-indigo-900/20 active:scale-95 transition cursor-pointer"
+                disabled={isGeneratingPdf}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                {isGeneratingPdf ? "Building PDF..." : "Generate & Download PDF"}
+              </button>
+           </h4>
+           
            <div 
-             className="shrink-0 origin-top transition-transform duration-100"
-             style={{
-               width: previewScale < 1 ? `${794 * previewScale}px` : '794px',
-               height: previewScale < 1 ? `${1123 * previewScale}px` : '1123px',
-               overflow: 'hidden'
-             }}
+             id="payout-preview-parent"
+             className="bg-zinc-200 p-4 rounded-2xl flex justify-center shadow-inner overflow-hidden items-start"
            >
+             {/* A4 Aspect Ratio container (~210x297mm) */}
              <div 
-               id="print-sheet-canvas"
-               className="bg-white text-zinc-900 space-y-6 shrink-0 relative"
-               style={{ 
-                 width: '794px', 
-                 height: '1123px', 
-                 padding: '48px',
-                 boxSizing: 'border-box',
-                 transform: `scale(${previewScale})`,
-                 transformOrigin: 'top left'
+               className="shrink-0 origin-top transition-transform duration-100"
+               style={{
+                 width: previewScale < 1 ? `${794 * previewScale}px` : '794px',
+                 height: previewScale < 1 ? `${1123 * previewScale}px` : '1123px',
+                 overflow: 'hidden'
                }}
              >
-                <div className="border-b-2 border-zinc-900 pb-4 flex justify-between items-start">
-                  <div>
-                    <h3 className="text-3xl font-black tracking-tight text-zinc-950 uppercase">NEW FISH CENTER</h3>
-                    <p className="text-[12px] text-zinc-805 font-extrabold tracking-wider font-mono uppercase">Commission Agent and Wholesaler</p>
-                    <p className="text-[12px] text-zinc-600 mt-1 uppercase font-sans">BALIA, Chakdaha, Nadia</p>
+               <div 
+                 id="print-sheet-canvas"
+                 className="bg-white text-zinc-900 space-y-6 shrink-0 relative"
+                 style={{ 
+                   width: '794px', 
+                   height: '1123px', 
+                   padding: '48px',
+                   boxSizing: 'border-box',
+                   transform: `scale(${previewScale})`,
+                   transformOrigin: 'top left'
+                 }}
+               >
+                  <div className="border-b-2 border-zinc-900 pb-4 flex justify-between items-start">
+                    <div>
+                      <h3 className="text-3xl font-black tracking-tight text-zinc-950 uppercase">NEW FISH CENTER</h3>
+                      <p className="text-[12px] text-zinc-805 font-extrabold tracking-wider font-mono uppercase">Commission Agent and Wholesaler</p>
+                      <p className="text-[12px] text-zinc-600 mt-1 uppercase font-sans">BALIA, Chakdaha, Nadia</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-black text-zinc-950 font-mono tracking-wider">PAYOUT BILL</div>
+                      <div className="text-xs font-bold text-zinc-700 mt-2 uppercase">Source: {source.name}</div>
+                      <div className="text-xs text-zinc-500 font-mono mt-1">Date: {source.date || appDate}</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-xl font-black text-zinc-950 font-mono tracking-wider">PAYOUT BILL</div>
-                    <div className="text-xs font-bold text-zinc-700 mt-2 uppercase">Source: {source.name}</div>
-                    <div className="text-xs text-zinc-500 font-mono mt-1">Date: {source.date || appDate}</div>
-                  </div>
-                </div>
 
-                <div className="mt-8">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-zinc-100 text-zinc-700 uppercase tracking-wider text-[11px] font-bold">
-                        <th className="py-3 px-4 border border-zinc-300">Fish Type / Details</th>
-                        <th className="py-3 px-4 border border-zinc-300 text-right">Weight (Kg)</th>
-                        <th className="py-3 px-4 border border-zinc-305 text-right font-bold text-zinc-600">Mean Bidding Rate (₹ / kg)</th>
-                        <th className="py-3 px-4 border border-zinc-300 text-right">Settled Payout Rate (₹ / KG)</th>
-                        <th className="py-3 px-4 border border-zinc-300 text-right bg-zinc-205 text-zinc-900">Total Value (₹)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fishItems.map((itm, i) => {
-                        const w = parseFloat(itm.payoutWeight) || 0;
-                        const r = parseFloat(itm.payoutRatePerKg) || 0;
-                        const valVal = w * r;
-                        return (
-                          <tr key={itm.id || i} className="text-zinc-805 font-bold border-b border-zinc-200">
-                            <td className="py-3.5 px-4 border border-zinc-300 font-sans uppercase">{itm.fishType}</td>
-                            <td className="py-3.5 px-4 border border-zinc-300 text-right font-mono">{w.toLocaleString()} kg</td>
-                            <td className="py-3.5 px-4 border border-zinc-305 text-right font-mono text-zinc-500 font-bold">₹{itm.meanPrice.toFixed(2)}</td>
-                            <td className="py-3.5 px-4 border border-zinc-300 text-right font-mono">₹{r.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                            <td className="py-3.5 px-4 border border-zinc-300 text-right font-mono text-zinc-955 bg-indigo-50/15">₹{Math.round(valVal).toLocaleString()}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr>
-                        <td colSpan={4} className="py-3 px-4 border border-zinc-305 text-right font-black uppercase text-zinc-900">Net Amount Paid:</td>
-                        <td className="py-3 px-4 border border-zinc-305 text-right font-mono font-black text-xl text-zinc-950 bg-indigo-50/30">₹{Math.round(netPaidToSource).toLocaleString()}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-                
-                <div className="absolute bottom-12 left-12 right-12 flex justify-between items-end">
-                  <div className="text-center">
-                     <div className="w-40 border-b border-zinc-400 mb-2"></div>
-                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Receiver Signature</div>
+                  <div className="mt-8">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-zinc-100 text-zinc-700 uppercase tracking-wider text-[11px] font-bold">
+                          <th className="py-3 px-4 border border-zinc-300">Fish Type / Details</th>
+                          <th className="py-3 px-4 border border-zinc-300 text-right">Weight (Kg)</th>
+                          <th className="py-3 px-4 border border-zinc-305 text-right font-bold text-zinc-600">Mean Bidding Rate (₹ / kg)</th>
+                          <th className="py-3 px-4 border border-zinc-300 text-right">Settled Payout Rate (₹ / KG)</th>
+                          <th className="py-3 px-4 border border-zinc-300 text-right bg-zinc-205 text-zinc-900">Total Value (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {fishItems.map((itm, i) => {
+                          const w = parseFloat(itm.payoutWeight) || 0;
+                          const r = parseFloat(itm.payoutRatePerKg) || 0;
+                          const valVal = w * r;
+                          return (
+                            <tr key={itm.id || i} className="text-zinc-805 font-bold border-b border-zinc-200">
+                              <td className="py-3.5 px-4 border border-zinc-300 font-sans uppercase">{itm.fishType}</td>
+                              <td className="py-3.5 px-4 border border-zinc-300 text-right font-mono">{w.toLocaleString()} kg</td>
+                              <td className="py-3.5 px-4 border border-zinc-305 text-right font-mono text-zinc-500 font-bold">₹{itm.meanPrice.toFixed(2)}</td>
+                              <td className="py-3.5 px-4 border border-zinc-300 text-right font-mono">₹{r.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                              <td className="py-3.5 px-4 border border-zinc-300 text-right font-mono text-zinc-955 bg-indigo-50/15">₹{Math.round(valVal).toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan={4} className="py-3 px-4 border border-zinc-305 text-right font-black uppercase text-zinc-900">Net Amount Paid:</td>
+                          <td className="py-3 px-4 border border-zinc-305 text-right font-mono font-black text-xl text-zinc-950 bg-indigo-50/30">₹{Math.round(netPaidToSource).toLocaleString()}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
-                  <div className="text-center">
-                     <div className="w-40 border-b border-zinc-400 mb-2"></div>
-                     <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-sans">Authorized Signatory</div>
+                  
+                  <div className="absolute bottom-12 left-12 right-12 flex justify-between items-end">
+                    <div className="text-center">
+                       <div className="w-40 border-b border-zinc-400 mb-2"></div>
+                       <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Receiver Signature</div>
+                    </div>
+                    <div className="text-center">
+                       <div className="w-40 border-b border-zinc-400 mb-2"></div>
+                       <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest font-sans">Authorized Signatory</div>
+                    </div>
                   </div>
-                </div>
+               </div>
              </div>
            </div>
-         </div>
-      </div>
+        </div>
+      )}
 
       <div className="flex gap-2 justify-end pt-4">
-        {!source.is_completed && (
+        {!source.is_completed ? (
           <button 
             onClick={handleSettle}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-2xl flex items-center justify-center gap-2 shadow"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-sm w-full sm:w-auto cursor-pointer"
           >
-            <CheckCircle2 className="w-4 h-4" />
-            Confirm Final Payment
+            <CheckCircle2 className="w-5 h-5" />
+            Paid (Confirm Final Payment)
           </button>
+        ) : (
+          <div className="flex bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-sm font-bold items-center gap-2 border border-emerald-200">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            Payment is Confirmed and Settled
+          </div>
         )}
       </div>
     </div>
