@@ -1410,10 +1410,10 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-zinc-100">
-                            {todayTransactions.length === 0 ? (
+                            {transactions.length === 0 ? (
                               <tr><td colSpan={7} className="p-4 text-center text-zinc-400 font-sans">No transactions recorded today.</td></tr>
                             ) : (
-                              todayTransactions.map((tx) => {
+                              transactions.map((tx) => {
                                 const src = sources.find(s => s.id === tx.source_id);
                                 const buy = buyers.find(b => b.id === tx.buyer_id);
                                 const timeStr = new Date(tx.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});

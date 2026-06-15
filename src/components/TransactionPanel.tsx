@@ -306,12 +306,21 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   };
 
   const clearAll = async () => {
-    for (const s of todaySources) {
-      await write("sources", "update", { ...s, is_archived: true, is_completed: true });
-    }
-    setActiveSourceId(null);
     setConfirmClear(false);
-    doFlash("✔ All archived!");
+    doFlash("Archiving all sources... please wait.");
+    
+    // We run the updates in the background or await Promise.all
+    // so it doesn't leave the UI in a frozen state for a long time
+    try {
+      await Promise.all(
+        todaySources.map((s) => write("sources", "update", { ...s, is_archived: true, is_completed: true }))
+      );
+      setActiveSourceId(null);
+      doFlash("✔ All sources archived successfully!");
+    } catch (e) {
+      console.error(e);
+      doFlash("Error archiving sources");
+    }
   };
 
   const rebuildCollection = async (buyerId: string, date: string) => {
@@ -785,7 +794,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
             </div>
             <div className="flex gap-2 justify-center pt-2">
               <button
-                onClick={async () => {
+                onClick={() => {
+                  setShowEndAuctionConfirm(false);
                   setIsAuctionSessionEnded(true);
                   if (typeof window !== "undefined") {
                     localStorage.setItem(`nfc_auction_session_ended_${appDate}`, "true");
@@ -804,10 +814,10 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
                   setField("weight");
                   setActiveSourceId(null);
                   
-                  // Upsert setting in DB
-                  await write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "true" });
+                  // Upsert setting in DB without blocking UI
+                  write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "true" })
+                    .catch(() => {});
                   
-                  setShowEndAuctionConfirm(false);
                   doFlash("🔒 Auction Session Ended Successfully!");
                 }}
                 className="flex-grow sm:flex-none px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black rounded-2xl transition shadow cursor-pointer uppercase tracking-tight"
@@ -854,12 +864,13 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
           <div className="space-y-3 w-full max-w-xs pt-1 animate-fadeIn">
             <button
-              onClick={async () => {
+              onClick={() => {
                 setIsAuctionSessionEnded(false);
                 if (typeof window !== "undefined") {
                   localStorage.setItem(`nfc_auction_session_ended_${appDate}`, "false");
                 }
-                await write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "false" });
+                write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "false" })
+                  .catch(() => {});
                 doFlash("🔓 Auction Session Reopened!");
               }}
               className="w-full bg-slate-100 hover:bg-white text-zinc-950 font-black rounded-xl py-2.5 text-xs tracking-wider cursor-pointer uppercase transition duration-150 shadow shadow-white/5 border border-white/20 block"

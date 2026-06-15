@@ -430,32 +430,56 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                           <div>
                             <div className="text-xs font-bold text-zinc-800 font-sans">{src.name}</div>
                             <div className="text-[10px] text-zinc-500 font-semibold flex items-center gap-1 font-mono">
-                              <Calendar className="w-3.5 h-3.5" /> Date Arrived: {src.date}
+                              <Calendar className="w-3.5 h-3.5" /> {src.date}
                             </div>
                           </div>
                         </div>
 
                         {src.is_completed ? (
-                          <span className="text-[10px] bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full border border-zinc-200 font-semibold">
-                            {isSettled ? "Auction Closed & Paid" : "Auction Closed"}
+                          <span className="text-[10px] bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full border border-zinc-200 font-semibold text-center leading-tight">
+                            {isSettled ? "Auction Closed\n& Paid" : "Auction\nClosed"}
                           </span>
                         ) : (
-                          <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100 font-bold">
-                            Active Auction
+                          <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100 font-bold text-center leading-tight">
+                            Active<br/>Auction
                           </span>
                         )}
                       </div>
 
+                      {/* Display recent fish types summary */}
+                      {srcTx.length > 0 && (
+                        <div className="bg-white border border-zinc-100 rounded-xl p-2.5 space-y-1.5 shadow-sm mt-2">
+                          <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-100 pb-1 mb-1">Live Auction Details ({srcTx.length} items logged)</div>
+                          {Array.from(new Set(srcTx.map(t => t.fish_type || "Unsorted"))).slice(0, 3).map((fishType, idx) => {
+                            const specificTx = srcTx.filter(t => (t.fish_type || "Unsorted") === fishType);
+                            const fishKg = specificTx.reduce((sum, t) => sum + (t.weight || 0), 0);
+                            const fishRev = specificTx.reduce((sum, t) => sum + (t.total_price || 0), 0);
+                            const fishMean = fishKg > 0 ? fishRev / fishKg : 0;
+                            return (
+                              <div key={idx} className="flex justify-between items-center text-[10px] font-mono">
+                                <span className="font-bold text-zinc-700 font-sans uppercase truncate w-24">{fishType}</span>
+                                <span className="text-blue-700">{fishKg.toLocaleString()} kg</span>
+                                <span className="text-zinc-500">@ ₹{fishMean.toFixed(0)}/kg</span>
+                                <span className="text-emerald-700 font-bold">₹{fishRev.toLocaleString()}</span>
+                              </div>
+                            );
+                          })}
+                          {Array.from(new Set(srcTx.map(t => t.fish_type || "Unsorted"))).length > 3 && (
+                            <div className="text-[9px] text-zinc-400 italic text-center pt-1">+ more types inside</div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2 bg-zinc-50 rounded-2xl p-2.5 text-center text-[10px] text-zinc-600 font-mono">
                         <div>
-                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Sold Out</div>
-                          <div className="font-bold text-blue-700">{displayKg.toLocaleString()} kg</div>
+                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Summary Sold Out</div>
+                          <div className="font-bold text-blue-700 text-sm mt-0.5">{displayKg.toLocaleString()} kg</div>
                         </div>
                         <div>
                           <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">
                              {netPayout !== null ? "Settled Net Payout" : "Current Est. Yield"}
                           </div>
-                          <div className="font-bold text-emerald-700">₹ {(netPayout !== null ? netPayout : displaySale).toLocaleString()}</div>
+                          <div className="font-bold text-emerald-700 text-sm mt-0.5">₹ {(netPayout !== null ? netPayout : displaySale).toLocaleString()}</div>
                         </div>
                       </div>
 

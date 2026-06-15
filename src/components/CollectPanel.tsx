@@ -426,6 +426,13 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                           <span className="text-zinc-400">Total Outstanding Debt:</span>
                           <span className="font-mono font-black text-rose-400">₹{(selectedBuyer.lifetime_debt || 0).toLocaleString()}</span>
                         </div>
+                        
+                        <div className="flex justify-between items-center text-xs border-t border-zinc-800/40 pt-2">
+                          <span className="text-zinc-400">Bought Today:</span>
+                          <span className="font-mono font-black text-amber-500">
+                             ₹{transactions.filter(t => String(t.buyer_id) === String(selectedBuyer.id) && t.date === appDate).reduce((sum, t) => sum + (t.total_price || 0), 0).toLocaleString()}
+                          </span>
+                        </div>
 
                         <div className="flex justify-between items-center text-xs border-t border-zinc-800/40 pt-2 pb-1">
                           <span className="text-zinc-400 font-sans">Payment Allocation:</span>

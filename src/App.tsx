@@ -36,7 +36,8 @@ import {
   Sliders,
   DollarSign,
   Bell,
-  Download
+  Download,
+  AlertCircle
 } from "lucide-react";
 import { App as CapacitorApp } from '@capacitor/app';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -142,7 +143,7 @@ const MarketDashboard: React.FC = () => {
             // Live stats calculation
             const todayTxns = data?.transactions?.filter(t => t.date === appDate) || [];
             const activeBuyersCount = new Set(todayTxns.map(t => t.buyer_id)).size;
-            const liveTotal = Math.round(todayTxns.reduce((sum, t) => sum + (t.weight * t.price), 0));
+            const liveTotal = Math.round(todayTxns.reduce((sum, t) => sum + (t.total_price || (t.weight * t.price_per_kg) || 0), 0));
             
             // Auction is live, send "ongoing" notification to behave like Dynamic Island alert
             await LocalNotifications.schedule({

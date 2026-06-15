@@ -46,6 +46,7 @@ export interface Source {
   date: string;
   is_completed: boolean;
   is_archived: boolean;
+  rate_per_kg?: number;
 }
 
 export interface Transaction {
@@ -81,6 +82,7 @@ export interface SourcePayment {
   commission: number;
   is_settled: boolean;
   items_json?: string;
+  rate_per_kg?: number;
 }
 
 export interface Setting {
@@ -225,33 +227,9 @@ export async function loadAll(): Promise<NFCData> {
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 10000));
       await Promise.race([fetchCloud, timeout]);
 
-      // Seed check
-      let totalDocCount = 0;
-      keys.forEach((k) => totalDocCount += (dbData[k]?.length || 0));
-
-      if (totalDocCount === 0) {
-        console.log("Firebase database is blank. Initiating market seed process...");
-        const batch = writeBatch(db);
-        
-        for (const key of keys) {
-           const list = INITIAL_SEED_DATA[key];
-           for (const item of list) {
-             const pKey = key === 'settings' ? 'key' : 'id';
-             batch.set(doc(db, key, item[pKey as keyof typeof item] as string), item);
-           }
-           dbData[key] = list as any;
-        }
-        await batch.commit().catch(() => {});
-      }
-
-      if (!dbData.users || dbData.users.length === 0) {
-        const batch = writeBatch(db);
-        for(const u of INITIAL_SEED_DATA.users) {
-          batch.set(doc(db, 'users', String(u.id)), u);
-        }
-        await batch.commit().catch(() => {});
-        dbData.users = INITIAL_SEED_DATA.users;
-      }
+      // DO NOT SEED MOCK DATA AUTOMATICALLY
+      // It can falsely trigger if Firebase refuses connection (e.g. offline + clean local cache), 
+      // thus over-writing user's actual database when they return online.
 
       fetched = dbData;
       saveLocalCache(fetched);
@@ -392,9 +370,16 @@ export async function executeWrite<K extends keyof NFCData>(
     try {
       if (action === "insert" || action === "upsert" || action === "update") {
          const cleanPayload = sanitizePayload(table, payload);
-         await setDoc(doc(db, table, itemId), cleanPayload, { merge: true });
+         
+         // Fix: Provide a timeout so app does not freeze if offline internal queue blocks
+         const writePromise = setDoc(doc(db, table, itemId), cleanPayload, { merge: true });
+         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
+         await Promise.race([writePromise, timeoutPromise]);
+         
       } else if (action === "delete") {
-         await deleteDoc(doc(db, table, itemId));
+         const deletePromise = deleteDoc(doc(db, table, itemId));
+         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
+         await Promise.race([deletePromise, timeoutPromise]);
       }
       
       successToCloud = true;
@@ -445,9 +430,13 @@ export async function processQueue(): Promise<{ success: boolean; processed: num
       const itemId = String(idTempMap[item.id] || item.id);
 
       if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
-         await setDoc(doc(db, item.table, itemId), cleanPayload, { merge: true });
+         const writePromise = setDoc(doc(db, item.table, itemId), cleanPayload, { merge: true });
+         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
+         await Promise.race([writePromise, timeoutPromise]);
       } else if (item.action === "delete") {
-         await deleteDoc(doc(db, item.table, itemId));
+         const deletePromise = deleteDoc(doc(db, item.table, itemId));
+         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
+         await Promise.race([deletePromise, timeoutPromise]);
       }
 
       processedCount++;
