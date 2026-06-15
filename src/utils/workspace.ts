@@ -8,8 +8,16 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
 import { NFCData, Transaction, DailyCollection, SourcePayment, Buyer, Source } from "../db";
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDBst58d7Mg1YREQCKr1kLPhwxQkcRx3To",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "steel-acumen-nr5vm.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "steel-acumen-nr5vm",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "steel-acumen-nr5vm.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1066701172350",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1066701172350:web:48e49c3e6889aad58c722f"
+};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

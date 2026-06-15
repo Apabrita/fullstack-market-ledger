@@ -248,7 +248,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isOnline()) {
             refreshData();
         }
-    }, 45000); // Poll every 45 secs
+    }, 120000); // Poll every 2 minutes instead of aggressive polling
 
     return () => {
       if (typeof window !== "undefined") {

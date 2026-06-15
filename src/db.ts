@@ -3,13 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { 
-  getFirestore, doc, setDoc, deleteDoc, getDocs, collection, onSnapshot, writeBatch
-} from "firebase/firestore";
-// @ts-ignore
-import firebaseConfig from '../firebase-applet-config.json';
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ==========================================
 // 1. Critical Capacitor Version Bug Fix
@@ -109,25 +103,58 @@ export interface QueueItem {
 }
 
 // ==========================================
-// 3. Firebase Architecture Sync Setup
+// 3. Supabase Architecture Sync Setup
 // ==========================================
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
-export const auth = getAuth(app);
+let supabase: SupabaseClient | null = null;
+let _isSyncConfigured = false;
 
-// Mock legacy config indicators, Firebase is always pre-configured via applet
-const isFirebaseInitialized = true; 
+// If they are injected in .env
+let envUrl = import.meta.env?.VITE_SUPABASE_URL || "";
+let envAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
+
+function initSupabase() {
+  if (typeof window !== "undefined") {
+     const storedUrl = localStorage.getItem("nfc_supabase_url");
+     const storedKey = localStorage.getItem("nfc_supabase_anon_key");
+     if (storedUrl && storedKey) {
+       envUrl = storedUrl;
+       envAnonKey = storedKey;
+     }
+  }
+  
+  if (envUrl && envAnonKey) {
+    try {
+      supabase = createClient(envUrl, envAnonKey);
+      _isSyncConfigured = true;
+    } catch(e) {
+      console.error("Supabase init error:", e);
+    }
+  }
+}
+
+initSupabase();
 
 export function isSyncConfigured(): boolean {
-  return isFirebaseInitialized;
+  return _isSyncConfigured;
 }
 
 export function getCredentials(): { url: string; anonKey: string } {
-  return { url: "firebase", anonKey: "firebase" }; // Dummy stubs to maintain interface
+  return { url: envUrl, anonKey: envAnonKey };
 }
 
-export function saveCredentials(url: string, key: string) {}
-export function clearCredentials() {}
+export function saveCredentials(url: string, key: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("nfc_supabase_url", url);
+    localStorage.setItem("nfc_supabase_anon_key", key);
+  }
+}
+
+export function clearCredentials() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("nfc_supabase_url");
+    localStorage.removeItem("nfc_supabase_anon_key");
+  }
+}
 
 export function isOnline(): boolean {
   if (typeof window !== "undefined") {
@@ -204,7 +231,7 @@ export function saveQueue(queue: QueueItem[]) {
 export async function loadAll(): Promise<NFCData> {
   let fetched: NFCData = getLocalCache();
 
-  if (isFirebaseInitialized && isOnline()) {
+  if (_isSyncConfigured && isOnline() && supabase) {
     try {
       const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
       const dbData = {} as NFCData;
@@ -212,14 +239,13 @@ export async function loadAll(): Promise<NFCData> {
       const fetchCloud = Promise.all(
         keys.map(async (key) => {
           try {
-            const snapshot = await getDocs(collection(db, key));
-            const records: any[] = [];
-            snapshot.forEach((docSnap) => records.push(docSnap.data()));
-            dbData[key] = records as any;
+            const { data, error } = await supabase!.from(key).select("*");
+            if (error) throw error;
+            dbData[key] = (data || []) as any;
           } catch(error) {
              // Retain the existing local cache values on query error rather than wiping it!
              dbData[key] = ((fetched && fetched[key]) ? fetched[key] : []) as any;
-             console.warn(`Firebase query failed on table '${key}':`, error);
+             console.warn(`Supabase query failed on table '${key}':`, error);
           }
         })
       );
@@ -227,14 +253,10 @@ export async function loadAll(): Promise<NFCData> {
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 10000));
       await Promise.race([fetchCloud, timeout]);
 
-      // DO NOT SEED MOCK DATA AUTOMATICALLY
-      // It can falsely trigger if Firebase refuses connection (e.g. offline + clean local cache), 
-      // thus over-writing user's actual database when they return online.
-
       fetched = dbData;
       saveLocalCache(fetched);
     } catch (e) {
-      console.warn("Firebase fetch failed... reverting to local cache.", e);
+      console.warn("Supabase fetch failed... reverting to local cache.", e);
       fetched = getLocalCache();
     }
   } else {
@@ -366,25 +388,26 @@ export async function executeWrite<K extends keyof NFCData>(
   let successToCloud = false;
   let lastError: any = null;
 
-  if (isFirebaseInitialized && isOnline()) {
+  if (_isSyncConfigured && isOnline() && supabase) {
     try {
       if (action === "insert" || action === "upsert" || action === "update") {
          const cleanPayload = sanitizePayload(table, payload);
          
-         // Fix: Provide a timeout so app does not freeze if offline internal queue blocks
-         const writePromise = setDoc(doc(db, table, itemId), cleanPayload, { merge: true });
+         const writePromise = supabase.from(table).upsert(cleanPayload);
          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
-         await Promise.race([writePromise, timeoutPromise]);
+         const result = await Promise.race([writePromise, timeoutPromise]) as any;
+         if (result.error) throw result.error;
          
       } else if (action === "delete") {
-         const deletePromise = deleteDoc(doc(db, table, itemId));
+         const deletePromise = supabase.from(table).delete().eq(table === 'settings' ? 'key' : 'id', itemId);
          const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
-         await Promise.race([deletePromise, timeoutPromise]);
+         const result = await Promise.race([deletePromise, timeoutPromise]) as any;
+         if (result.error) throw result.error;
       }
       
       successToCloud = true;
     } catch (e) {
-      console.warn(`Firebase write fail on '${table}'. Storing inside queue for background sync.`, e);
+      console.warn(`Supabase write fail on '${table}'. Storing inside queue for background sync.`, e);
       lastError = e;
     }
   }
@@ -411,54 +434,63 @@ export async function executeWrite<K extends keyof NFCData>(
   return { success: true, data: payload, queued: true, error: lastError?.message || lastError?.details || "Offline or configuration error" };
 }
 
+let isProcessingQueue = false;
+
 export async function processQueue(): Promise<{ success: boolean; processed: number; remaining: number }> {
-  if (!isFirebaseInitialized || !isOnline()) {
+  if (isProcessingQueue || !_isSyncConfigured || !isOnline() || !supabase) {
     return { success: false, processed: 0, remaining: getQueue().length };
   }
 
-  const queue = getQueue();
-  if (queue.length === 0) return { success: true, processed: 0, remaining: 0 };
+  isProcessingQueue = true;
+  try {
+    const queue = getQueue();
+    if (queue.length === 0) return { success: true, processed: 0, remaining: 0 };
 
-  const idTempMap: Record<string, any> = {};
-  const remaining: QueueItem[] = [];
-  let processedCount = 0;
+    const idTempMap: Record<string, any> = {};
+    const remaining: QueueItem[] = [];
+    let processedCount = 0;
 
-  for (let item of queue) {
-    try {
-      const resolvedPayload = resolveTempIds(item.payload, idTempMap);
-      const cleanPayload = sanitizePayload(item.table, resolvedPayload);
-      const itemId = String(idTempMap[item.id] || item.id);
+    for (let item of queue) {
+      try {
+        const resolvedPayload = resolveTempIds(item.payload, idTempMap);
+        const cleanPayload = sanitizePayload(item.table, resolvedPayload);
+        const itemId = String(idTempMap[item.id] || item.id);
 
-      if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
-         const writePromise = setDoc(doc(db, item.table, itemId), cleanPayload, { merge: true });
-         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
-         await Promise.race([writePromise, timeoutPromise]);
-      } else if (item.action === "delete") {
-         const deletePromise = deleteDoc(doc(db, item.table, itemId));
-         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
-         await Promise.race([deletePromise, timeoutPromise]);
+        if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
+           const writePromise = supabase.from(item.table).upsert(cleanPayload);
+           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
+           const result = await Promise.race([writePromise, timeoutPromise]) as any;
+           if (result.error) throw result.error;
+        } else if (item.action === "delete") {
+           const deletePromise = supabase.from(item.table).delete().eq(item.table === 'settings' ? 'key' : 'id', itemId);
+           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
+           const result = await Promise.race([deletePromise, timeoutPromise]) as any;
+           if (result.error) throw result.error;
+        }
+
+        processedCount++;
+      } catch (err) {
+        console.error(`Failed to process queued record:`, item, err);
+        remaining.push(item);
       }
-
-      processedCount++;
-    } catch (err) {
-      console.error(`Failed to process queued record:`, item, err);
-      remaining.push(item);
     }
+
+    saveQueue(remaining);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("queue_updated"));
+    }
+
+    await loadAll();
+
+    return {
+      success: remaining.length === 0,
+      processed: processedCount,
+      remaining: remaining.length,
+    };
+  } finally {
+    isProcessingQueue = false;
   }
-
-  saveQueue(remaining);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("queue_updated"));
-  }
-
-  await loadAll();
-
-  return {
-    success: remaining.length === 0,
-    processed: processedCount,
-    remaining: remaining.length,
-  };
 }
 
 function resolveTempIds(payload: any, map: Record<string, any>): any {
@@ -516,26 +548,24 @@ export function clearAllLocalState() {
 }
 
 export async function wipeAllData(): Promise<void> {
-  if (!isFirebaseInitialized || !isOnline()) {
+  if (!_isSyncConfigured || !isOnline() || !supabase) {
     throw new Error("System must be online to perform a full cloud wipe.");
   }
   
   const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
   for (const key of keys) {
-     const snap = await getDocs(collection(db, key));
-     const batch = writeBatch(db);
-     snap.forEach((docSnap) => batch.delete(docSnap.ref));
-     if (!snap.empty) {
-        await batch.commit().catch(()=> {});
+     const { data } = await supabase.from(key).select(key === 'settings' ? 'key' : 'id');
+     if (data && data.length > 0) {
+       for (const row of data) {
+          await supabase.from(key).delete().eq(key === 'settings' ? 'key' : 'id', row.key || row.id);
+       }
      }
   }
   
   clearAllLocalState();
   
-  const batch = writeBatch(db);
-  for(const item of INITIAL_SEED_DATA.users) { batch.set(doc(db, 'users', String(item.id)), item); }
-  for(const item of INITIAL_SEED_DATA.settings) { batch.set(doc(db, 'settings', String(item.key)), item); }
-  await batch.commit();
+  for(const item of INITIAL_SEED_DATA.users) { await supabase.from('users').upsert(item); }
+  for(const item of INITIAL_SEED_DATA.settings) { await supabase.from('settings').upsert(item); }
   
   window.location.reload();
 }
@@ -544,7 +574,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     loadAll()
       .then(() => {
-        console.log("Synchronized fresh Firebase snapshot.");
+        console.log("Synchronized fresh Supabase snapshot.");
       })
       .catch((e) => console.error("Snapshot sync failed", e))
       .finally(() => {
@@ -572,37 +602,43 @@ export async function authenticateUserWithPIN(
 }
 
 export function setupRealtimeSubscriptions(onUpdate?: () => void): () => void {
-  if (!isFirebaseInitialized) return () => {};
+  if (!_isSyncConfigured || !supabase) return () => {};
 
   const tables = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
-  const unsubscribers: any[] = [];
+  const channels: any[] = [];
 
   tables.forEach((table) => {
-    const unsub = onSnapshot(collection(db, table), (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        let action: any = "upsert";
-        if (change.type === 'removed') action = "delete";
-        
-        const record = change.doc.data();
-        // Fallback IDs if omitted in data payload
-        if(!record.id && table !== 'settings') record.id = change.doc.id;
-        if(!record.key && table === 'settings') record.key = change.doc.id;
-        
-        syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
-           if (typeof window !== "undefined") {
-             window.dispatchEvent(new Event("queue_updated"));
-           }
-           if (onUpdate) onUpdate();
-        });
+    const channel = supabase!.channel(`realtime_${table}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table },
+        (payload) => {
+          let action: any = "upsert";
+          if (payload.eventType === 'DELETE') action = "delete";
+          
+          const record = payload.new || payload.old;
+          if (!record) return;
+
+          // Fallback IDs if omitted in data payload
+          if(!record.id && table !== 'settings') record.id = record.id;
+          if(!record.key && table === 'settings') record.key = record.key;
+          
+          syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
+             if (typeof window !== "undefined") {
+               window.dispatchEvent(new Event("queue_updated"));
+             }
+             if (onUpdate) onUpdate();
+          });
+        }
+      )
+      .subscribe((status, err) => {
+         if (err) console.warn(`Supabase realtime ${table} subscription error:`, err);
       });
-    }, (error) => {
-      console.warn(`Snapshot listener error on table ${table}:`, error);
-    });
-    
-    unsubscribers.push(unsub);
+      
+    channels.push(channel);
   });
 
   return () => {
-    unsubscribers.forEach(unsub => unsub());
+    channels.forEach(channel => supabase!.removeChannel(channel));
   };
 }

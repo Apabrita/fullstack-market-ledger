@@ -292,12 +292,12 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
            <span className="text-zinc-500 font-medium whitespace-nowrap">Active In Harbor:</span>
            <span className="font-bold text-zinc-800">{sources.filter((s) => !s.is_completed).length}</span>
          </div>
-         <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+         <div className="flex flex-wrap items-center gap-2 border-l border-zinc-200 pl-3">
            <Receipt className="w-4 h-4 text-teal-600" />
            <span className="text-zinc-500 font-medium whitespace-nowrap">Market Commissions:</span>
            <span className="font-bold text-emerald-700 font-mono">₹{sourcePayments.reduce((sum, p) => sum + (p.commission || 0), 0).toLocaleString()}</span>
          </div>
-         <div className="flex items-center gap-2 border-l border-zinc-200 pl-3">
+         <div className="flex flex-wrap items-center gap-2 border-l border-zinc-200 pl-3">
            <Percent className="w-4 h-4 text-blue-600" />
            <span className="text-zinc-500 font-medium whitespace-nowrap">Settled Outflow:</span>
            <span className="font-bold text-zinc-800 font-mono">₹{sourcePayments.reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0).toLocaleString()}</span>

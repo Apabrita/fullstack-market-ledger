@@ -460,7 +460,39 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
     if (!old) return;
     
     const updatedTxn = { ...old, ...changes };
-    await write("transactions", "update", updatedTxn);
+    const priceDiff = (parseFloat(updatedTxn.total_price) || 0) - (parseFloat(old.total_price) || 0);
+
+    const batchItems: any[] = [{ table: "transactions", action: "update", payload: updatedTxn }];
+
+    if (old.buyer_id === updatedTxn.buyer_id && priceDiff !== 0) {
+      const b = store.buyers.find((x) => String(x.id) === String(updatedTxn.buyer_id));
+      if (b) {
+        batchItems.push({
+          table: "buyers",
+          action: "update",
+          payload: { ...b, lifetime_debt: Math.max(0, (b.lifetime_debt || 0) + priceDiff) }
+        });
+      }
+    } else if (old.buyer_id !== updatedTxn.buyer_id) {
+       const oldB = store.buyers.find((x) => String(x.id) === String(old.buyer_id));
+       if (oldB) {
+         batchItems.push({
+           table: "buyers",
+           action: "update",
+           payload: { ...oldB, lifetime_debt: Math.max(0, (oldB.lifetime_debt || 0) - (parseFloat(old.total_price) || 0)) }
+         });
+       }
+       const newB = store.buyers.find((x) => String(x.id) === String(updatedTxn.buyer_id));
+       if (newB) {
+         batchItems.push({
+           table: "buyers",
+           action: "update",
+           payload: { ...newB, lifetime_debt: Math.max(0, (newB.lifetime_debt || 0) + (parseFloat(updatedTxn.total_price) || 0)) }
+         });
+       }
+    }
+
+    await writeBatch(batchItems);
 
     if (old.buyer_id) await rebuildCollection(old.buyer_id, old.date);
     if (changes.buyer_id && changes.buyer_id !== old.buyer_id) {
@@ -477,7 +509,19 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
     if (!window.confirm("Are you sure you want to delete this transaction? This action cannot be undone.")) return;
 
-    await write("transactions", "delete", { id: t.id });
+    const b = store.buyers.find((x) => String(x.id) === String(t.buyer_id));
+    const batchItems: any[] = [{ table: "transactions", action: "delete", payload: { id: t.id } }];
+    
+    if (b) {
+       batchItems.push({
+         table: "buyers",
+         action: "update",
+         payload: { ...b, lifetime_debt: Math.max(0, (b.lifetime_debt || 0) - (parseFloat(t.total_price) || 0)) }
+       });
+    }
+
+    await writeBatch(batchItems);
+    
     if (t.buyer_id) await rebuildCollection(t.buyer_id, t.date);
 
     setEditTxn(null);

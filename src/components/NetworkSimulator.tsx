@@ -212,21 +212,6 @@ CREATE TABLE IF NOT EXISTS transactions ( id TEXT PRIMARY KEY, source_id TEXT, b
 CREATE TABLE IF NOT EXISTS daily_collections ( id TEXT PRIMARY KEY, buyer_id TEXT, date TEXT, total_owed_today NUMERIC, amount_paid NUMERIC, is_rolled_over BOOLEAN, is_approved BOOLEAN, created_at TEXT );
 CREATE TABLE IF NOT EXISTS source_payments ( id TEXT PRIMARY KEY, source_id TEXT, date TEXT, total_kg NUMERIC, rate_per_kg NUMERIC, sale_total NUMERIC, amount_paid_to_source NUMERIC, commission NUMERIC, is_settled BOOLEAN );
 CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );
-
-// === FIREBASE FIRESTORE SECURITY RULES ===
-// Below are the required security rules to deploy in Firebase:
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{document=**} { allow read, write: if true; }
-    match /buyers/{document=**} { allow read, write: if true; }
-    match /sources/{document=**} { allow read, write: if true; }
-    match /transactions/{document=**} { allow read, write: if true; }
-    match /daily_collections/{document=**} { allow read, write: if true; }
-    match /source_payments/{document=**} { allow read, write: if true; }
-    match /settings/{document=**} { allow read, write: if true; }
-  }
-}
 `}
           />
         </div>

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  * 
  * Bidirectional Data Synchronization Service
- * Handles syncing data between the local/Firebase store (originally Supabase) 
+ * Handles syncing data between the local/Supabase DB 
  * and authenticated Google Sheets.
  */
 
