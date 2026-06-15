@@ -50,7 +50,12 @@ const MarketDashboard: React.FC = () => {
   const { data, loading, queue, online, write, activeTheme, appDate, setAppDate } = useData();
   const [activeUser, setActiveUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [deviceMode, setDeviceMode] = useState<"laptop" | "android">("android");
+  const [deviceMode, setDeviceMode] = useState<"laptop" | "android">(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "android" : "laptop";
+    }
+    return "laptop";
+  });
   const [activeTab, setActiveTab] = useState<
     | "dash"
     | "transactions"
@@ -255,7 +260,7 @@ const MarketDashboard: React.FC = () => {
               className="px-3 py-1.5 text-[11px] font-bold bg-indigo-600 text-white rounded-2xl shadow-md flex items-center gap-1.5 animate-pulse cursor-pointer hover:bg-indigo-500 transition"
             >
               <Download className="w-3.5 h-3.5" />
-              Install Android App (APK equivalent)
+              Install App (Desktop/Android)
             </button>
           )}
           {/* Mode Switch Panel */}
@@ -465,7 +470,7 @@ const MarketDashboard: React.FC = () => {
             onClick={handleInstallClick}
             className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-2xl shadow-md font-black flex items-center gap-1.5 animate-pulse mr-2 cursor-pointer transition hover:bg-indigo-500"
           >
-            <Download className="w-4 h-4" /> Install Android App Download
+            <Download className="w-4 h-4" /> Install App (Mac/PC/Android)
           </button>
         )}
         <span className="text-xs text-zinc-400 font-bold uppercase pl-2 select-none">Preview Hardware:</span>

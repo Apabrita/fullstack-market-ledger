@@ -203,15 +203,26 @@ export const NetworkSimulator: React.FC = () => {
           </div>
           <textarea 
              readOnly 
-             className="w-full h-24 bg-zinc-950 border border-zinc-800 text-zinc-400 p-2 text-[9px] font-mono rounded"
-             defaultValue={`-- Core Tables
+             className="w-full h-40 bg-zinc-950 border border-zinc-800 text-zinc-400 p-2 text-[9px] font-mono rounded"
+             defaultValue={`-- Core Tables Setup
 CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT );
 CREATE TABLE IF NOT EXISTS buyers ( id TEXT PRIMARY KEY, nickname TEXT, lifetime_debt NUMERIC, credit_limit NUMERIC );
 CREATE TABLE IF NOT EXISTS sources ( id TEXT PRIMARY KEY, name TEXT, rate_per_kg NUMERIC, date TEXT, is_completed BOOLEAN, is_archived BOOLEAN );
 CREATE TABLE IF NOT EXISTS transactions ( id TEXT PRIMARY KEY, source_id TEXT, buyer_id TEXT, weight NUMERIC, price_per_kg NUMERIC, total_price NUMERIC, date TEXT, fish_type TEXT, added_by TEXT, timestamp TEXT );
 CREATE TABLE IF NOT EXISTS daily_collections ( id TEXT PRIMARY KEY, buyer_id TEXT, date TEXT, total_owed_today NUMERIC, amount_paid NUMERIC, is_rolled_over BOOLEAN, is_approved BOOLEAN, created_at TEXT );
-CREATE TABLE IF NOT EXISTS source_payments ( id TEXT PRIMARY KEY, source_id TEXT, date TEXT, total_kg NUMERIC, rate_per_kg NUMERIC, sale_total NUMERIC, amount_paid_to_source NUMERIC, commission NUMERIC, is_settled BOOLEAN );
+CREATE TABLE IF NOT EXISTS source_payments ( id TEXT PRIMARY KEY, source_id TEXT, date TEXT, total_kg NUMERIC, rate_per_kg NUMERIC, sale_total NUMERIC, amount_paid_to_source NUMERIC, commission NUMERIC, is_settled BOOLEAN, items_json TEXT );
 CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );
+
+-- IMPORTANT FIX: Run this in your Supabase SQL Editor to add any missing columns!
+ALTER TABLE sources ADD COLUMN IF NOT EXISTS rate_per_kg NUMERIC;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS weight NUMERIC;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS price_per_kg NUMERIC;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS total_price NUMERIC;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS fish_type TEXT;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS added_by TEXT;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS timestamp TEXT;
+ALTER TABLE source_payments ADD COLUMN IF NOT EXISTS items_json TEXT;
+ALTER TABLE source_payments ADD COLUMN IF NOT EXISTS rate_per_kg NUMERIC;
 `}
           />
         </div>

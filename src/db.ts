@@ -53,6 +53,7 @@ export interface Transaction {
   date: string;
   fish_type: string;
   added_by: string;
+  timestamp?: string | number;
 }
 
 export interface DailyCollection {
@@ -351,7 +352,7 @@ const VALID_TABLE_COLUMNS: Record<keyof NFCData, string[]> = {
   users: ["id", "name", "pin", "role"],
   buyers: ["id", "nickname", "lifetime_debt", "credit_limit"],
   sources: ["id", "name", "date", "is_completed", "is_archived", "rate_per_kg"],
-  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by"],
+  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by", "timestamp"],
   daily_collections: ["id", "buyer_id", "date", "total_owed_today", "amount_paid", "is_rolled_over", "is_approved", "created_at"],
   source_payments: ["id", "source_id", "date", "total_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled", "items_json", "rate_per_kg"],
   settings: ["key", "value"],
