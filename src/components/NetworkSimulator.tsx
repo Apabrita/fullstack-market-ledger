@@ -213,33 +213,20 @@ CREATE TABLE IF NOT EXISTS daily_collections ( id TEXT PRIMARY KEY, buyer_id TEX
 CREATE TABLE IF NOT EXISTS source_payments ( id TEXT PRIMARY KEY, source_id TEXT, date TEXT, total_kg NUMERIC, rate_per_kg NUMERIC, sale_total NUMERIC, amount_paid_to_source NUMERIC, commission NUMERIC, is_settled BOOLEAN );
 CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT );
 
--- MANDATORY: Enable Realtime for Auto-Sync across devices
-BEGIN;
-DO $$ 
-BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN 
-    CREATE PUBLICATION supabase_realtime FOR ALL TABLES; 
-  ELSE 
-    ALTER PUBLICATION supabase_realtime ADD TABLE users, buyers, sources, transactions, daily_collections, source_payments, settings; 
-  END IF; 
-END $$;
-COMMIT;
-
--- MANDATORY: Grant permissions to anon client so the App can successfully Sync without blocking
-GRANT ALL ON TABLE users TO anon;
-GRANT ALL ON TABLE buyers TO anon;
-GRANT ALL ON TABLE sources TO anon;
-GRANT ALL ON TABLE transactions TO anon;
-GRANT ALL ON TABLE daily_collections TO anon;
-GRANT ALL ON TABLE source_payments TO anon;
-GRANT ALL ON TABLE settings TO anon;
-GRANT ALL ON TABLE users TO authenticated;
-GRANT ALL ON TABLE buyers TO authenticated;
-GRANT ALL ON TABLE sources TO authenticated;
-GRANT ALL ON TABLE transactions TO authenticated;
-GRANT ALL ON TABLE daily_collections TO authenticated;
-GRANT ALL ON TABLE source_payments TO authenticated;
-GRANT ALL ON TABLE settings TO authenticated;
+// === FIREBASE FIRESTORE SECURITY RULES ===
+// Below are the required security rules to deploy in Firebase:
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{document=**} { allow read, write: if true; }
+    match /buyers/{document=**} { allow read, write: if true; }
+    match /sources/{document=**} { allow read, write: if true; }
+    match /transactions/{document=**} { allow read, write: if true; }
+    match /daily_collections/{document=**} { allow read, write: if true; }
+    match /source_payments/{document=**} { allow read, write: if true; }
+    match /settings/{document=**} { allow read, write: if true; }
+  }
+}
 `}
           />
         </div>

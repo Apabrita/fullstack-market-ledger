@@ -3,7 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { 
+  getFirestore, doc, setDoc, deleteDoc, getDocs, collection, onSnapshot, writeBatch
+} from "firebase/firestore";
+// @ts-ignore
+import firebaseConfig from '../firebase-applet-config.json';
 
 // ==========================================
 // 1. Critical Capacitor Version Bug Fix
@@ -37,7 +43,6 @@ export interface Buyer {
 export interface Source {
   id: string | number;
   name: string;
-  rate_per_kg: number;
   date: string;
   is_completed: boolean;
   is_archived: boolean;
@@ -71,11 +76,11 @@ export interface SourcePayment {
   source_id: string | number;
   date: string;
   total_kg: number;
-  rate_per_kg: number;
   sale_total: number;
   amount_paid_to_source: number;
   commission: number;
   is_settled: boolean;
+  items_json?: string;
 }
 
 export interface Setting {
@@ -102,47 +107,25 @@ export interface QueueItem {
 }
 
 // ==========================================
-// 3. Supabase Live Sync Setup
+// 3. Firebase Architecture Sync Setup
 // ==========================================
-let supabase: any = null;
-let supabaseInitialized = false;
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
 
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || localStorage.getItem('supabase_url') || "";
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key') || "";
-
-if (supabaseUrl && supabaseAnonKey) {
-  try {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
-    supabaseInitialized = true;
-    console.log("Supabase Client synchronized perfectly!");
-  } catch (err) {
-    console.warn("Supabase initialization failed.", err);
-  }
-}
+// Mock legacy config indicators, Firebase is always pre-configured via applet
+const isFirebaseInitialized = true; 
 
 export function isSyncConfigured(): boolean {
-  return supabaseInitialized;
+  return isFirebaseInitialized;
 }
 
 export function getCredentials(): { url: string; anonKey: string } {
-  const url = (import.meta as any).env.VITE_SUPABASE_URL || (typeof window !== "undefined" ? localStorage.getItem('supabase_url') : "") || "";
-  const anonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || (typeof window !== "undefined" ? localStorage.getItem('supabase_anon_key') : "") || "";
-  return { url, anonKey };
+  return { url: "firebase", anonKey: "firebase" }; // Dummy stubs to maintain interface
 }
 
-export function saveCredentials(url: string, key: string) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem('supabase_url', url.trim());
-    localStorage.setItem('supabase_anon_key', key.trim());
-  }
-}
-
-export function clearCredentials() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem('supabase_url');
-    localStorage.removeItem('supabase_anon_key');
-  }
-}
+export function saveCredentials(url: string, key: string) {}
+export function clearCredentials() {}
 
 export function isOnline(): boolean {
   if (typeof window !== "undefined") {
@@ -219,22 +202,22 @@ export function saveQueue(queue: QueueItem[]) {
 export async function loadAll(): Promise<NFCData> {
   let fetched: NFCData = getLocalCache();
 
-  if (supabaseInitialized && isOnline()) {
+  if (isFirebaseInitialized && isOnline()) {
     try {
       const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
       const dbData = {} as NFCData;
 
       const fetchCloud = Promise.all(
         keys.map(async (key) => {
-          const { data, error } = await supabase.from(key).select("*");
-          if (!error && data) {
-            dbData[key] = data as any;
-          } else {
+          try {
+            const snapshot = await getDocs(collection(db, key));
+            const records: any[] = [];
+            snapshot.forEach((docSnap) => records.push(docSnap.data()));
+            dbData[key] = records as any;
+          } catch(error) {
              // Retain the existing local cache values on query error rather than wiping it!
              dbData[key] = ((fetched && fetched[key]) ? fetched[key] : []) as any;
-             if (error) {
-               console.warn(`Supabase query failed on table '${key}':`, error);
-             }
+             console.warn(`Firebase query failed on table '${key}':`, error);
           }
         })
       );
@@ -247,27 +230,33 @@ export async function loadAll(): Promise<NFCData> {
       keys.forEach((k) => totalDocCount += (dbData[k]?.length || 0));
 
       if (totalDocCount === 0) {
-        console.log("Supabase database is blank. Initiating market seed process...");
-        await Promise.all(
-          keys.map(async (key) => {
-            const list = INITIAL_SEED_DATA[key];
-            if (list.length > 0) {
-              await supabase.from(key).upsert(list, { onConflict: key === 'settings' ? 'key' : 'id' }).catch(() => {});
-            }
-            dbData[key] = list as any;
-          })
-        );
+        console.log("Firebase database is blank. Initiating market seed process...");
+        const batch = writeBatch(db);
+        
+        for (const key of keys) {
+           const list = INITIAL_SEED_DATA[key];
+           for (const item of list) {
+             const pKey = key === 'settings' ? 'key' : 'id';
+             batch.set(doc(db, key, item[pKey as keyof typeof item] as string), item);
+           }
+           dbData[key] = list as any;
+        }
+        await batch.commit().catch(() => {});
       }
 
       if (!dbData.users || dbData.users.length === 0) {
-        await supabase.from('users').upsert(INITIAL_SEED_DATA.users).catch(() => {});
+        const batch = writeBatch(db);
+        for(const u of INITIAL_SEED_DATA.users) {
+          batch.set(doc(db, 'users', String(u.id)), u);
+        }
+        await batch.commit().catch(() => {});
         dbData.users = INITIAL_SEED_DATA.users;
       }
 
       fetched = dbData;
       saveLocalCache(fetched);
     } catch (e) {
-      console.warn("Supabase fetch failed... reverting to local cache.", e);
+      console.warn("Firebase fetch failed... reverting to local cache.", e);
       fetched = getLocalCache();
     }
   } else {
@@ -361,10 +350,10 @@ export function getLocalOptimisticData(): NFCData {
 const VALID_TABLE_COLUMNS: Record<keyof NFCData, string[]> = {
   users: ["id", "name", "pin", "role"],
   buyers: ["id", "nickname", "lifetime_debt", "credit_limit"],
-  sources: ["id", "name", "rate_per_kg", "date", "is_completed", "is_archived"],
+  sources: ["id", "name", "date", "is_completed", "is_archived"],
   transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by", "timestamp"],
   daily_collections: ["id", "buyer_id", "date", "total_owed_today", "amount_paid", "is_rolled_over", "is_approved", "created_at"],
-  source_payments: ["id", "source_id", "date", "total_kg", "rate_per_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled"],
+  source_payments: ["id", "source_id", "date", "total_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled", "items_json"],
   settings: ["key", "value"],
 };
 
@@ -383,7 +372,6 @@ function sanitizePayload(table: keyof NFCData, payload: any): any {
 }
 
 export async function executeWrite<K extends keyof NFCData>(
-
   table: K,
   action: "insert" | "update" | "upsert" | "delete",
   payload: any
@@ -392,7 +380,7 @@ export async function executeWrite<K extends keyof NFCData>(
     payload.id = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
   }
 
-  const itemId = payload.id || payload.key || ""; 
+  const itemId = String(payload.id || payload.key || ""); 
 
   // ALWAYS update the local, high-fidelity offline cache first!
   await syncLocalCacheItem(table, action, payload);
@@ -400,23 +388,18 @@ export async function executeWrite<K extends keyof NFCData>(
   let successToCloud = false;
   let lastError: any = null;
 
-  if (supabaseInitialized && isOnline()) {
+  if (isFirebaseInitialized && isOnline()) {
     try {
-      let res;
       if (action === "insert" || action === "upsert" || action === "update") {
          const cleanPayload = sanitizePayload(table, payload);
-         res = await supabase.from(table).upsert(cleanPayload, { onConflict: table === 'settings' ? 'key' : 'id' });
+         await setDoc(doc(db, table, itemId), cleanPayload, { merge: true });
       } else if (action === "delete") {
-         const pKey = table === 'settings' ? 'key' : 'id';
-         res = await supabase.from(table).delete().eq(pKey, itemId);
+         await deleteDoc(doc(db, table, itemId));
       }
       
-      if (res && res.error) {
-        throw res.error; // Throw so catch block queues it
-      }
       successToCloud = true;
     } catch (e) {
-      console.warn(`Supabase write fail on '${table}'. Storing inside queue for background sync.`, e);
+      console.warn(`Firebase write fail on '${table}'. Storing inside queue for background sync.`, e);
       lastError = e;
     }
   }
@@ -444,7 +427,7 @@ export async function executeWrite<K extends keyof NFCData>(
 }
 
 export async function processQueue(): Promise<{ success: boolean; processed: number; remaining: number }> {
-  if (!supabaseInitialized || !isOnline()) {
+  if (!isFirebaseInitialized || !isOnline()) {
     return { success: false, processed: 0, remaining: getQueue().length };
   }
 
@@ -459,18 +442,12 @@ export async function processQueue(): Promise<{ success: boolean; processed: num
     try {
       const resolvedPayload = resolveTempIds(item.payload, idTempMap);
       const cleanPayload = sanitizePayload(item.table, resolvedPayload);
-      const itemId = idTempMap[item.id] || item.id;
-      const pKey = item.table === 'settings' ? 'key' : 'id';
+      const itemId = String(idTempMap[item.id] || item.id);
 
-      let res;
       if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
-        res = await supabase.from(item.table).upsert(cleanPayload, { onConflict: pKey });
+         await setDoc(doc(db, item.table, itemId), cleanPayload, { merge: true });
       } else if (item.action === "delete") {
-        res = await supabase.from(item.table).delete().eq(pKey, itemId);
-      }
-
-      if (res && res.error) {
-        throw res.error;
+         await deleteDoc(doc(db, item.table, itemId));
       }
 
       processedCount++;
@@ -516,7 +493,7 @@ async function syncLocalCacheItem<K extends keyof NFCData>(
 ) {
   const cache = getLocalCache();
   const tableList = (cache[table] || []) as any[];
-  const itemId = payload.id || payload.key || "";
+  const itemId = String(payload.id || payload.key || "");
 
   switch (action) {
     case "insert":
@@ -550,25 +527,26 @@ export function clearAllLocalState() {
 }
 
 export async function wipeAllData(): Promise<void> {
-  if (!supabaseInitialized || !isOnline()) {
+  if (!isFirebaseInitialized || !isOnline()) {
     throw new Error("System must be online to perform a full cloud wipe.");
   }
   
   const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
   for (const key of keys) {
-     const pKey = key === 'settings' ? 'key' : 'id';
-     const { data } = await supabase.from(key).select(pKey);
-     if (data) {
-       for (const doc of data) {
-         await supabase.from(key).delete().eq(pKey, doc[pKey]);
-       }
+     const snap = await getDocs(collection(db, key));
+     const batch = writeBatch(db);
+     snap.forEach((docSnap) => batch.delete(docSnap.ref));
+     if (!snap.empty) {
+        await batch.commit().catch(()=> {});
      }
   }
   
   clearAllLocalState();
   
-  await supabase.from('users').upsert(INITIAL_SEED_DATA.users);
-  await supabase.from('settings').upsert(INITIAL_SEED_DATA.settings);
+  const batch = writeBatch(db);
+  for(const item of INITIAL_SEED_DATA.users) { batch.set(doc(db, 'users', String(item.id)), item); }
+  for(const item of INITIAL_SEED_DATA.settings) { batch.set(doc(db, 'settings', String(item.key)), item); }
+  await batch.commit();
   
   window.location.reload();
 }
@@ -577,7 +555,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     loadAll()
       .then(() => {
-        console.log("Synchronized fresh Supabase snapshot.");
+        console.log("Synchronized fresh Firebase snapshot.");
       })
       .catch((e) => console.error("Snapshot sync failed", e))
       .finally(() => {
@@ -605,31 +583,37 @@ export async function authenticateUserWithPIN(
 }
 
 export function setupRealtimeSubscriptions(onUpdate?: () => void): () => void {
-  if (!supabaseInitialized) return () => {};
+  if (!isFirebaseInitialized) return () => {};
 
   const tables = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
-  const channels: any[] = [];
+  const unsubscribers: any[] = [];
 
   tables.forEach((table) => {
-    const channel = supabase.channel(`public:${table}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table }, (payload: any) => {
-         let action: any = "upsert";
-         if (payload.eventType === 'DELETE') action = "delete";
-         
-         const record = payload.new || { id: payload.old?.id, key: payload.old?.key };
-         syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new Event("queue_updated"));
-            }
-            if (onUpdate) onUpdate();
-         });
-      })
-      .subscribe();
-      
-    channels.push(channel);
+    const unsub = onSnapshot(collection(db, table), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        let action: any = "upsert";
+        if (change.type === 'removed') action = "delete";
+        
+        const record = change.doc.data();
+        // Fallback IDs if omitted in data payload
+        if(!record.id && table !== 'settings') record.id = change.doc.id;
+        if(!record.key && table === 'settings') record.key = change.doc.id;
+        
+        syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
+           if (typeof window !== "undefined") {
+             window.dispatchEvent(new Event("queue_updated"));
+           }
+           if (onUpdate) onUpdate();
+        });
+      });
+    }, (error) => {
+      console.warn(`Snapshot listener error on table ${table}:`, error);
+    });
+    
+    unsubscribers.push(unsub);
   });
 
   return () => {
-    channels.forEach(ch => supabase.removeChannel(ch));
+    unsubscribers.forEach(unsub => unsub());
   };
 }

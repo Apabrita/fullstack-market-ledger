@@ -62,7 +62,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Theme states
   const [theme, setThemeState] = useState<"light" | "dark" | "system">("system");
   const [activeTheme, setActiveTheme] = useState<"light" | "dark">("dark");
-  const [appDate, setAppDateState] = useState<string>("2026-06-09");
+  const [appDate, setAppDateState] = useState<string>(() => {
+    return new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD local timezone
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -70,12 +72,33 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (savedTheme) {
         setThemeState(savedTheme);
       }
-      const savedDate = localStorage.getItem("nfc_app_date");
-      if (savedDate) {
-        setAppDateState(savedDate);
+      
+      const cachedDate = localStorage.getItem("nfc_app_date");
+      const todayString = new Date().toLocaleDateString("en-CA");
+      
+      // If no cached date OR the cached date is strictly from previous days (in local timezone)
+      if (!cachedDate || cachedDate < todayString) {
+        setAppDateState(todayString);
+        localStorage.setItem("nfc_app_date", todayString);
+      } else {
+        setAppDateState(cachedDate);
       }
     }
   }, []);
+
+  // Background process to check for midnight rollover
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const todayString = new Date().toLocaleDateString("en-CA");
+      if (todayString > appDate) {
+        setAppDateState(todayString);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("nfc_app_date", todayString);
+        }
+      }
+    }, 60000); // Check every minute
+    return () => clearInterval(timer);
+  }, [appDate]);
 
   const setAppDate = (d: string) => {
     setAppDateState(d);

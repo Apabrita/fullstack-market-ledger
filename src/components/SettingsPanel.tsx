@@ -529,48 +529,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                   />
                 </div>
 
-                {(!isSyncConfigured() || isAdmin) && (
+                {!isSyncConfigured() && isAdmin && (
                   <div className="border-t border-zinc-800/40 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowKeysRevealed(!showKeysRevealed)}
-                      className="text-[10px] text-indigo-400 hover:text-indigo-300 underline block mb-2 cursor-pointer transition font-semibold"
-                    >
-                      {showKeysRevealed ? "Hide advanced manual inputs" : "Show advanced manual inputs (Supabase URL & Anon Key)"}
-                    </button>
-
-                    {showKeysRevealed && (
-                      <div className="space-y-3.5">
-                        <div>
-                          <label className="font-bold block mb-1">Database API URL:</label>
-                          <input
-                            type="text"
-                            value={supUrl}
-                            onChange={(e) => setSupUrl(e.target.value)}
-                            placeholder="https://your-project.supabase.co"
-                            className={`text-xs px-2.5 py-2 rounded-2xl w-full font-mono focus:outline-none focus:ring-1 ${
-                              activeTheme === "light"
-                                ? "bg-white text-zinc-900 border border-zinc-300 focus:ring-teal-500"
-                                : "bg-[#020409] text-white border border-[#1d2d52] focus:ring-indigo-500"
-                            }`}
-                          />
-                        </div>
-                        <div>
-                          <label className="font-bold block mb-1">Anon Security Token/Key:</label>
-                          <input
-                            type="password"
-                            value={supKey}
-                            onChange={(e) => setSupKey(e.target.value)}
-                            placeholder="eyJhbGciOi..."
-                            className={`text-xs px-2.5 py-2 rounded-2xl w-full font-mono focus:outline-none focus:ring-1 ${
-                              activeTheme === "light"
-                                ? "bg-white text-zinc-900 border border-zinc-300 focus:ring-teal-500"
-                                : "bg-[#020409] text-white border border-[#1d2d52] focus:ring-indigo-505"
-                            }`}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-[10px] text-indigo-400">
+                      Firebase Cloud Sync is not initialized. Please ensure the applet configuration is complete.
+                    </p>
                   </div>
                 )}
               </div>

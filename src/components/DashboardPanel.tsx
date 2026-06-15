@@ -61,7 +61,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
 }) => {
   const { data, queue, appDate } = useData();
   const [showPrintView, setShowPrintView] = React.useState(false);
-  const [activePdfTab, setActivePdfTab] = React.useState<"auction" | "source_payment" | "collection" | "collection_slip">("auction");
+  const [activePdfTab, setActivePdfTab] = React.useState<"auction" | "source_payment" | "collection" | "collection_slip" | "day_closing">("auction");
   const [scaleFactor, setScaleFactor] = React.useState(1);
 
   React.useEffect(() => {
@@ -240,7 +240,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
     }
   };
 
-  const handleDirectPrint = (pdfType: "auction" | "source_payment" | "collection" | "collection_slip") => {
+  const handleDirectPrint = (pdfType: "auction" | "source_payment" | "collection" | "collection_slip" | "day_closing") => {
     setActivePdfTab(pdfType);
     setShowPrintView(true);
   };
@@ -374,7 +374,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {/* Button 1: Auction Journal */}
           <button
             onClick={() => handleDirectPrint("auction")}
@@ -422,7 +422,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <Landmark className="w-4 h-4" />
             </div>
             <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
-              3. Collections Ledger
+              3. Collections
             </span>
             <span className="text-[10px] text-zinc-455 text-zinc-400 mt-1 pb-1">
               Daily Revenue Collection Journal. Vault cash balances, approved drafts, and detailed previous rollover debt breakdown.
@@ -441,7 +441,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               <Printer className="w-4 h-4" />
             </div>
             <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
-              4. Individual Slips
+              4. Indiv. Slips
             </span>
             <span className="text-[10px] text-zinc-500 text-zinc-400 mt-1 pb-1">
               Buyer Balance Collection Slips. Dynamic individual customer receipt tiles with scissor cut lines, starting debts, and cash received.
@@ -450,323 +450,26 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
               Generate PDF →
             </span>
           </button>
-        </div>
-      </div>
 
-      {/* 🌌 Smart Google Workspace Cloud Portal */}
-      <div className="bg-zinc-950 border border-zinc-800 p-5 rounded-2xl shadow-2xl shadow-black/10 space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between pb-3 border-b border-zinc-800 gap-2">
-          <div>
-            <h3 className="text-xs font-sans font-extrabold uppercase tracking-widest text-sky-500 text-sky-400 flex items-center gap-1.5 animate-pulse">
-              <Cloud className="w-4 h-4" /> 🌌 Smart Google Workspace Cloud Portal
-            </h3>
-            <p className="text-[11px] text-zinc-400 mt-0.5">
-              Securely synchronize wholesale ledger data into Live Google Sheets, save formatted logs to Google Drive, draft meeting sessions in Google Docs, and schedule landings in Google Calendar.
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {googleConnected ? (
-              <div className="flex items-center gap-2">
-                <span className="text-[9.5px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold px-2.5 py-1 rounded-2xl uppercase tracking-wider flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Authenticated
-                </span>
-                <button
-                  onClick={handleDisconnectGoogle}
-                  className="px-2.5 py-1 text-[9.5px] font-sans font-bold uppercase tracking-wider bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-900/35 rounded-2xl cursor-pointer transition select-none"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-[9.5px] bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono font-bold px-2.5 py-1 rounded-2xl uppercase tracking-wider">
-                  Not Connected
-                </span>
-                <button
-                  onClick={handleConnectGoogle}
-                  className="px-3.5 py-1 text-[9.5px] font-sans font-black uppercase tracking-wider bg-sky-500 hover:bg-sky-600 text-white shadow-lg shadow-sky-500/10 rounded-2xl cursor-pointer transition flex items-center gap-1 select-none"
-                >
-                  Connect Google
-                </button>
-              </div>
-            )}
-            
-            <button
-              onClick={() => setShowConfigCliId(!showConfigCliId)}
-              className="px-2 py-1 text-[9.5px] font-mono text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-2xl cursor-pointer transition select-none"
-            >
-              Credentials ⚙️
-            </button>
-          </div>
-        </div>
-
-        {/* Client ID Configuration Panel */}
-        {showConfigCliId && (
-          <div className="bg-zinc-910 bg-zinc-900/40 p-3.5 border border-zinc-800 rounded-2xl space-y-2.5 text-[11px]">
-            <div className="flex items-start gap-2 text-amber-400 bg-amber-500/5 p-2 rounded-2xl border border-amber-500/10">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <strong>Auth Configured Automatically:</strong> The Google Workspace authentication is securely managed by Firebase Auth in the background. Popups are required.
-              </div>
+          {/* Button 5: Day Closing Snapshot */}
+          <button
+            onClick={() => handleDirectPrint("day_closing")}
+            className="flex flex-col items-start p-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-rose-500/35 rounded-2xl cursor-pointer transition text-left h-full select-none"
+          >
+            <div className="p-2 bg-rose-500/10 text-rose-400 rounded-2xl mb-2 flex items-center justify-center">
+              <HardDrive className="w-4 h-4" />
             </div>
-          </div>
-        )}
-
-        {/* Master Bidirectional Sync Section */}
-        <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
-          <div className="mb-2">
-             <h4 className="text-[11px] font-sans font-bold uppercase tracking-wide text-fuchsia-400 flex items-center gap-1.5">
-               <RefreshCcw className="w-4 h-4" /> BI-DIRECTIONAL MASTER SYNC
-             </h4>
-             <p className="text-[10.5px] text-zinc-400 mt-1">
-               Connect a designated Master Google Sheet to pull real-time database updates and export local Firebase states simultaneously. Useful for accounting departments modifying credit limits or source metrics directly from Google Sheets.
-             </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch">
-            <input
-              type="text"
-              value={masterSpreadsheetId}
-              onChange={(e) => setMasterSpreadsheetId(e.target.value)}
-              placeholder="Paste Google Sheet ID (e.g. 1BxiMVs0XRYFa...)"
-              className="flex-grow bg-zinc-950 border border-zinc-800 text-zinc-200 px-3 py-1.5 rounded-2xl focus:outline-none focus:border-fuchsia-500 font-mono text-xs"
-              disabled={!googleConnected}
-            />
-            <button
-              onClick={handleMasterSync}
-              disabled={!googleConnected || isMasterSyncing || !masterSpreadsheetId.trim()}
-              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-2xl transition shrink-0 ${
-                !googleConnected || isMasterSyncing || !masterSpreadsheetId.trim()
-                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  : "bg-fuchsia-600 hover:bg-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/20 cursor-pointer"
-              }`}
-            >
-              {isMasterSyncing ? (
-                <span className="flex items-center gap-1.5"><Loader className="w-3.5 h-3.5 animate-spin" /> SYNCING...</span>
-              ) : (
-                "EXECUTE SYNC ⚡"
-              )}
-            </button>
-          </div>
+            <span className="text-[11.5px] font-bold text-zinc-100 uppercase tracking-wide">
+              Day Closing Snapshot
+            </span>
+            <span className="text-[10px] text-zinc-500 text-zinc-400 mt-1 pb-1">
+              A comprehensive daily summary compiling all key metrics, active debts, commissions, and total revenues in a single unified PDF.
+            </span>
+            <span className="text-[9.5px] text-rose-400 font-bold font-mono tracking-wider mt-auto pt-2.5 uppercase">
+              Generate PDF →
+            </span>
+          </button>
         </div>
-
-        {/* Day Closing Backup Section */}
-        <div className="bg-zinc-900 border border-zinc-800 p-3 rounded-2xl">
-          <div className="mb-2">
-             <h4 className="text-[11px] font-sans font-bold uppercase tracking-wide text-rose-400 flex items-center gap-1.5">
-               <HardDrive className="w-4 h-4" /> DAY CLOSING SNAPSHOT
-             </h4>
-             <p className="text-[10.5px] text-zinc-400 mt-1">
-               Generate a complete database snapshot (.json) and archive it securely on Google Drive. This acts as a reliable rollback point to finish operations for the day.
-             </p>
-          </div>
-          <div className="flex justify-start pt-1">
-            <button
-              onClick={handleDayClosingBackup}
-              disabled={!googleConnected || isDayClosing}
-              className={`px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-2xl transition ${
-                !googleConnected || isDayClosing
-                  ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                  : "bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/20 cursor-pointer"
-              }`}
-            >
-              {isDayClosing ? (
-                <span className="flex items-center gap-1.5"><Loader className="w-3.5 h-3.5 animate-spin" /> BACKING UP...</span>
-              ) : (
-                "TRIGGER DAY CLOSING BACKUP 💾"
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Sync Controls Section */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch">
-          
-          {/* Left Column: Data Source Picker */}
-          <div className="md:col-span-4 bg-zinc-900 border border-zinc-800 p-3.5 rounded-2xl flex flex-col justify-between">
-            <div className="space-y-2">
-              <h4 className="text-[10.5px] font-sans font-black uppercase tracking-wider text-zinc-400 font-mono flex items-center gap-1.5">
-                🎯 Choose Source Ledger
-              </h4>
-              <p className="text-[10px] text-zinc-400 leading-relaxed font-sans">
-                Determine which specific harbor document or print cache ledger data point you want to synchronize.
-              </p>
-              
-              <div className="space-y-1.5 pt-1.5 font-sans">
-                {[
-                  { id: "auction", label: "1. Daily Auction Journal" },
-                  { id: "source_payment", label: "2. Source Net payout Settlement" },
-                  { id: "collection", label: "3. Cash Collections Journal" },
-                  { id: "collection_slip", label: "4. Buyer Balance Invoice Slips" }
-                ].map((r) => (
-                  <label
-                    key={r.id}
-                    onClick={() => setSelectedWcReport(r.id as any)}
-                    className={`flex items-center gap-2.5 p-2 rounded-2xl border text-[11px] cursor-pointer select-none transition ${
-                      selectedWcReport === r.id
-                        ? "bg-sky-500/10 border-sky-500/50 text-sky-400 font-bold"
-                        : "bg-zinc-950 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="wc_report_type"
-                      checked={selectedWcReport === r.id}
-                      onChange={() => {}}
-                      className="hidden"
-                    />
-                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${
-                      selectedWcReport === r.id ? "border-sky-400" : "border-zinc-700"
-                    }`}>
-                      {selectedWcReport === r.id && <div className="w-1.5 h-1.5 rounded-full bg-sky-400" />}
-                    </div>
-                    {r.label}
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            <div className="text-[9.5px] text-zinc-500 mt-4 leading-relaxed font-mono pt-3 pb-1.5 border-t border-zinc-800 text-center">
-              Active Date: {appDate}
-            </div>
-          </div>
-
-          {/* Right Column: Google Workspace Actions */}
-          <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            
-            {/* Sheet Card */}
-            <button
-              disabled={!googleConnected || isSyncingSheets}
-              onClick={handleSyncSheets}
-              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
-                googleConnected
-                  ? "bg-zinc-900 border-zinc-800 hover:border-emerald-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
-                  : "bg-zinc-900/60 border-zinc-800 text-zinc-400 cursor-not-allowed"
-              }`}
-            >
-              <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500"}`}>
-                  <FileSpreadsheet className="w-4 h-4" />
-                </div>
-                {isSyncingSheets && <Loader className="w-3.5 h-3.5 animate-spin text-emerald-400" />}
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wide">
-                Sync Google Sheets
-              </span>
-              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
-                Compiles the chosen dataset and creates a synchronized, editable tabular sheet within your Google Sheets.
-              </span>
-              <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-emerald-400" : "text-zinc-500"
-              }`}>
-                {isSyncingSheets ? "Syncing..." : "Export Sheets →"}
-              </span>
-            </button>
-
-            {/* Drive Card */}
-            <button
-              disabled={!googleConnected || isUploadingDrive}
-              onClick={handleSaveDrive}
-              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
-                googleConnected
-                  ? "bg-zinc-900 border-zinc-800 hover:border-blue-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
-                  : "bg-zinc-900/60 border-zinc-800 text-zinc-400 cursor-not-allowed"
-              }`}
-            >
-              <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-blue-500/10 text-blue-400" : "bg-zinc-800 text-zinc-500"}`}>
-                  <HardDrive className="w-4 h-4" />
-                </div>
-                {isUploadingDrive && <Loader className="w-3.5 h-3.5 animate-spin text-blue-400" />}
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wide">
-                Archive to Drive
-              </span>
-              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
-                Safely uploads a raw print-journal compatible text document version of the ledger directly to Google Drive storage.
-              </span>
-              <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-blue-400" : "text-zinc-500"
-              }`}>
-                {isUploadingDrive ? "Uploading..." : "Save Log File →"}
-              </span>
-            </button>
-
-            {/* Docs Card */}
-            <button
-              disabled={!googleConnected || isCreatingDocs}
-              onClick={handleDraftDocs}
-              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
-                googleConnected
-                  ? "bg-zinc-900 border-zinc-800 hover:border-sky-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
-                  : "bg-zinc-900/60 border-zinc-800 text-zinc-400 cursor-not-allowed"
-              }`}
-            >
-              <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-sky-500/10 text-sky-400" : "bg-zinc-800 text-zinc-500"}`}>
-                  <FileText className="w-4 h-4" />
-                </div>
-                {isCreatingDocs && <Loader className="w-3.5 h-3.5 animate-spin text-sky-400" />}
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wide">
-                Draft Google Docs
-              </span>
-              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
-                Constructs a beautifully sectioned, rich text summary meeting file ready to print/share inside Google Docs.
-              </span>
-              <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-sky-400" : "text-zinc-500"
-              }`}>
-                {isCreatingDocs ? "Drafting..." : "Write Draft →"}
-              </span>
-            </button>
-
-            {/* Calendar Card */}
-            <button
-              disabled={!googleConnected || isLoggingCalendar}
-              onClick={handleLogCalendar}
-              className={`flex flex-col items-start p-3 border rounded-2xl text-left transition select-none h-full relative ${
-                googleConnected
-                  ? "bg-zinc-900 border-zinc-800 hover:border-indigo-500/40 hover:bg-zinc-800 cursor-pointer text-zinc-100"
-                  : "bg-zinc-900/60 border-zinc-800 text-zinc-400 cursor-not-allowed"
-              }`}
-            >
-              <div className="flex items-center justify-between w-full mb-1">
-                <div className={`p-1.5 rounded-2xl ${googleConnected ? "bg-indigo-500/10 text-indigo-400" : "bg-zinc-800 text-zinc-500"}`}>
-                  <Calendar className="w-4 h-4" />
-                </div>
-                {isLoggingCalendar && <Loader className="w-3.5 h-3.5 animate-spin text-indigo-400" />}
-              </div>
-              <span className="text-[11px] font-bold uppercase tracking-wide">
-                Sync Calendar Landings
-              </span>
-              <span className="text-[9.5px] text-zinc-400 mt-1 font-sans">
-                Schedules arrivals and land bidding shifts for each landing vessel directly onto your Google Calendar.
-              </span>
-              <span className={`text-[9.5px] font-bold font-mono tracking-wide mt-auto pt-2.5 uppercase ${
-                googleConnected ? "text-indigo-400" : "text-zinc-500"
-              }`}>
-                {isLoggingCalendar ? "Scheduling..." : "Schedule Landings →"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Messaging Feedback Console */}
-        {(wcSuccessMessage || wcErrorMessage) && (
-          <div className="pt-2 font-sans">
-            {wcSuccessMessage && (
-              <div className="bg-emerald-500/5 text-emerald-400 border border-emerald-500/15 p-3 rounded-2xl text-xs break-all selection:bg-emerald-900 selection:text-white leading-relaxed">
-                🎉 <strong>Operations Complete:</strong> {wcSuccessMessage}
-              </div>
-            )}
-            {wcErrorMessage && (
-              <div className="bg-rose-500/5 text-rose-400 border border-rose-500/15 p-3 rounded-2xl text-xs break-all selection:bg-rose-900 selection:text-white leading-relaxed">
-                ⚠️ <strong>Connection Error:</strong> {wcErrorMessage}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* KPI Stats Modules Grid */}
@@ -1001,6 +704,17 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   >
                     🧾 Select Individual Slips
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActivePdfTab("day_closing")}
+                    className={`px-3 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-wider transition duration-150 cursor-pointer ${
+                      activePdfTab === "day_closing"
+                        ? "bg-rose-600 text-white shadow-md shadow-rose-950/40"
+                        : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    ☁️ Snapshot / Day Close
+                  </button>
                 </div>
               </div>
 
@@ -1048,6 +762,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                                       {activePdfTab === "source_payment" && "Source Payment PDF"}
                                       {activePdfTab === "collection" && "Collection Purpose PDF"}
                                       {activePdfTab === "collection_slip" && "Buyer Invoice Slip PDF"}
+                                      {activePdfTab === "day_closing" && "Business Day Closing PDF"}
                                     </div>
                                     <div className="text-lg font-black text-zinc-950 mt-1.5 uppercase">
                                       DATE: {appDate}
@@ -1065,6 +780,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                     {activePdfTab === "source_payment" && "Source Commission & Net Payout Settlement (Source Payout)"}
                     {activePdfTab === "collection" && "Daily Revenue Collections & Cashier Vault Logs (Collection Journal)"}
                     {activePdfTab === "collection_slip" && "Buyer Balance Collection Slips (Scissor Cut-Out Invoice Cards)"}
+                    {activePdfTab === "day_closing" && "Daily Market Business Analytics & End of Time Snapshot (Day Close)"}
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">
                     Authorized Terminal User: <strong className="text-zinc-900">{activeUser?.name || "Apon Das (Admin)"}</strong> | License Scope: {activeUser?.role || "Manager"} Permission
@@ -1608,6 +1324,115 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                           </div>
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+                {/* 5. DAY CLOSING SNAPSHOT TAB CONTENT */}
+                {activePdfTab === "day_closing" && (
+                  <div className="space-y-6">
+                    {/* Header Statement */}
+                    <div className="text-center pb-2 border-b-2 border-zinc-900 border-dotted space-y-1">
+                       <h2 className="text-2xl font-black uppercase text-zinc-950 font-sans tracking-tight">Daily Halt & Final Financial Summary</h2>
+                       <p className="text-[12px] font-mono text-zinc-600">The total consolidated end-of-day market performance snapshot for {appDate}</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-xl text-center space-y-1">
+                        <div className="text-[9px] uppercase font-black text-zinc-500 tracking-widest font-mono">Total Volume Handled</div>
+                        <div className="text-xl font-bold font-mono text-zinc-900">{totalWeightSold.toFixed(2)} KG</div>
+                      </div>
+                      <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-xl text-center space-y-1">
+                        <div className="text-[9px] uppercase font-black text-zinc-500 tracking-widest font-mono">Gross Auctions</div>
+                        <div className="text-xl font-bold font-mono text-cyan-700 block">₹{totalSalesVolume.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-xl text-center space-y-1">
+                         <div className="text-[9px] uppercase font-black text-zinc-500 tracking-widest font-mono">Net Commissions (Profit)</div>
+                         <div className="text-xl font-bold font-mono text-indigo-700 block">₹{totalCommissions.toLocaleString()}</div>
+                      </div>
+                      <div className="bg-zinc-50 border border-zinc-200 p-4 rounded-xl text-center space-y-1">
+                         <div className="text-[9px] uppercase font-black text-zinc-500 tracking-widest font-mono">Cash Realized Today</div>
+                         <div className="text-xl font-bold font-mono text-emerald-700 block">₹{totalCollectionsReceived.toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       {/* Left side: Source Summaries */}
+                       <div className="border border-zinc-300 rounded-xl overflow-hidden shadow-sm">
+                         <div className="bg-zinc-100 text-[10px] uppercase font-black tracking-wider text-zinc-500 p-2.5 text-center border-b border-zinc-300">
+                           Source Ledger Debits
+                         </div>
+                         <div className="p-3 divide-y divide-zinc-100">
+                            {sources.length === 0 && <div className="text-xs text-zinc-400 text-center py-4">No sources active today.</div>}
+                            {sources.map(s => {
+                              const pDay = sourcePayments.filter(p => p.source_id === s.id).reduce((sum, p) => sum + (p.amount_paid_to_source || 0), 0);
+                              return (
+                                <div key={s.id} className="py-2 flex justify-between items-center text-xs">
+                                  <span className="font-bold text-zinc-800">{s.name}</span>
+                                  <span className="font-mono text-zinc-600">Paid: ₹{pDay.toLocaleString()}</span>
+                                </div>
+                              );
+                            })}
+                         </div>
+                       </div>
+
+                       {/* Right side: Top Owe Buyers */}
+                       <div className="border border-zinc-300 rounded-xl overflow-hidden shadow-sm">
+                         <div className="bg-zinc-100 text-[10px] uppercase font-black tracking-wider text-zinc-500 p-2.5 text-center border-b border-zinc-300">
+                           Top Pending Market Dues (Buyers)
+                         </div>
+                         <div className="p-3 divide-y divide-zinc-100">
+                            {buyers.slice().sort((a,b) => b.lifetime_debt - a.lifetime_debt).slice(0, 10).map(b => (
+                                <div key={b.id} className="py-2 flex justify-between items-center text-xs">
+                                  <span className="font-bold text-rose-900">{b.nickname || b.id}</span>
+                                  <span className="font-mono text-rose-700 font-bold">₹{Math.round(b.lifetime_debt).toLocaleString()}</span>
+                                </div>
+                            ))}
+                         </div>
+                       </div>
+                    </div>
+
+                    {/* Detailed Transaction Log */}
+                    <div className="border border-zinc-300 rounded-xl overflow-hidden shadow-sm mt-6">
+                      <div className="bg-zinc-100 text-[10px] uppercase font-black tracking-wider text-zinc-500 p-2.5 text-center border-b border-zinc-300">
+                        Detailed Trade Ledger for {appDate}
+                      </div>
+                      <div className="p-0 overflow-x-auto">
+                        <table className="w-full text-left text-[9px] sm:text-xs whitespace-nowrap font-mono">
+                          <thead>
+                            <tr className="text-zinc-500 border-b border-zinc-200 bg-zinc-50">
+                              <th className="p-2 font-bold uppercase">Time</th>
+                              <th className="p-2 font-bold uppercase">Source</th>
+                              <th className="p-2 font-bold uppercase">Buyer</th>
+                              <th className="p-2 font-bold uppercase">Fish</th>
+                              <th className="p-2 font-bold text-right uppercase">Weight</th>
+                              <th className="p-2 font-bold text-right uppercase">Rate</th>
+                              <th className="p-2 font-bold text-right uppercase">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-zinc-100">
+                            {todayTransactions.length === 0 ? (
+                              <tr><td colSpan={7} className="p-4 text-center text-zinc-400 font-sans">No transactions recorded today.</td></tr>
+                            ) : (
+                              todayTransactions.map((tx) => {
+                                const src = sources.find(s => s.id === tx.source_id);
+                                const buy = buyers.find(b => b.id === tx.buyer_id);
+                                const timeStr = new Date(tx.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                return (
+                                  <tr key={tx.id} className="hover:bg-zinc-50">
+                                    <td className="p-2 text-zinc-400">{timeStr}</td>
+                                    <td className="p-2 font-bold text-zinc-700">{src?.name || 'Unknown'}</td>
+                                    <td className="p-2 font-bold text-indigo-700">{buy?.nickname || 'Unknown'}</td>
+                                    <td className="p-2 text-zinc-600">{tx.fish_type || 'Unsorted'}</td>
+                                    <td className="p-2 text-right">{tx.weight} kg</td>
+                                    <td className="p-2 text-right">₹{tx.price_per_kg}</td>
+                                    <td className="p-2 text-right font-bold text-zinc-900">₹{tx.total_price.toLocaleString()}</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}

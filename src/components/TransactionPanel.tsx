@@ -7,6 +7,7 @@ import React, { useState, useEffect } from "react";
 import { useData } from "./DataContext";
 import { Anchor, User, Scale, TrendingUp, AlertCircle, Sparkles, Check, Edit2, Play, Lock, Trash2, ArrowRight, X, ChevronRight, UserPlus, CreditCard } from "lucide-react";
 import { User as DbUser, loadAll } from "../db";
+import { triggerHaptic } from "../utils/haptics";
 import { motion, AnimatePresence } from "motion/react";
 
 interface TransactionPanelProps {
@@ -143,6 +144,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
     }
     return "weight";
   });
+
+  const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -431,6 +434,9 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       // Execute as a single atomic batch locally and register for sync
       await writeBatch(batchItems);
 
+      triggerHaptic('success');
+      setIsSuccessAnimated(true);
+      setTimeout(() => setIsSuccessAnimated(false), 500);
       doFlash("✔ AUCTION COMMIT RECORDED SUCCESSFUL!");
     } catch (err: any) {
       console.error("Save Txn Error:", err);
@@ -1166,15 +1172,33 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
                 </div>
 
                 {/* Spanned NEXT element */}
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  animate={
+                    isSuccessAnimated && field === "price"
+                      ? { scale: [1, 1.05, 1], rotate: [0, -2, 2, 0] }
+                      : {}
+                  }
+                  transition={{ duration: 0.3 }}
                   onClick={() => handleKeyTap("NEXT")}
-                  className={`py-6 text-xs md:text-sm font-black text-white hover:opacity-90 rounded-2xl cursor-pointer transition-all uppercase flex flex-col justify-center items-center shadow-lg gap-1 select-none ${
-                    field === "weight" ? "bg-amber-600 shadow-amber-900/30" : "bg-emerald-600 shadow-emerald-900/30"
+                  className={`py-6 text-xs md:text-sm font-black text-white hover:opacity-90 rounded-2xl cursor-pointer transition-all uppercase flex flex-col justify-center items-center shadow-lg gap-1 select-none relative overflow-hidden ${
+                    field === "weight" ? "bg-amber-600 shadow-amber-900/30" : isSuccessAnimated ? "bg-teal-500 shadow-teal-900/40" : "bg-emerald-600 shadow-emerald-900/30"
                   }`}
                 >
-                  <span>{field === "weight" ? "NEXT" : "SAVE"}</span>
-                  <span className="text-[9px] font-bold">{field === "weight" ? "➔" : "✔"}</span>
-                </button>
+                  <AnimatePresence>
+                    {isSuccessAnimated && field === "price" && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 2 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="absolute inset-0 bg-white/25 rounded-2xl pointer-events-none"
+                      />
+                    )}
+                  </AnimatePresence>
+                  <span className="relative z-10">{field === "weight" ? "NEXT" : isSuccessAnimated ? "SAVED!" : "SAVE"}</span>
+                  <span className="text-[9px] font-bold relative z-10">{field === "weight" ? "➔" : isSuccessAnimated ? "✔" : "✔"}</span>
+                </motion.button>
               </div>
             )}
           </div>

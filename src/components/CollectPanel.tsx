@@ -23,6 +23,8 @@ import {
   AlertCircle
 } from "lucide-react";
 
+import { triggerHaptic } from "../utils/haptics";
+
 interface CollectPanelProps {
   activeUser: DbUser | null;
   isAuthenticated: boolean;
@@ -53,6 +55,13 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
     setCollectionDate(appDate);
   }, [appDate]);
   const [editingCollectionId, setEditingCollectionId] = useState<string | number | null>(null);
+  const [isSuccessAnimated, setIsSuccessAnimated] = useState(false);
+
+  // Fast scroll to letter
+  const scrollToLetter = (letter: string) => {
+    const el = document.getElementById(`buyer-letter-${letter}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   
   // Cash Denomination Calculator states
   const [notes500, setNotes500] = useState("");
@@ -64,6 +73,10 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
 
   const buyers = data?.buyers || [];
   const collections = data?.daily_collections || [];
+  
+  // Determine who bought today
+  const transactions = data?.transactions || [];
+  const todayBuyerIds = new Set(transactions.filter(t => t.date === appDate).map(t => String(t.buyer_id)));
 
   // Calculate cash calc total
   const calculatedCashTotal =
@@ -134,6 +147,10 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
         await write("daily_collections", "insert", newCollection);
       }
     }
+    
+    triggerHaptic('success');
+    setIsSuccessAnimated(true);
+    setTimeout(() => setIsSuccessAnimated(false), 500);
 
     // Reset Form
     setBuyerId("");
@@ -315,31 +332,70 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                     </div>
 
                     {/* Filtered buyers list with touch selectors */}
-                    <div className="space-y-1.5 max-h-[190px] overflow-y-auto border border-zinc-800 rounded-2xl p-2 bg-zinc-950/40">
-                      {buyers
-                        .filter((b) => searchQuery === "" || b.nickname.toLowerCase().includes(searchQuery.toLowerCase()))
-                        .sort((a, b) => a.nickname.localeCompare(b.nickname))
-                        .map((b) => (
-                          <button
-                            key={b.id}
-                            type="button"
-                            onClick={() => {
-                              setBuyerId(String(b.id));
-                              setSearchQuery("");
-                            }}
-                            className="w-full text-left p-2.5 hover:bg-zinc-900 active:bg-zinc-900 rounded-2xl transition flex justify-between items-center border border-transparent hover:border-zinc-800"
+                    <div className="relative">
+                      <div className="space-y-1.5 max-h-[300px] overflow-y-auto border border-zinc-800 rounded-2xl p-2 bg-zinc-950/40 pr-6 custom-scrollbar" id="buyers-scroll-container">
+                        {buyers
+                          .filter((b) => searchQuery === "" || b.nickname.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .sort((a, b) => {
+                             const aToday = todayBuyerIds.has(String(a.id));
+                             const bToday = todayBuyerIds.has(String(b.id));
+                             if (aToday && !bToday) return -1;
+                             if (!aToday && bToday) return 1;
+                             return a.nickname.localeCompare(b.nickname);
+                          })
+                          .map((b, index, arr) => {
+                             const isFirstOfInitial = index === 0 || b.nickname[0].toUpperCase() !== arr[index - 1].nickname[0].toUpperCase();
+                             const isToday = todayBuyerIds.has(String(b.id));
+
+                             return (
+                               <React.Fragment key={b.id}>
+                                 {isFirstOfInitial && !isToday && (
+                                   <div id={`buyer-letter-${b.nickname[0].toUpperCase()}`} className="px-2 py-1 text-zinc-500 font-bold text-[10px] mt-2">
+                                     {b.nickname[0].toUpperCase()}
+                                   </div>
+                                 )}
+                                 <button
+                                   type="button"
+                                   onClick={() => {
+                                     setBuyerId(String(b.id));
+                                     setSearchQuery("");
+                                   }}
+                                   className={`w-full text-left p-2.5 rounded-2xl transition flex justify-between items-center border ${
+                                      isToday ? "bg-teal-900/20 border-teal-800/30 hover:bg-teal-900/30" : "bg-transparent border-transparent hover:bg-zinc-900 hover:border-zinc-800"
+                                   }`}
+                                 >
+                                   <div className="flex flex-col">
+                                     <span className="text-xs font-bold text-zinc-200 truncate pr-2 flex items-center gap-2">
+                                       {b.nickname}
+                                       {isToday && <span className="bg-teal-500 text-teal-950 text-[8px] px-1.5 font-bold rounded-sm uppercase tracking-wider">Today</span>}
+                                     </span>
+                                   </div>
+                                   <span className="text-[10px] font-mono text-teal-500 text-zinc-400 shrink-0 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
+                                     Owed: ₹{b.lifetime_debt.toLocaleString()}
+                                   </span>
+                                 </button>
+                               </React.Fragment>
+                             );
+                          })}
+                        {buyers.filter((b) => searchQuery === "" || b.nickname.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                          <div className="text-center py-6 text-[11px] text-zinc-500 font-medium">
+                            No matching active debtors found.
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* A-Z fast scroller */}
+                      <div className="absolute right-1 top-0 bottom-0 flex flex-col justify-center text-[7px] font-bold text-zinc-500 gap-0.5">
+                        {Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ").map(letter => (
+                          <div 
+                            key={letter} 
+                            onClick={() => scrollToLetter(letter)}
+                            className="cursor-pointer hover:text-teal-400 text-center px-1 py-0.5"
                           >
-                            <span className="text-xs font-bold text-zinc-200 truncate pr-2">{b.nickname}</span>
-                            <span className="text-[10px] font-mono text-teal-500 text-zinc-400 shrink-0 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
-                              Owed: ₹{b.lifetime_debt.toLocaleString()}
-                            </span>
-                          </button>
+                            {letter}
+                          </div>
                         ))}
-                      {buyers.filter((b) => searchQuery === "" || b.nickname.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                        <div className="text-center py-6 text-[11px] text-zinc-500 font-medium">
-                          No matching active debtors found.
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -674,13 +730,33 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                 )}
 
                 {buyerId && (
-                  <button
+                  <motion.button
                     type="submit"
-                    className="w-full py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-sans font-bold text-xs shadow-lg shadow-teal-900/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+                    whileTap={{ scale: 0.96 }}
+                    animate={
+                      isSuccessAnimated 
+                        ? { scale: [1, 1.05, 1], rotate: [0, -2, 2, 0] }
+                        : {}
+                    }
+                    transition={{ duration: 0.3 }}
+                    className={`w-full py-3.5 rounded-2xl text-white font-sans font-bold text-xs shadow-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 relative overflow-hidden ${
+                      isSuccessAnimated ? 'bg-teal-500 shadow-teal-900/40' : 'bg-teal-600 hover:bg-teal-700 shadow-teal-900/20'
+                    }`}
                   >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>{editingCollectionId ? "Modify Collection Draft" : "Book Collection Draft"}</span>
-                  </button>
+                    <AnimatePresence>
+                    {isSuccessAnimated && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 2 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
+                        className="absolute inset-0 bg-white/25 rounded-2xl pointer-events-none"
+                      />
+                    )}
+                    </AnimatePresence>
+                    <PlusCircle className="w-4 h-4 relative z-10" />
+                    <span className="relative z-10">{isSuccessAnimated ? "Saved Successfully!" : editingCollectionId ? "Modify Collection Draft" : "Book Collection Draft"}</span>
+                  </motion.button>
                 )}
               </form>
             </div>

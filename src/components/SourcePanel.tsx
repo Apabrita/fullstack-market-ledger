@@ -234,7 +234,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
   // New Source form states
   const [sourceName, setSourceName] = useState("");
-  const [ratePerKg, setRatePerKg] = useState("");
   const [sourceDate, setSourceDate] = useState(appDate);
 
   // Sync sourceDate with appDate when appDate changes
@@ -257,13 +256,11 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
   const handleAddSource = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sourceName || !ratePerKg) return;
+    if (!sourceName) return;
 
-    const rateNum = parseFloat(ratePerKg);
     const newSource = {
       id: `temp_s_${Date.now()}`,
       name: sourceName,
-      rate_per_kg: rateNum,
       date: sourceDate,
       is_completed: false,
       is_archived: false,
@@ -272,7 +269,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
     await write("sources", "insert", newSource);
 
     setSourceName("");
-    setRatePerKg("");
     setShowAddSourceForm(false);
   };
 
@@ -282,85 +278,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
     const updated = { ...src, is_completed: true, is_archived: true };
     await write("sources", "update", updated);
-  };
-
-  // Run Settle Calculation on a Source
-  const handleInitiateSettle = (srcId: string | number) => {
-    const src = sources.find((s) => String(s.id) === String(srcId));
-    if (!src) return;
-
-    // Filter transactions for this source
-    const srcTx = transactions.filter((tx) => String(tx.source_id) === String(srcId));
-    const totalKg = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
-    const saleTotal = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
-
-    // Default Commission = 5% of saleTotal
-    const defaultComm = Math.round(saleTotal * 0.05);
-    const defaultPaid = Math.max(0, saleTotal - defaultComm);
-
-    setCustomCommission(defaultComm.toString());
-    setAmountPaidToSource(defaultPaid.toString());
-    setSettleMethod("auto");
-    setManualWeight(totalKg.toString());
-    setManualRatePerKg(src.rate_per_kg.toString());
-    setCommissionType("flat");
-    setCommissionPercent("5");
-    setActiveSettleSourceId(srcId);
-    
-    setTimeout(() => {
-      document.getElementById("settlement-panel-box")?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  };
-
-  const handleSaveSettlement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeSettleSourceId) return;
-
-    const src = sources.find((s) => String(s.id) === String(activeSettleSourceId));
-    if (!src) return;
-
-    const srcTx = transactions.filter((tx) => String(tx.source_id) === String(activeSettleSourceId));
-    const calculatedKg = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
-    const calculatedProceeds = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
-
-    const activeWeight = settleMethod === "manual" ? parseFloat(manualWeight) || 0 : calculatedKg;
-    const activeRate = settleMethod === "manual" ? parseFloat(manualRatePerKg) || 0 : src.rate_per_kg;
-
-    const costOfGoodsRaw = activeWeight * activeRate;
-    const saleTotal = settleMethod === "manual" ? costOfGoodsRaw : calculatedProceeds;
-
-    let activeCommission = 0;
-    if (commissionType === "percent") {
-      activeCommission = Math.round(saleTotal * (parseFloat(commissionPercent) || 0) / 100);
-    } else {
-      activeCommission = parseFloat(customCommission) || 0;
-    }
-
-    const finalAmountPaidToSource = parseFloat(amountPaidToSource) || Math.max(0, saleTotal - activeCommission);
-
-    // 1. Create source_payments row
-    const newPayment = {
-      id: `temp_p_${Date.now()}`,
-      source_id: activeSettleSourceId,
-      date: src.date || appDate,
-      total_kg: activeWeight,
-      rate_per_kg: activeRate,
-      sale_total: saleTotal,
-      amount_paid_to_source: finalAmountPaidToSource,
-      commission: activeCommission,
-      is_settled: true,
-    };
-
-    await write("source_payments", "insert", newPayment);
-
-    // 2. Mark the source as completed (settled)
-    const updatedSource = {
-      ...src,
-      is_completed: true,
-    };
-    await write("sources", "update", updatedSource);
-
-    setActiveSettleSourceId(null);
   };
 
   const isAdmin = activeUser?.role === "admin" && isAuthenticated;
@@ -422,10 +339,10 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
               Register Incoming Fish Source / Source Group
             </h4>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Source ID / Fisherman Group Name <span className="text-red-500">*</span>
+                Source Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -435,20 +352,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                 required
                 className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
                 id="form-source-name"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Base Purchase Rate / kg (INR) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={ratePerKg}
-                onChange={(e) => setRatePerKg(e.target.value)}
-                placeholder="e.g. 210"
-                required
-                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-indigo-500"
-                id="form-source-rate"
               />
             </div>
             <div className="space-y-1">
@@ -507,6 +410,13 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                   const srcTx = transactions.filter((tx) => String(tx.source_id) === String(src.id));
                   const kgSum = srcTx.reduce((sum, tx) => sum + (tx.weight || 0), 0);
                   const saleSum = srcTx.reduce((sum, tx) => sum + (tx.total_price || 0), 0);
+                  
+                  const paymentDetails = sourcePayments.find(p => String(p.source_id) === String(src.id));
+                  const isSettled = paymentDetails?.is_settled;
+                  
+                  const displayKg = isSettled && paymentDetails ? paymentDetails.total_kg : kgSum;
+                  const displaySale = isSettled && paymentDetails ? paymentDetails.sale_total : saleSum;
+                  const netPayout = isSettled && paymentDetails ? paymentDetails.amount_paid_to_source : null;
 
                   return (
                     <div key={src.id} className="p-4 hover:bg-zinc-50 transition duration-150 space-y-3">
@@ -527,7 +437,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
 
                         {src.is_completed ? (
                           <span className="text-[10px] bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full border border-zinc-200 font-semibold">
-                            Completed & Paid
+                            {isSettled ? "Auction Closed & Paid" : "Auction Closed"}
                           </span>
                         ) : (
                           <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-100 font-bold">
@@ -536,43 +446,31 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                         )}
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 bg-zinc-50 rounded-2xl p-2.5 text-center text-[10px] text-zinc-600 font-mono">
-                        <div>
-                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Base Rate</div>
-                          <div className="font-bold text-zinc-800">₹{src.rate_per_kg}/kg</div>
-                        </div>
+                      <div className="grid grid-cols-2 gap-2 bg-zinc-50 rounded-2xl p-2.5 text-center text-[10px] text-zinc-600 font-mono">
                         <div>
                           <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Sold Out</div>
-                          <div className="font-bold text-blue-700">{kgSum.toLocaleString()} kg</div>
+                          <div className="font-bold text-blue-700">{displayKg.toLocaleString()} kg</div>
                         </div>
                         <div>
-                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">Source Yield</div>
-                          <div className="font-bold text-emerald-700">₹ {saleSum.toLocaleString()}</div>
+                          <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">
+                             {netPayout !== null ? "Settled Net Payout" : "Current Est. Yield"}
+                          </div>
+                          <div className="font-bold text-emerald-700">₹ {(netPayout !== null ? netPayout : displaySale).toLocaleString()}</div>
                         </div>
                       </div>
 
                       {/* Yield Report toggle */}
-                      <div className="bg-zinc-50 rounded-2xl p-2.5 border border-zinc-100 space-y-2">
+                      <div className="bg-zinc-50 rounded-xl p-2.5 border border-zinc-200 mt-2">
                         <button
                           type="button"
                           onClick={() => setExpandedReportSourceId(expandedReportSourceId === src.id ? null : src.id)}
-                          className="w-full text-center text-[10.5px] font-sans font-bold text-indigo-600 hover:text-indigo-805 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1 bg-white border border-zinc-200 rounded shadow-xs"
+                          className="w-full text-center text-xs font-bold text-indigo-700 hover:text-indigo-800 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1.5 bg-white border border-indigo-200 rounded-lg shadow-sm"
                         >
-                          {expandedReportSourceId === src.id ? "▲ Close" : "Pay the Sources (Open)"}
+                          {expandedReportSourceId === src.id ? "▲ Close" : (isSettled ? "Review Payment" : "Pay the Source")}
                         </button>
 
-                        {src.is_completed && (
-                          <button
-                            type="button"
-                            onClick={() => setExpandedReportSourceId(expandedReportSourceId === 'pdf_' + src.id ? null : 'pdf_' + src.id)}
-                            className="w-full text-center text-[10.5px] font-sans font-bold text-rose-600 hover:text-rose-800 transition flex items-center justify-center gap-1 cursor-pointer select-none py-1 bg-white border border-zinc-200 rounded shadow-xs mt-1"
-                          >
-                            {expandedReportSourceId === 'pdf_' + src.id ? "▲ Close Invoice Builder" : "🧾 Generate Bill / Source Payout Slip"}
-                          </button>
-                        )}
-
-                        {(expandedReportSourceId === src.id || expandedReportSourceId === 'pdf_' + src.id) && (
-                          <div className="pt-2 animate-slideDown">
+                        {(expandedReportSourceId === src.id) && (
+                          <div className="pt-3 animate-slideDown">
                             <SourcePaymentFlow 
                               source={src} 
                               transactions={srcTx} 
@@ -647,7 +545,6 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                         <span>{source ? source.name : `Source (#${pay.source_id})`}</span>
                       </td>
                       <td className="p-4 text-right font-mono font-medium">{pay.total_kg} kg</td>
-                      <td className="p-4 text-right font-mono">₹{pay.rate_per_kg}/kg</td>
                       <td className="p-4 text-right font-mono font-medium">₹{pay.sale_total.toLocaleString()}</td>
                       <td className="p-4 text-right font-mono text-emerald-700 font-bold">
                         ₹{pay.commission.toLocaleString()}

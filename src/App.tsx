@@ -38,6 +38,11 @@ import {
   Bell,
   Download
 } from "lucide-react";
+import { App as CapacitorApp } from '@capacitor/app';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Camera } from '@capacitor/camera';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { triggerHaptic } from './utils/haptics';
 import { motion, AnimatePresence } from "motion/react";
 
 const MarketDashboard: React.FC = () => {
@@ -103,6 +108,109 @@ const MarketDashboard: React.FC = () => {
         setDeviceMode("android");
       }
     }
+  }, []);
+  
+  // Device Sync & Cloud Database states
+  React.useEffect(() => {
+    const initDeviceFeatures = async () => {
+      if (typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform()) {
+        try {
+          // Request permissions one by one, ignore fails since different endpoints support different things
+          try { await LocalNotifications.requestPermissions(); } catch(e){}
+          try { await Camera.requestPermissions(); } catch(e){}
+          try { await Filesystem.requestPermissions(); } catch(e){}
+        } catch (e) {
+          console.warn("Failed to request native device permissions:", e);
+        }
+      }
+    };
+    initDeviceFeatures();
+  }, []);
+
+  // Handle app state changes for notifications when Auction is Live
+  React.useEffect(() => {
+    let listenerPromise: Promise<any> | null = null;
+    
+    if (typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform()) {
+      listenerPromise = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+        if (!isActive) {
+          // App went to background (Home button pressed)
+          const activeSessionEnded = data?.settings?.find((s) => s.key === `auction_session_ended_${appDate}`)?.value === "true";
+          const _isAuthenticated = window.localStorage.getItem("nfc_active_user");
+          
+          if (!activeSessionEnded && _isAuthenticated) {
+            // Live stats calculation
+            const todayTxns = data?.transactions?.filter(t => t.date === appDate) || [];
+            const activeBuyersCount = new Set(todayTxns.map(t => t.buyer_id)).size;
+            const liveTotal = Math.round(todayTxns.reduce((sum, t) => sum + (t.weight * t.price), 0));
+            
+            // Auction is live, send "ongoing" notification to behave like Dynamic Island alert
+            await LocalNotifications.schedule({
+              notifications: [
+                {
+                  title: "Auction is Live 🔴",
+                  body: `${activeBuyersCount} Active Buyers • Total: ₹${liveTotal.toLocaleString('en-IN')}`,
+                  id: 1,
+                  schedule: { at: new Date(Date.now() + 500) }, // Trigger quickly
+                  ongoing: true, // Crucial for Dynamic Island / status bar pills
+                  autoCancel: false,
+                  sound: 'default',
+                  smallIcon: 'ic_stat_icon_config_sample', 
+                  iconColor: '#f27429',
+                }
+              ]
+            });
+          }
+        } else {
+          // App returned to foreground, clear notification
+          await LocalNotifications.cancel({ notifications: [{ id: 1 }] });
+        }
+      });
+    }
+
+    return () => {
+      if (listenerPromise) listenerPromise.then(l => l?.remove());
+    };
+  }, [data?.settings, appDate]);
+
+  const [showExitToast, setShowExitToast] = useState(false);
+
+  React.useEffect(() => {
+    let lastBackPress = 0;
+    
+    const setupListener = async () => {
+      if (typeof window !== "undefined" && (window as any).Capacitor?.isNativePlatform()) {
+        const listener = await CapacitorApp.addListener('backButton', () => {
+          setActiveTab((currentTab) => {
+            if (currentTab !== 'dash') {
+              return 'dash'; // Single back button moves to previous page (dashboard)
+            } else {
+              // We are on the Dash
+              const now = Date.now();
+              // If double typed (within 2 seconds)
+              if (now - lastBackPress < 2000) {
+                if (window.confirm("Are you sure you want to exit from this app?")) {
+                   CapacitorApp.exitApp();
+                }
+              } else {
+                lastBackPress = now;
+                triggerHaptic('warning');
+                setShowExitToast(true);
+                setTimeout(() => setShowExitToast(false), 2000);
+              }
+              return 'dash';
+            }
+          });
+        });
+        return listener;
+      }
+      return null;
+    };
+    
+    let listenerPromise = setupListener();
+    return () => {
+       listenerPromise.then(l => l?.remove());
+    };
   }, []);
 
   const handleStationLock = () => {
@@ -179,12 +287,16 @@ const MarketDashboard: React.FC = () => {
             </button>
           </div>
 
-          {queue.length > 0 ? (
-            <span className="text-[9.5px] bg-amber-500/15 border border-amber-500/35 text-amber-400 font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow animate-pulse font-sans uppercase">
+          {!online ? (
+            <span className="text-[9.5px] bg-rose-500/15 border border-rose-500/35 text-rose-500 font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow animate-pulse font-sans uppercase">
+              <HardDrive className="w-3.5 h-3.5 shrink-0" /> OFFLINE - QUEUING
+            </span>
+          ) : queue.length > 0 ? (
+            <span className="text-[9.5px] bg-amber-500/15 border border-amber-500/35 text-amber-500 font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow animate-pulse font-sans uppercase">
               <HardDrive className="w-3.5 h-3.5 shrink-0" /> {queue.length} Queued Writes
             </span>
           ) : (
-            <span className="text-[9.5px] bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow font-sans uppercase">
+            <span className="text-[9.5px] bg-emerald-500/15 border border-emerald-500/20 text-emerald-500 font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow font-sans uppercase">
               <CheckCircle /> Cloud Synced
             </span>
           )}
@@ -381,20 +493,25 @@ const MarketDashboard: React.FC = () => {
         <div className="hidden sm:block absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-zinc-950 rounded-b-2xl z-[100] shadow-inner print:hidden" />
 
         {/* 1. Android Top Orange Status Bar - Safe spacing from the notification panel / notch */}
-        <div className="bg-[#f27429] text-white px-4 py-1 flex justify-between items-center text-[10px] font-black tracking-widest uppercase select-none z-50 shrink-0 shadow-sm font-sans animate-fadeIn print:hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-          {queue.length > 0 ? (
+        <div className={`text-white px-4 py-1 flex justify-between items-center text-[10px] font-black tracking-widest uppercase select-none z-50 shrink-0 shadow-sm font-sans animate-fadeIn print:hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] transition-colors ${!online ? "bg-rose-600" : queue.length > 0 ? "bg-amber-600" : "bg-[#f27429]"}`}>
+          {!online ? (
+            <div className="flex items-center gap-1.5 animate-pulse">
+              <span className="w-2.5 h-2.5 rounded-full bg-white opacity-80"></span>
+              <span>● OFFLINE - QUEUING</span>
+            </div>
+          ) : queue.length > 0 ? (
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
-              <span>● SYNCING DATA TO CLOUD...</span>
+              <span>● SYNCING DATA...</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-300"></span>
-              <span>● CLOUD DECENTRALIZED SYNCED</span>
+              <span>● CLOUD SYNCED</span>
             </div>
           )}
           <span className="font-mono bg-white/20 px-2 py-0.5 rounded-full">
-            {queue.length} items queued
+            {queue.length} queued
           </span>
         </div>
 
@@ -571,6 +688,21 @@ const MarketDashboard: React.FC = () => {
         isAuthenticated={isAuthenticated}
         setIsAuthenticated={setIsAuthenticated}
       />
+      
+      <AnimatePresence>
+        {showExitToast && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 50 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] bg-zinc-900/95 text-white px-5 py-2.5 rounded-full shadow-2xl text-xs font-bold font-sans flex items-center gap-2 backdrop-blur-md border border-zinc-700 pointer-events-none whitespace-nowrap"
+          >
+            <AlertCircle className="w-4 h-4 text-amber-500" />
+            Press back again to exit
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {deviceMode === "laptop" ? renderLaptopWorkspace() : renderAndroidWorkspace()}
     </>
   );

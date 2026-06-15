@@ -166,10 +166,23 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
     alert("Buyer profile context saved successfully!");
   };
 
-  // Filter buyers
+  // Filter, determine 'today' buyers, and sort
+  const todayBuyerIds = new Set((data?.transactions || []).filter(t => t.date === appDate).map(t => String(t.buyer_id)));
+
   const filteredBuyers = buyers.filter((b) =>
     b.nickname.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ).sort((a, b) => {
+    const aToday = todayBuyerIds.has(String(a.id));
+    const bToday = todayBuyerIds.has(String(b.id));
+    if (aToday && !bToday) return -1;
+    if (!aToday && bToday) return 1;
+    return a.nickname.localeCompare(b.nickname);
+  });
+
+  const scrollToLetter = (letter: string) => {
+    const el = document.getElementById(`buyerlist-letter-${letter}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   // Derive active selected buyer variables
   const selectedBuyer = buyers.find(x => String(x.id) === String(selectedBuyerId));
@@ -425,25 +438,32 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               Arat Buyers Accounts
             </h4>
           </div>
-          <div className="divide-y divide-zinc-100 flex-grow max-h-[500px] overflow-y-auto">
+          <div className="divide-y divide-zinc-100 flex-grow max-h-[500px] overflow-y-auto relative pr-6 custom-scrollbar">
             {filteredBuyers.length === 0 ? (
               <div className="p-8 text-center text-zinc-400 text-xs">
                 No buyers found.
               </div>
             ) : (
-              filteredBuyers.map((b) => {
+              filteredBuyers.map((b, index, arr) => {
                 const percentage = Math.min(100, Math.round(((b.lifetime_debt || 0) / (b.credit_limit || 1)) * 100));
                 const limitWarning = percentage > 85;
                 const isSelected = b.id === selectedBuyerId;
+                const isToday = todayBuyerIds.has(String(b.id));
+                const isFirstOfInitial = index === 0 || b.nickname[0].toUpperCase() !== arr[index - 1].nickname[0].toUpperCase();
 
                 return (
+                  <React.Fragment key={b.id}>
+                    {isFirstOfInitial && !isToday && (
+                       <div id={`buyerlist-letter-${b.nickname[0].toUpperCase()}`} className="px-5 py-1 text-zinc-500 font-bold text-[10px] bg-zinc-50 border-b border-zinc-200">
+                         {b.nickname[0].toUpperCase()}
+                       </div>
+                    )}
                   <div
-                    key={b.id}
                     onClick={() => handleSelectBuyer(b)}
                     className={`p-4 transition duration-150 space-y-2 cursor-pointer border-l-4 ${
                       isSelected
                         ? "bg-teal-50/40 border-teal-600 font-semibold"
-                        : "hover:bg-zinc-50 border-l-transparent"
+                        : isToday ? "bg-teal-900/5 hover:bg-teal-900/10 border-l-transparent" : "hover:bg-zinc-50 border-l-transparent"
                     }`}
                   >
                     <div className="flex justify-between items-start">
@@ -452,7 +472,10 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                           {b.nickname.charAt(0)}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-zinc-800">{b.nickname}</div>
+                          <div className="text-xs font-bold text-zinc-800 flex items-center gap-2">
+                            {b.nickname}
+                            {isToday && <span className="bg-teal-500 text-teal-950 text-[8px] px-1.5 font-bold rounded-sm uppercase tracking-wider">Today</span>}
+                          </div>
                           <div className="text-[10px] text-zinc-500 font-mono">ID: {String(b.id).substring(0, 8)}</div>
                         </div>
                       </div>
@@ -483,8 +506,24 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                       )}
                     </div>
                   </div>
+                  </React.Fragment>
                 );
               })
+            )}
+
+            {/* A-Z fast scroller */}
+            {filteredBuyers.length > 0 && (
+              <div className="absolute right-1 top-0 bottom-0 flex flex-col justify-center text-[9px] font-bold text-zinc-400 gap-0.5 z-10 p-1 bg-white/50 backdrop-blur-sm">
+                {Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ").map(letter => (
+                  <div 
+                    key={letter} 
+                    onClick={(e) => { e.stopPropagation(); scrollToLetter(letter); }}
+                    className="cursor-pointer hover:text-teal-600 hover:scale-125 transition-transform text-center"
+                  >
+                    {letter}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>

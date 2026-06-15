@@ -1,38 +1,160 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // catch-all default deny
+    // ----------------------------------------------------------------------
+    // 1. GLOBAL SAFETY NET
+    // ----------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Define rules for each collection based on our schema blueprint
+    // ----------------------------------------------------------------------
+    // 2. HELPER FUNCTIONS
+    // ----------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+      );
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // ----------------------------------------------------------------------
+    // 3. VALIDATION CONSTANTS
+    // ----------------------------------------------------------------------
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'pin', 'role']) && 
+             data.keys().size() == 4 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.pin is string && data.pin.size() <= 10 &&
+             data.role in ['admin', 'auctioneer', 'collector'];
+    }
+
+    function isValidBuyer(data) {
+      return data.keys().hasAll(['id', 'nickname', 'lifetime_debt', 'credit_limit']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.nickname is string && data.nickname.size() <= 100 &&
+             data.lifetime_debt is number &&
+             data.credit_limit is number;
+    }
+
+    function isValidSource(data) {
+      return data.keys().hasAll(['id', 'name', 'date', 'is_completed', 'is_archived']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.date is string && data.date.size() <= 30 &&
+             data.is_completed is bool &&
+             data.is_archived is bool;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'source_id', 'buyer_id', 'weight', 'price_per_kg', 'total_price', 'date', 'fish_type', 'added_by', 'timestamp']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.source_id is string && data.source_id.size() <= 128 &&
+             data.buyer_id is string && data.buyer_id.size() <= 128 &&
+             data.weight is number &&
+             data.price_per_kg is number &&
+             data.total_price is number &&
+             data.date is string && data.date.size() <= 30 &&
+             data.fish_type is string && data.fish_type.size() <= 100 &&
+             data.added_by is string && data.added_by.size() <= 128 &&
+             data.timestamp is number;
+    }
+
+    function isValidDailyCollection(data) {
+      return data.keys().hasAll(['id', 'buyer_id', 'date', 'total_owed_today', 'amount_paid', 'is_rolled_over', 'is_approved', 'created_at']) &&
+             data.id is string && data.id.size() <= 128 &&
+             data.buyer_id is string && data.buyer_id.size() <= 128 &&
+             data.date is string && data.date.size() <= 30 &&
+             data.total_owed_today is number &&
+             data.amount_paid is number &&
+             data.is_rolled_over is bool &&
+             data.is_approved is bool &&
+             data.created_at is string && data.created_at.size() <= 30;
+    }
+
+    function isValidSourcePayment(data) {
+      let baseLength = data.keys().hasAll(['id', 'source_id', 'date', 'total_kg', 'sale_total', 'amount_paid_to_source', 'commission', 'is_settled']);
+      return baseLength &&
+             data.id is string && data.id.size() <= 128 &&
+             data.source_id is string && data.source_id.size() <= 128 &&
+             data.date is string && data.date.size() <= 30 &&
+             data.total_kg is number &&
+             data.sale_total is number &&
+             data.amount_paid_to_source is number &&
+             data.commission is number &&
+             data.is_settled is bool &&
+             (!('items_json' in data) || (data.items_json is string && data.items_json.size() <= 50000));
+    }
+    
+    function isValidSetting(data) {
+      return data.keys().hasAll(['key', 'value']) &&
+             data.keys().size() == 2 &&
+             data.key is string && data.key.size() <= 50 &&
+             data.value is string && data.value.size() <= 1000;
+    }
+
+    // ----------------------------------------------------------------------
+    // 4. COLLECTION SECURITY RULES
+    // ----------------------------------------------------------------------
+    
+    // NOTE: This application might not have email login / verification as it's an offline-style kiosk app using Firebase just as a backup wrapper.
+    // So `isSignedIn()` doesn't check email_verified.
+    
     match /users/{userId} {
-      allow read, write: if true;
+      allow list, read: if true; // Kiosk app needs to read users to authenticate via PIN
+      allow create, update, delete: if isSignedIn(); // Allow any signed in to create, since it relies on front-end setup
     }
 
     match /buyers/{buyerId} {
-      allow read, write: if true;
+      allow list, read: if true;
+      allow create: if isValidBuyer(incoming());
+      allow update: if isValidBuyer(incoming());
+      allow delete: if true;
     }
 
     match /sources/{sourceId} {
-      allow read, write: if true;
+      allow list, read: if true;
+      allow create: if isValidSource(incoming());
+      allow update: if isValidSource(incoming());
+      allow delete: if true;
     }
 
     match /transactions/{transactionId} {
-      allow read, write: if true;
+      allow list, read: if true;
+      allow create: if isValidTransaction(incoming());
+      allow update: if isValidTransaction(incoming());
+      allow delete: if true;
     }
 
     match /daily_collections/{collectionId} {
-      allow read, write: if true;
+      allow list, read: if true;
+      allow create: if isValidDailyCollection(incoming());
+      allow update: if isValidDailyCollection(incoming());
+      allow delete: if true;
     }
 
     match /source_payments/{paymentId} {
-      allow read, write: if true;
+      allow list, read: if true;
+      allow create: if isValidSourcePayment(incoming());
+      allow update: if isValidSourcePayment(incoming());
+      allow delete: if true;
     }
 
-    match /settings/{settingKey} {
-      allow read, write: if true;
+    match /settings/{settingId} {
+      allow list, read: if true;
+      allow create, update: if isValidSetting(incoming());
     }
   }
 }
