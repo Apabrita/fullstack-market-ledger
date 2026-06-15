@@ -77,9 +77,8 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
   }, []);
 
   const filteredBuyers = buyers.filter((b) =>
-    (b.name || "").toLowerCase().includes(buyerSearchQuery.toLowerCase()) ||
-    (b.nickname || "").toLowerCase().includes(buyerSearchQuery.toLowerCase()) ||
-    (b.id || "").toLowerCase().includes(buyerSearchQuery.toLowerCase())
+    (b.nickname || "").toLowerCase().includes(String(buyerSearchQuery).toLowerCase()) ||
+    String(b.id || "").toLowerCase().includes(String(buyerSearchQuery).toLowerCase())
   );
   const transactions = data?.transactions || [];
   const collections = data?.daily_collections || [];
@@ -268,16 +267,16 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
                   <button
                     key={b.id}
                     onClick={() => {
-                      setSelectedBuyerId(b.id);
+                      setSelectedBuyerId(String(b.id));
                       setBuyerSearchQuery(`${b.nickname} (Debt: ₹${b.lifetime_debt.toLocaleString()})`);
                       setShowSuggestions(false);
                     }}
                     type="button"
-                    className="w-full text-left p-3 text-xs text-zinc-200 hover:bg-zinc-900 hover:bg-zinc-900 transition flex justify-between items-center cursor-pointer"
+                    className="w-full text-left p-3 text-xs text-zinc-200 hover:bg-zinc-900 transition flex justify-between items-center cursor-pointer"
                   >
                     <div>
-                      <div className="font-bold text-zinc-150">{b.name || b.nickname}</div>
-                      <div className="text-[9px] text-zinc-500 font-mono">ID: #{b.id.substring(0, 6)}</div>
+                      <div className="font-bold text-zinc-150">{b.nickname}</div>
+                      <div className="text-[9px] text-zinc-500 font-mono">ID: #{String(b.id).substring(0, 6)}</div>
                     </div>
                     <span className="font-mono text-teal-400 font-extrabold bg-zinc-900/50 border border-zinc-800 px-2 py-1 rounded">
                       ₹{b.lifetime_debt.toLocaleString()}

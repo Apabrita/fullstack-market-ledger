@@ -350,10 +350,10 @@ export function getLocalOptimisticData(): NFCData {
 const VALID_TABLE_COLUMNS: Record<keyof NFCData, string[]> = {
   users: ["id", "name", "pin", "role"],
   buyers: ["id", "nickname", "lifetime_debt", "credit_limit"],
-  sources: ["id", "name", "date", "is_completed", "is_archived"],
-  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by", "timestamp"],
+  sources: ["id", "name", "date", "is_completed", "is_archived", "rate_per_kg"],
+  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by"],
   daily_collections: ["id", "buyer_id", "date", "total_owed_today", "amount_paid", "is_rolled_over", "is_approved", "created_at"],
-  source_payments: ["id", "source_id", "date", "total_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled", "items_json"],
+  source_payments: ["id", "source_id", "date", "total_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled", "items_json", "rate_per_kg"],
   settings: ["key", "value"],
 };
 
@@ -557,7 +557,7 @@ export async function wipeAllData(): Promise<void> {
      const { data } = await supabase.from(key).select(key === 'settings' ? 'key' : 'id');
      if (data && data.length > 0) {
        for (const row of data) {
-          await supabase.from(key).delete().eq(key === 'settings' ? 'key' : 'id', row.key || row.id);
+          await supabase.from(key).delete().eq(key === 'settings' ? 'key' : 'id', (row as any).key || (row as any).id);
        }
      }
   }
@@ -618,10 +618,6 @@ export function setupRealtimeSubscriptions(onUpdate?: () => void): () => void {
           
           const record = payload.new || payload.old;
           if (!record) return;
-
-          // Fallback IDs if omitted in data payload
-          if(!record.id && table !== 'settings') record.id = record.id;
-          if(!record.key && table === 'settings') record.key = record.key;
           
           syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
              if (typeof window !== "undefined") {

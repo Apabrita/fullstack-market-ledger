@@ -659,7 +659,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                 <div className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider font-mono">
                   Select Print Type:
                 </div>
-                <div className="flex gap-1.5">
+                <div className="flex flex-wrap gap-1.5 mt-2 md:mt-0">
                   <button
                     type="button"
                     onClick={() => setActivePdfTab("auction")}
@@ -727,8 +727,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   className="shrink-0 origin-top transition-transform duration-100 print:transform-none"
                   style={{
                     width: scaleFactor < 1 ? `${794 * scaleFactor}px` : '794px',
-                    height: scaleFactor < 1 ? `${1123 * scaleFactor}px` : '1123px',
-                    overflow: 'hidden'
+                    minHeight: scaleFactor < 1 ? `${1123 * scaleFactor}px` : '1123px',
+                    overflow: 'visible'
                   }}
                 >
                   <div
@@ -736,7 +736,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                     className="bg-white text-zinc-900 space-y-6 font-sans select-text shadow-sm ring-1 ring-black/5 shrink-0 print:shadow-none print:ring-0 print:p-0 print:max-w-none print:w-full print:min-h-0 print:h-auto"
                     style={{
                       width: '794px',
-                      height: '1123px',
+                      minHeight: '1123px',
+                      height: 'auto',
                       padding: '48px',
                       boxSizing: 'border-box',
                       transform: `scale(${scaleFactor})`,
@@ -1416,7 +1417,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                               transactions.map((tx) => {
                                 const src = sources.find(s => s.id === tx.source_id);
                                 const buy = buyers.find(b => b.id === tx.buyer_id);
-                                const timeStr = new Date(tx.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                const timeStr = new Date((tx as any).timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                                 return (
                                   <tr key={tx.id} className="hover:bg-zinc-50">
                                     <td className="p-2 text-zinc-400">{timeStr}</td>

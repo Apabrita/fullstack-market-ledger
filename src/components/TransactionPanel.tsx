@@ -641,7 +641,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
                 >
                   {isCompleted ? <Lock className="w-2.5 h-2.5 text-amber-500 shrink-0" /> : <Anchor className="w-2.5 h-2.5 text-sky-400 shrink-0" />}
                   <span>{src.name}</span>
-                  {src.rate_per_kg > 0 && <span className="opacity-60 text-[9px] font-mono">₹{src.rate_per_kg}</span>}
+                  {(src as any).rate_per_kg > 0 && <span className="opacity-60 text-[9px] font-mono">₹{(src as any).rate_per_kg}</span>}
                 </button>
               );
             })}
