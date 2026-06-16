@@ -360,7 +360,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                     <div>
                       <div className={`text-xs font-bold ${activeTheme === "light" ? "text-zinc-800" : "text-[#ffffff]"}`}>{u.name}</div>
                       <div className={`text-[10px] flex items-center gap-1 font-mono ${activeTheme === "light" ? "text-zinc-500" : "text-zinc-400"}`}>
-                        PIN code: <span className="tracking-widest font-bold font-mono">••••</span> (Hint: {u.pin})
+                        PIN code: <span className="tracking-widest font-bold font-mono">••••</span> {(isAdmin || u.id === activeUser?.id) && `(Hint: ${u.pin})`}
                       </div>
                     </div>
                   </div>
@@ -695,6 +695,98 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
             ))}
           </div>
         )}
+      </div>
+
+      {/* 6. Data Export (CSV Backup) */}
+      <div className={`border rounded-2xl overflow-hidden shadow-md p-5 space-y-4 max-w-xl mx-auto transition-colors duration-200 ${
+        activeTheme === "light" ? "bg-white border-zinc-200" : "bg-[#060a15] border-[#1d2d52]"
+      }`}>
+        <div className={`border-b pb-3 flex justify-between items-center ${activeTheme === "light" ? "border-zinc-100" : "border-[#1d2d52]"}`}>
+          <h4 className={`font-sans font-black text-xs uppercase tracking-wider flex items-center gap-1.5 ${
+            activeTheme === "light" ? "text-zinc-800" : "text-[#f8fafc]"
+          }`}>
+            💾 Database Backup & Export
+          </h4>
+          <span className="text-[9.5px] uppercase font-mono font-extrabold px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500 text-blue-550">
+            Native Excel
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <p className={`text-[10.5px] leading-relaxed font-sans ${activeTheme === "light" ? "text-zinc-655" : "text-zinc-400"}`}>
+            Generate an offline emergency backup of all your transactions and ledger balances. The data will be encoded securely into a Microsoft Excel-compatible XLSX file with properly sized columns and saved directly to your local device.
+          </p>
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                const XLSX = await import('xlsx');
+                
+                const getBuyerName = (id: any) => data?.buyers?.find((b) => String(b.id) === String(id))?.nickname || String(id);
+                const getSourceName = (id: any) => data?.sources?.find((s) => String(s.id) === String(id))?.name || String(id);
+                const getUserName = (id: any) => data?.users?.find((u) => String(u.id) === String(id))?.name || String(id);
+
+                const wb = XLSX.utils.book_new();
+
+                // 1. Transactions (Auctions)
+                const txData = [...(data?.transactions || [])]
+                  .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+                  .map(tx => ({
+                    "Date & Time": new Date(tx.date).toLocaleString(),
+                    "Buyer Name": getBuyerName(tx.buyer_id),
+                    "Source Name": getSourceName(tx.source_id),
+                    "Authorizing Operator": getUserName(tx.added_by),
+                    "Fish Type": tx.fish_type || 'Mixed',
+                    "Lot Weight (Kg)": tx.weight,
+                    "Rate Per Kg (BDT)": tx.price_per_kg,
+                    "Total Amount (BDT)": tx.total_price
+                  }));
+                const wsTx = XLSX.utils.json_to_sheet(txData);
+                wsTx['!cols'] = [ {wch: 22}, {wch: 25}, {wch: 25}, {wch: 22}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 18} ];
+                XLSX.utils.book_append_sheet(wb, wsTx, "Lot Auctions");
+
+                // 2. Collections (Jama)
+                const colData = [...(data?.daily_collections || [])]
+                  .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+                  .map(col => ({
+                    "Date & Time": new Date(col.date).toLocaleString(),
+                    "Buyer Name": getBuyerName(col.buyer_id),
+                    "Amount Paid (BDT)": col.amount_paid,
+                    "Total Outstanding That Day": col.total_owed_today,
+                    "Approval Status": col.is_approved ? 'Approved' : 'Pending'
+                  }));
+                const wsCol = XLSX.utils.json_to_sheet(colData);
+                wsCol['!cols'] = [ {wch: 22}, {wch: 25}, {wch: 20}, {wch: 25}, {wch: 18} ];
+                XLSX.utils.book_append_sheet(wb, wsCol, "Cash Collections");
+
+                // 3. Source Payments 
+                const spData = [...(data?.source_payments || [])]
+                  .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+                  .map(sp => ({
+                    "Date & Time": new Date(sp.date).toLocaleString(),
+                    "Source Name": getSourceName(sp.source_id),
+                    "Gross Sale (BDT)": sp.sale_total,
+                    "Commission (BDT)": sp.commission,
+                    "Net Paid to Source (BDT)": sp.amount_paid_to_source,
+                    "Settlement Status": sp.is_settled ? 'Settled' : 'Unsettled'
+                  }));
+                const wsSp = XLSX.utils.json_to_sheet(spData);
+                wsSp['!cols'] = [ {wch: 22}, {wch: 25}, {wch: 18}, {wch: 18}, {wch: 22}, {wch: 18} ];
+                XLSX.utils.book_append_sheet(wb, wsSp, "Source Payments");
+
+                XLSX.writeFile(wb, `NFC_BACKUP_${new Date().toISOString().split("T")[0]}.xlsx`);
+              }}
+              className={`px-4 py-2 w-full sm:w-auto text-center font-bold text-xs rounded-2xl shadow border transition cursor-pointer ${
+                activeTheme === "light"
+                  ? "bg-blue-600 border-blue-500 text-white hover:bg-blue-700 shadow-blue-500/20"
+                  : "bg-blue-600 border-blue-500 text-white hover:bg-blue-700 shadow-blue-500/10"
+              }`}
+            >
+              📥 Download Local Excel Backup (.xlsx)
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Danger Zone: Wipe Database Section */}

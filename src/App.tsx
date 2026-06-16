@@ -3,19 +3,8 @@
  * SPDX-License-Identifier: Apache-2.5
  */
 
-import React, { useState } from "react";
+import React, { useState, Suspense, lazy } from "react";
 import { DataProvider, useData } from "./components/DataContext";
-import { NetworkSimulator } from "./components/NetworkSimulator";
-import { UserSimulator } from "./components/UserSimulator";
-import { TransactionPanel } from "./components/TransactionPanel";
-import { BuyerPanel } from "./components/BuyerPanel";
-import { SourcePanel } from "./components/SourcePanel";
-import { SettingsPanel } from "./components/SettingsPanel";
-import { DashboardPanel } from "./components/DashboardPanel";
-import { CollectPanel } from "./components/CollectPanel";
-import { HalkhataPanel } from "./components/HalkhataPanel";
-import { HistoryPanel } from "./components/HistoryPanel";
-import { PinGate } from "./components/PinGate";
 import { User } from "./db";
 import { initAuth } from "./utils/workspace";
 import {
@@ -45,6 +34,25 @@ import { Camera } from '@capacitor/camera';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { triggerHaptic } from './utils/haptics';
 import { motion, AnimatePresence } from "motion/react";
+
+// Lazy load heavy components for better Android/Web scale
+const NetworkSimulator = lazy(() => import("./components/NetworkSimulator").then(m => ({ default: m.NetworkSimulator })));
+const UserSimulator = lazy(() => import("./components/UserSimulator").then(m => ({ default: m.UserSimulator })));
+const TransactionPanel = lazy(() => import("./components/TransactionPanel").then(m => ({ default: m.TransactionPanel })));
+const BuyerPanel = lazy(() => import("./components/BuyerPanel").then(m => ({ default: m.BuyerPanel })));
+const SourcePanel = lazy(() => import("./components/SourcePanel").then(m => ({ default: m.SourcePanel })));
+const SettingsPanel = lazy(() => import("./components/SettingsPanel").then(m => ({ default: m.SettingsPanel })));
+const DashboardPanel = lazy(() => import("./components/DashboardPanel").then(m => ({ default: m.DashboardPanel })));
+const CollectPanel = lazy(() => import("./components/CollectPanel").then(m => ({ default: m.CollectPanel })));
+const HalkhataPanel = lazy(() => import("./components/HalkhataPanel").then(m => ({ default: m.HalkhataPanel })));
+const HistoryPanel = lazy(() => import("./components/HistoryPanel").then(m => ({ default: m.HistoryPanel })));
+const PinGate = lazy(() => import("./components/PinGate").then(m => ({ default: m.PinGate })));
+
+const FallbackLoader = () => (
+  <div className="flex items-center justify-center p-8 w-full h-full text-teal-500 font-mono text-xs">
+    <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 const MarketDashboard: React.FC = () => {
   const { data, loading, queue, online, write, activeTheme, appDate, setAppDate } = useData();
@@ -327,13 +335,15 @@ const MarketDashboard: React.FC = () => {
       <main className="flex-grow max-w-7xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Sidebar */}
         <div className="lg:col-span-4 space-y-6 w-full">
-          <UserSimulator
-            activeUser={activeUser}
-            setActiveUser={setActiveUser}
-            isAuthenticated={isAuthenticated}
-            setIsAuthenticated={setIsAuthenticated}
-          />
-          <NetworkSimulator />
+          <Suspense fallback={<FallbackLoader />}>
+            <UserSimulator
+              activeUser={activeUser}
+              setActiveUser={setActiveUser}
+              isAuthenticated={isAuthenticated}
+              setIsAuthenticated={setIsAuthenticated}
+            />
+            <NetworkSimulator />
+          </Suspense>
         </div>
 
         {/* Ledger Work Area */}
@@ -361,7 +371,13 @@ const MarketDashboard: React.FC = () => {
                 { id: "sources", label: "Sources", icon: <Anchor className="w-3.5 h-3.5 shrink-0" /> },
                 { id: "history", label: "History", icon: <History className="w-3.5 h-3.5 shrink-0" /> },
                 { id: "settings", label: "Settings", icon: <Sliders className="w-3.5 h-3.5 shrink-0" /> },
-              ].map((tab) => (
+              ].filter(tab => {
+                if (!activeUser) return false;
+                if (activeUser.role === "admin") return true;
+                if (activeUser.role === "auctioneer") return ["dash", "transactions", "buyers", "history", "settings"].includes(tab.id);
+                if (activeUser.role === "collector") return ["dash", "collections", "buyers", "sources", "halkhata", "history", "settings"].includes(tab.id);
+                return false;
+              }).map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
@@ -387,63 +403,79 @@ const MarketDashboard: React.FC = () => {
               ) : (
                 <AnimatePresence mode="wait">
                   {activeTab === "dash" && (
-                    <DashboardPanel
-                      key="dash"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                      onNavigate={(tab) => setActiveTab(tab)}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <DashboardPanel
+                        key="dash"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                        onNavigate={(tab) => setActiveTab(tab)}
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "transactions" && (
-                    <TransactionPanel
-                      key="transactions"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                      deviceMode="laptop"
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <TransactionPanel
+                        key="transactions"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                        deviceMode="laptop"
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "collections" && (
-                    <CollectPanel
-                      key="collections"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <CollectPanel
+                        key="collections"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "buyers" && (
-                    <BuyerPanel
-                      key="buyers"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <BuyerPanel
+                        key="buyers"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "halkhata" && (
-                    <HalkhataPanel
-                      key="halkhata"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <HalkhataPanel
+                        key="halkhata"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "sources" && (
-                    <SourcePanel
-                      key="sources"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <SourcePanel
+                        key="sources"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "history" && (
-                    <HistoryPanel
-                      key="history"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <HistoryPanel
+                        key="history"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                      />
+                    </Suspense>
                   )}
                   {activeTab === "settings" && (
-                    <SettingsPanel
-                      key="settings"
-                      activeUser={activeUser}
-                      isAuthenticated={isAuthenticated}
-                      onLogout={handleStationLock}
-                    />
+                    <Suspense fallback={<FallbackLoader />}>
+                      <SettingsPanel
+                        key="settings"
+                        activeUser={activeUser}
+                        isAuthenticated={isAuthenticated}
+                        onLogout={handleStationLock}
+                      />
+                    </Suspense>
                   )}
                 </AnimatePresence>
               )}
@@ -596,7 +628,13 @@ const MarketDashboard: React.FC = () => {
             { id: "sources", label: "SOURCES", icon: <Anchor className="w-4 h-4 mx-auto" />, badge: false },
             { id: "history", label: "HISTORY", icon: <History className="w-4 h-4 mx-auto" />, badge: false },
             { id: "settings", label: "SETTINGS", icon: <Sliders className="w-4 h-4 mx-auto" />, badge: false },
-          ].map((item) => {
+          ].filter(item => {
+            if (!activeUser) return false;
+            if (activeUser.role === "admin") return true;
+            if (activeUser.role === "auctioneer") return ["dash", "transactions", "buyers", "history", "settings"].includes(item.id);
+            if (activeUser.role === "collector") return ["dash", "collections", "buyers", "sources", "halkhata", "history", "settings"].includes(item.id);
+            return false;
+          }).map((item) => {
             const isSelected = activeTab === item.id;
             return (
               <button
@@ -629,57 +667,59 @@ const MarketDashboard: React.FC = () => {
           
           {/* Subpanel Container */}
           <div className={`text-zinc-900 print:h-auto print:overflow-visible print:p-0 ${activeTab === "transactions" ? "h-full pb-0" : "pb-10 space-y-4"}`} id="android-viewport-content">
-            {activeTab === "dash" && (
-              <DashboardPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-                onNavigate={(tab) => setActiveTab(tab)}
-              />
-            )}
-            {activeTab === "transactions" && (
-              <TransactionPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-                deviceMode="android"
-              />
-            )}
-            {activeTab === "collections" && (
-              <CollectPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-              />
-            )}
-            {activeTab === "buyers" && (
-              <BuyerPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-              />
-            )}
-            {activeTab === "halkhata" && (
-              <HalkhataPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-              />
-            )}
-            {activeTab === "sources" && (
-              <SourcePanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-              />
-            )}
-            {activeTab === "history" && (
-              <HistoryPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-              />
-            )}
-            {activeTab === "settings" && (
-              <SettingsPanel
-                activeUser={activeUser}
-                isAuthenticated={isAuthenticated}
-                onLogout={handleStationLock}
-              />
-            )}
+            <Suspense fallback={<FallbackLoader />}>
+              {activeTab === "dash" && (
+                <DashboardPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                  onNavigate={(tab) => setActiveTab(tab)}
+                />
+              )}
+              {activeTab === "transactions" && (
+                <TransactionPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                  deviceMode="android"
+                />
+              )}
+              {activeTab === "collections" && (
+                <CollectPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                />
+              )}
+              {activeTab === "buyers" && (
+                <BuyerPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                />
+              )}
+              {activeTab === "halkhata" && (
+                <HalkhataPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                />
+              )}
+              {activeTab === "sources" && (
+                <SourcePanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                />
+              )}
+              {activeTab === "history" && (
+                <HistoryPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                />
+              )}
+              {activeTab === "settings" && (
+                <SettingsPanel
+                  activeUser={activeUser}
+                  isAuthenticated={isAuthenticated}
+                  onLogout={handleStationLock}
+                />
+              )}
+            </Suspense>
           </div>
         </div>
       </div>
@@ -688,12 +728,14 @@ const MarketDashboard: React.FC = () => {
 
   return (
     <>
+    <Suspense fallback={<FallbackLoader />}>
       <PinGate 
         activeUser={activeUser}
         setActiveUser={setActiveUser}
         isAuthenticated={isAuthenticated}
         setIsAuthenticated={setIsAuthenticated}
       />
+    </Suspense>
       
       <AnimatePresence>
         {showExitToast && (

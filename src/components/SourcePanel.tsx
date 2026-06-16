@@ -281,7 +281,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
   };
 
   const isAdmin = activeUser?.role === "admin" && isAuthenticated;
-  const isAuthorizedToLog = isAuthenticated && (activeUser?.role === "admin" || activeUser?.role === "auctioneer");
+  const isAuthorizedToLog = isAuthenticated && (activeUser?.role === "admin" || activeUser?.role === "auctioneer" || activeUser?.role === "collector");
 
   return (
     <div className="space-y-6" id="sources-logistics-panel">
@@ -313,7 +313,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
         <button
           onClick={() => {
             if (!isAuthorizedToLog) {
-              alert("Your current operator role does not have authorization to add fishing sources! Swapping to Admin or Auctioneer is required.");
+              alert("Your current operator role does not have authorization to add fishing sources! Swapping to Admin, Auctioneer, or Collector is required.");
               return;
             }
             setShowAddSourceForm(!showAddSourceForm);

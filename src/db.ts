@@ -240,7 +240,14 @@ export async function loadAll(): Promise<NFCData> {
       const fetchCloud = Promise.all(
         keys.map(async (key) => {
           try {
-            const { data, error } = await supabase!.from(key).select("*");
+            let query = supabase!.from(key).select("*");
+            
+            // Scalability modification: cap historical pulls to most recent bounded set for large event tables
+            if (["transactions", "daily_collections", "source_payments"].includes(key)) {
+              query = query.order("date", { ascending: false, nullsFirst: false }).limit(2000);
+            }
+
+            const { data, error } = await query;
             if (error) throw error;
             dbData[key] = (data || []) as any;
           } catch(error) {

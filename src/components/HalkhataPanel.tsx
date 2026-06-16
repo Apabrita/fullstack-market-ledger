@@ -100,6 +100,69 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
   const totalSalesToday = salesForDay.reduce((sum, t) => sum + Number(t.total_price || 0), 0);
   const amountOwedToUs = Math.max(0, totalSalesToday - amountReceivedFromBuyers);
 
+  const exportDayExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      
+      const getBuyerName = (id: any) => data?.buyers?.find((b) => String(b.id) === String(id))?.nickname || String(id);
+      const getSourceName = (id: any) => data?.sources?.find((s) => String(s.id) === String(id))?.name || String(id);
+      const getUserName = (id: any) => data?.users?.find((u) => String(u.id) === String(id))?.name || String(id);
+
+      const wb = XLSX.utils.book_new();
+
+      // 1. Transactions (Auctions) for this specific day
+      const txData = [...salesForDay]
+        .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+        .map(tx => ({
+          "Time": new Date(tx.date).toLocaleTimeString(),
+          "Buyer Name": getBuyerName(tx.buyer_id),
+          "Source Name": getSourceName(tx.source_id),
+          "Authorizing Operator": getUserName(tx.added_by),
+          "Fish Type": tx.fish_type || 'Mixed',
+          "Lot Weight (Kg)": tx.weight,
+          "Rate Per Kg (BDT)": tx.price_per_kg,
+          "Total Amount (BDT)": tx.total_price
+        }));
+      const wsTx = XLSX.utils.json_to_sheet(txData);
+      wsTx['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 25}, {wch: 22}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 18} ];
+      XLSX.utils.book_append_sheet(wb, wsTx, "Daily Auctions");
+
+      // 2. Collections (Jama) for this specific day
+      const colData = [...collectionsForDay]
+        .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+        .map(col => ({
+          "Time": new Date(col.date).toLocaleTimeString(),
+          "Buyer Name": getBuyerName(col.buyer_id),
+          "Amount Paid (BDT)": col.amount_paid,
+          "Total Outstanding": col.total_owed_today,
+          "Approval Status": col.is_approved ? 'Approved' : 'Pending'
+        }));
+      const wsCol = XLSX.utils.json_to_sheet(colData);
+      wsCol['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 20}, {wch: 20}, {wch: 18} ];
+      XLSX.utils.book_append_sheet(wb, wsCol, "Daily Collections");
+
+      // 3. Source Payments for this specific day
+      const spForDay = data?.source_payments?.filter(s => s.date.startsWith(appDate)) || [];
+      const spData = [...spForDay]
+        .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+        .map(sp => ({
+          "Time": new Date(sp.date).toLocaleTimeString(),
+          "Source Name": getSourceName(sp.source_id),
+          "Gross Sale (BDT)": sp.sale_total,
+          "Commission (BDT)": sp.commission,
+          "Net Paid to Source (BDT)": sp.amount_paid_to_source,
+          "Settlement Status": sp.is_settled ? 'Settled' : 'Unsettled'
+        }));
+      const wsSp = XLSX.utils.json_to_sheet(spData);
+      wsSp['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 18}, {wch: 18}, {wch: 22}, {wch: 18} ];
+      XLSX.utils.book_append_sheet(wb, wsSp, "Daily Source Payments");
+
+      XLSX.writeFile(wb, `NFC_DAILY_REPORT_${appDate}.xlsx`);
+    } catch (err) {
+      console.error("Failed to export Excel", err);
+    }
+  };
+
   const handleCloseDayToggle = async () => {
     if (!isAuthenticated || activeUser?.role !== "admin") {
       alert("Administrator privileges are required to lock or close the business day reporting sheets.");
@@ -116,6 +179,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
 
       if (!shouldProceed) return;
 
+      await exportDayExcel();
       await write("settings", "upsert", { key: `day_closed_${appDate}`, value: "true" });
       setFeedbackMsg(`🔒 Day ${appDate} successfully committed and closed!`);
       
@@ -376,23 +440,31 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
                 </div>
               </div>
 
-              {activeUser?.role === "admin" && isAuthenticated ? (
+              <div className="flex flex-col sm:flex-row items-center gap-2">
                 <button
-                  onClick={handleCloseDayToggle}
-                  className={`w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-2xl shadow-sm transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
-                    isDayClosed
-                      ? "bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800"
-                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  }`}
+                  onClick={exportDayExcel}
+                  className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-2xl shadow-sm transition border cursor-pointer flex items-center justify-center gap-1.5 shrink-0 bg-blue-900/50 hover:bg-blue-800 text-blue-300 border-blue-800"
                 >
-                  {isDayClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-                  {isDayClosed ? "Reopen Accounting Day" : "Close the Day & Lock Ledger"}
+                  📥 Download Data (.xlsx)
                 </button>
-              ) : (
-                <div className="text-[10px] text-amber-500 bg-amber-950/60 p-2 border border-amber-900 rounded font-bold font-sans shrink-0">
-                  ⚠️ Admin role required to lock dates.
-                </div>
-              )}
+                {activeUser?.role === "admin" && isAuthenticated ? (
+                  <button
+                    onClick={handleCloseDayToggle}
+                    className={`w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-2xl shadow-sm transition duration-200 cursor-pointer flex items-center justify-center gap-1.5 shrink-0 ${
+                      isDayClosed
+                        ? "bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                    }`}
+                  >
+                    {isDayClosed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                    {isDayClosed ? "Reopen Day" : "Close Day"}
+                  </button>
+                ) : (
+                  <div className="text-[10px] text-amber-500 bg-amber-950/60 p-2 border border-amber-900 rounded font-bold font-sans shrink-0">
+                    ⚠️ Admin role required to lock dates.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
