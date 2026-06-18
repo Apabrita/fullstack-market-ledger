@@ -1,9 +1,19 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { 
+  getFirestore, 
+  enableIndexedDbPersistence, 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  getDocs, 
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+  writeBatch
+} from "firebase/firestore";
+import firebaseConfig from '../firebase-applet-config.json';
 
 // ==========================================
 // 1. Critical Capacitor Version Bug Fix
@@ -20,142 +30,81 @@ if (typeof window !== "undefined") {
 // ==========================================
 // 2. Types & Interfaces
 // ==========================================
-export interface User {
-  id: string | number;
-  name: string;
-  pin: string;
-  role: "admin" | "auctioneer" | "collector";
-}
+export interface User { id: string | number; name: string; pin: string; role: "admin" | "auctioneer" | "collector"; }
+export interface Buyer { id: string | number; nickname: string; lifetime_debt: number; credit_limit: number; }
+export interface Source { id: string | number; name: string; date: string; is_completed: boolean; is_archived: boolean; rate_per_kg?: number; }
+export interface Transaction { id: string | number; source_id: string | number; buyer_id: string | number; weight: number; price_per_kg: number; total_price: number; date: string; fish_type: string; added_by: string; timestamp?: string | number; device_id?: string; }
+export interface DailyCollection { id: string | number; buyer_id: string | number; date: string; total_owed_today: number; amount_paid: number; is_rolled_over: boolean; is_approved: boolean; created_at?: string; }
+export interface SourcePayment { id: string | number; source_id: string | number; date: string; total_kg: number; sale_total: number; amount_paid_to_source: number; commission: number; is_settled: boolean; items_json?: string; rate_per_kg?: number; }
+export interface Setting { key: string; value: string; }
+export interface NFCData { users: User[]; buyers: Buyer[]; sources: Source[]; transactions: Transaction[]; daily_collections: DailyCollection[]; source_payments: SourcePayment[]; settings: Setting[]; }
+export interface QueueItem { id: string | number; table: keyof NFCData; action: "insert" | "update" | "delete" | "upsert"; payload: any; timestamp: number; }
 
-export interface Buyer {
-  id: string | number;
-  nickname: string;
-  lifetime_debt: number;
-  credit_limit: number;
-}
+const crateCodeMap: Record<string, string> = {
+  "R": "Rui", "K": "Katla", "T": "Telapia", 
+  "I": "Ilish", "Aar": "Aar", "CNGR": "Chingri",
+  "BT": "Bata", "TNGR": "Tangra", "PRS": "Parse",
+  "PBD": "Pabda", "DHL": "Dhela", "PMF": "Pomfret", "BHK": "Bhetki",
+  "E": "All Eggs", "EM": "Mixed Eggs"
+};
 
-export interface Source {
-  id: string | number;
-  name: string;
-  date: string;
-  is_completed: boolean;
-  is_archived: boolean;
-  rate_per_kg?: number;
-}
-
-export interface Transaction {
-  id: string | number;
-  source_id: string | number;
-  buyer_id: string | number;
-  weight: number;
-  price_per_kg: number;
-  total_price: number;
-  date: string;
-  fish_type: string;
-  added_by: string;
-  timestamp?: string | number;
-}
-
-export interface DailyCollection {
-  id: string | number;
-  buyer_id: string | number;
-  date: string;
-  total_owed_today: number;
-  amount_paid: number;
-  is_rolled_over: boolean;
-  is_approved: boolean;
-  created_at?: string;
-}
-
-export interface SourcePayment {
-  id: string | number;
-  source_id: string | number;
-  date: string;
-  total_kg: number;
-  sale_total: number;
-  amount_paid_to_source: number;
-  commission: number;
-  is_settled: boolean;
-  items_json?: string;
-  rate_per_kg?: number;
-}
-
-export interface Setting {
-  key: string;
-  value: string;
-}
-
-export interface NFCData {
-  users: User[];
-  buyers: Buyer[];
-  sources: Source[];
-  transactions: Transaction[];
-  daily_collections: DailyCollection[];
-  source_payments: SourcePayment[];
-  settings: Setting[];
-}
-
-export interface QueueItem {
-  id: string | number;
-  table: keyof NFCData;
-  action: "insert" | "update" | "delete" | "upsert";
-  payload: any;
-  timestamp: number;
-}
-
-// ==========================================
-// 3. Supabase Architecture Sync Setup
-// ==========================================
-let supabase: SupabaseClient | null = null;
-let _isSyncConfigured = false;
-
-// If they are injected in .env
-let envUrl = import.meta.env?.VITE_SUPABASE_URL || "";
-let envAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || "";
-
-function initSupabase() {
-  if (typeof window !== "undefined") {
-     const storedUrl = localStorage.getItem("nfc_supabase_url");
-     const storedKey = localStorage.getItem("nfc_supabase_anon_key");
-     if (storedUrl && storedKey) {
-       envUrl = storedUrl;
-       envAnonKey = storedKey;
-     }
-  }
+export function expandFishType(code: string): string {
+  if (!code) return "Unspecified";
   
-  if (envUrl && envAnonKey) {
-    try {
-      supabase = createClient(envUrl, envAnonKey);
-      _isSyncConfigured = true;
-    } catch(e) {
-      console.error("Supabase init error:", e);
+  // Try to extract alpha characters only and see if we have them in map
+  // since users might type "1234RE"
+  const alphas = code.match(/[a-zA-Z]+/g);
+  if (!alphas) return code;
+  
+  let translated = code;
+  for (const part of alphas) {
+    const p = part.toUpperCase();
+    if (crateCodeMap[p]) {
+      translated = translated.replace(part, `[${crateCodeMap[p]}]`);
+    } else {
+      // Handle combined like RE (Rui + Eggs)
+      let compound = "";
+      let remaining = p;
+      for (const key of Object.keys(crateCodeMap).sort((a,b) => b.length - a.length)) {
+        if (remaining.includes(key)) {
+          compound += `${crateCodeMap[key]} `;
+          remaining = remaining.replace(key, "");
+        }
+      }
+      if (compound) {
+        translated = translated.replace(part, `[${compound.trim()}]`);
+      }
     }
   }
+  return translated;
 }
 
-initSupabase();
+// ==========================================
+// 3. Firebase Architecture Sync Setup
+// ==========================================
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+
+if (typeof window !== "undefined") {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code == 'failed-precondition') {
+      console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
+    } else if (err.code == 'unimplemented') {
+      console.warn("The current browser does not support all of the features required to enable persistence");
+    }
+  });
+}
 
 export function isSyncConfigured(): boolean {
-  return _isSyncConfigured;
+  return true; // Firebase config is hardcoded and always configured
 }
 
 export function getCredentials(): { url: string; anonKey: string } {
-  return { url: envUrl, anonKey: envAnonKey };
+  return { url: "Firebase Cloud Sync", anonKey: "Hidden" };
 }
 
-export function saveCredentials(url: string, key: string) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("nfc_supabase_url", url);
-    localStorage.setItem("nfc_supabase_anon_key", key);
-  }
-}
-
-export function clearCredentials() {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem("nfc_supabase_url");
-    localStorage.removeItem("nfc_supabase_anon_key");
-  }
-}
+export function saveCredentials(url: string, key: string) {}
+export function clearCredentials() {}
 
 export function isOnline(): boolean {
   if (typeof window !== "undefined") {
@@ -175,14 +124,8 @@ const INITIAL_SEED_DATA: NFCData = {
     { id: "u-2", name: "Auctioneer Setup", pin: "1122", role: "auctioneer" },
     { id: "u-3", name: "Collector Setup", pin: "3344", role: "collector" }
   ],
-  buyers: [],
-  sources: [],
-  transactions: [],
-  daily_collections: [],
-  source_payments: [],
-  settings: [
-    { key: "halkhata_pin", value: "9988" }
-  ],
+  buyers: [], sources: [], transactions: [], daily_collections: [], source_payments: [],
+  settings: [{ key: "halkhata_pin", value: "9988" }],
 };
 
 const CACHE_KEY = "nfc_offline_cache";
@@ -195,11 +138,7 @@ export function getLocalCache(): NFCData {
     localStorage.setItem(CACHE_KEY, JSON.stringify(INITIAL_SEED_DATA));
     return INITIAL_SEED_DATA;
   }
-  try {
-    return JSON.parse(stored);
-  } catch (e) {
-    return INITIAL_SEED_DATA;
-  }
+  try { return JSON.parse(stored); } catch (e) { return INITIAL_SEED_DATA; }
 }
 
 export function saveLocalCache(data: NFCData) {
@@ -208,66 +147,52 @@ export function saveLocalCache(data: NFCData) {
   }
 }
 
-export function getQueue(): QueueItem[] {
-  if (typeof window === "undefined") return [];
-  const stored = localStorage.getItem(QUEUE_KEY);
-  if (!stored) return [];
-  try {
-    return JSON.parse(stored);
-  } catch (e) {
-    return [];
-  }
-}
+export function getQueue(): QueueItem[] { return []; } 
+export function saveQueue(queue: QueueItem[]) {}
 
-export function saveQueue(queue: QueueItem[]) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+export async function authenticateUserWithPIN(userId: string | number, pin: string): Promise<{ success: boolean; user?: User; error?: string }> {
+  try {
+    // Read directly from cached data to prevent a 5-second blocking network call during login
+    const data = getLocalOptimisticData();
+    const user = data.users.find(u => String(u.id) === String(userId) && String(u.pin) === String(pin));
+    if (user) return { success: true, user };
+    return { success: false, error: "Invalid PIN. Access denied." };
+  } catch (e) {
+    return { success: false, error: "Authentication check failed." };
   }
 }
 
 // ==========================================
-// 5. Offline Queue Engine Logic
+// 5. Offline Queue Engine Logic (Now natively Firebase)
 // ==========================================
 
 export async function loadAll(): Promise<NFCData> {
   let fetched: NFCData = getLocalCache();
 
-  if (_isSyncConfigured && isOnline() && supabase) {
-    try {
-      const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
-      const dbData = {} as NFCData;
+  try {
+    const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
+    const dbData = {} as NFCData;
 
-      const fetchCloud = Promise.all(
-        keys.map(async (key) => {
-          try {
-            let query = supabase!.from(key).select("*");
-            
-            // Scalability modification: cap historical pulls to most recent bounded set for large event tables
-            if (["transactions", "daily_collections", "source_payments"].includes(key)) {
-              query = query.order("date", { ascending: false, nullsFirst: false }).limit(2000);
-            }
+    const fetchPromises = keys.map(async (key) => {
+      let q = collection(db, key) as any;
 
-            const { data, error } = await query;
-            if (error) throw error;
-            dbData[key] = (data || []) as any;
-          } catch(error) {
-             // Retain the existing local cache values on query error rather than wiping it!
-             dbData[key] = ((fetched && fetched[key]) ? fetched[key] : []) as any;
-             console.warn(`Supabase query failed on table '${key}':`, error);
-          }
-        })
-      );
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(d => {
+        let rec = d.data() as any;
+        if (key === 'settings' && !rec.key) rec.key = d.id;
+        else if (!rec.id) rec.id = d.id;
+        return rec;
+      });
+      dbData[key] = data as any;
+    });
 
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 10000));
-      await Promise.race([fetchCloud, timeout]);
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Cloud fetch timeout")), 15000));
+    await Promise.race([Promise.all(fetchPromises), timeout]);
 
-      fetched = dbData;
-      saveLocalCache(fetched);
-    } catch (e) {
-      console.warn("Supabase fetch failed... reverting to local cache.", e);
-      fetched = getLocalCache();
-    }
-  } else {
+    fetched = dbData;
+    saveLocalCache(fetched);
+  } catch (e) {
+    console.warn("Firebase fetch timeout or network error... utilizing local unified cache.", e);
     fetched = getLocalCache();
   }
 
@@ -276,83 +201,11 @@ export async function loadAll(): Promise<NFCData> {
     saveLocalCache(fetched);
   }
 
-  // OPTIMISTIC UPDATE: Merge active offline queues
-  const queue = getQueue();
-  if (queue.length > 0) {
-    const merged: NFCData = JSON.parse(JSON.stringify(fetched));
-
-    queue.forEach((item) => {
-      const tableKey = item.table;
-      if (!merged[tableKey]) merged[tableKey] = [];
-      const tableList = merged[tableKey] as any[];
-
-      switch (item.action) {
-        case "insert":
-          if (!tableList.some((x) => String(x.id || (x as any).key) === String(item.id))) {
-            tableList.push(item.payload);
-          }
-          break;
-
-        case "update":
-        case "upsert": {
-          const idx = tableList.findIndex((x) => String(x.id || (x as any).key) === String(item.id));
-          if (idx !== -1) {
-            tableList[idx] = { ...tableList[idx], ...item.payload };
-          } else {
-            tableList.push(item.payload);
-          }
-          break;
-        }
-
-        case "delete":
-          merged[tableKey] = tableList.filter((x) => String(x.id || (x as any).key) !== String(item.id)) as any;
-          break;
-      }
-    });
-
-    return merged;
-  }
-
   return fetched;
 }
 
 export function getLocalOptimisticData(): NFCData {
-  const fetched = getLocalCache();
-  const queue = getQueue();
-  if (queue.length > 0) {
-    const merged: NFCData = JSON.parse(JSON.stringify(fetched));
-    queue.forEach((item) => {
-      const tableKey = item.table;
-      if (!merged[tableKey]) merged[tableKey] = [];
-      const tableList = merged[tableKey] as any[];
-
-      switch (item.action) {
-        case "insert":
-          if (!tableList.some((x) => String(x.id || (x as any).key) === String(item.id))) {
-            tableList.push(item.payload);
-          }
-          break;
-
-        case "update":
-        case "upsert": {
-          const idx = tableList.findIndex((x) => String(x.id || (x as any).key) === String(item.id));
-          if (idx !== -1) {
-            tableList[idx] = { ...tableList[idx], ...item.payload };
-          } else {
-            tableList.push(item.payload);
-          }
-          break;
-        }
-
-        case "delete":
-          merged[tableKey] = tableList.filter((x) => String(x.id || (x as any).key) !== String(item.id)) as any;
-          break;
-      }
-    });
-
-    return merged;
-  }
-  return fetched;
+  return getLocalCache();
 }
 
 const VALID_TABLE_COLUMNS: Record<keyof NFCData, string[]> = {
@@ -369,12 +222,9 @@ function sanitizePayload(table: keyof NFCData, payload: any): any {
   if (!payload || typeof payload !== "object") return payload;
   const validKeys = VALID_TABLE_COLUMNS[table];
   if (!validKeys) return payload;
-  
   const sanitized: any = {};
   for (const key of validKeys) {
-    if (payload[key] !== undefined) {
-      sanitized[key] = payload[key];
-    }
+    if (payload[key] !== undefined) sanitized[key] = payload[key];
   }
   return sanitized;
 }
@@ -385,134 +235,29 @@ export async function executeWrite<K extends keyof NFCData>(
   payload: any
 ): Promise<{ success: boolean; data: any; queued: boolean; error?: string }> {
   if ((action === "insert" || action === "upsert") && !payload.id && table !== 'settings') {
-    payload.id = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    payload.id = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   }
 
   const itemId = String(payload.id || payload.key || ""); 
-
-  // ALWAYS update the local, high-fidelity offline cache first!
   await syncLocalCacheItem(table, action, payload);
 
-  let successToCloud = false;
-  let lastError: any = null;
-
-  if (_isSyncConfigured && isOnline() && supabase) {
-    try {
-      if (action === "insert" || action === "upsert" || action === "update") {
-         const cleanPayload = sanitizePayload(table, payload);
-         
-         const writePromise = supabase.from(table).upsert(cleanPayload);
-         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
-         const result = await Promise.race([writePromise, timeoutPromise]) as any;
-         if (result.error) throw result.error;
-         
-      } else if (action === "delete") {
-         const deletePromise = supabase.from(table).delete().eq(table === 'settings' ? 'key' : 'id', itemId);
-         const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 2500));
-         const result = await Promise.race([deletePromise, timeoutPromise]) as any;
-         if (result.error) throw result.error;
-      }
-      
-      successToCloud = true;
-    } catch (e) {
-      console.warn(`Supabase write fail on '${table}'. Storing inside queue for background sync.`, e);
-      lastError = e;
+  try {
+    if (action === "insert" || action === "upsert" || action === "update") {
+       const cleanPayload = sanitizePayload(table, payload);
+       // Firebase setDoc queues offline natively
+       setDoc(doc(db, table, itemId), cleanPayload, { merge: true }).catch((e) => console.warn(`Silent online sync catch:`, e));
+    } else if (action === "delete") {
+       deleteDoc(doc(db, table, itemId)).catch((e) => console.warn(`Silent online sync delete catch:`, e));
     }
+  } catch (e) {
+    console.warn(`Firebase logic sync layer exception.`, e);
   }
 
-  if (successToCloud) {
-    return { success: true, data: payload, queued: false };
-  }
-
-  // Store in queue so it retries until committed
-  const queue = getQueue();
-  queue.push({
-    id: itemId,
-    table,
-    action,
-    payload,
-    timestamp: Date.now(),
-  });
-  saveQueue(queue);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("queue_updated"));
-  }
-
-  return { success: true, data: payload, queued: true, error: lastError?.message || lastError?.details || "Offline or configuration error" };
+  return { success: true, data: payload, queued: !isOnline() };
 }
-
-let isProcessingQueue = false;
 
 export async function processQueue(): Promise<{ success: boolean; processed: number; remaining: number }> {
-  if (isProcessingQueue || !_isSyncConfigured || !isOnline() || !supabase) {
-    return { success: false, processed: 0, remaining: getQueue().length };
-  }
-
-  isProcessingQueue = true;
-  try {
-    const queue = getQueue();
-    if (queue.length === 0) return { success: true, processed: 0, remaining: 0 };
-
-    const idTempMap: Record<string, any> = {};
-    const remaining: QueueItem[] = [];
-    let processedCount = 0;
-
-    for (let item of queue) {
-      try {
-        const resolvedPayload = resolveTempIds(item.payload, idTempMap);
-        const cleanPayload = sanitizePayload(item.table, resolvedPayload);
-        const itemId = String(idTempMap[item.id] || item.id);
-
-        if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
-           const writePromise = supabase.from(item.table).upsert(cleanPayload);
-           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
-           const result = await Promise.race([writePromise, timeoutPromise]) as any;
-           if (result.error) throw result.error;
-        } else if (item.action === "delete") {
-           const deletePromise = supabase.from(item.table).delete().eq(item.table === 'settings' ? 'key' : 'id', itemId);
-           const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 8000));
-           const result = await Promise.race([deletePromise, timeoutPromise]) as any;
-           if (result.error) throw result.error;
-        }
-
-        processedCount++;
-      } catch (err) {
-        console.error(`Failed to process queued record:`, item, err);
-        remaining.push(item);
-      }
-    }
-
-    saveQueue(remaining);
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("queue_updated"));
-    }
-
-    await loadAll();
-
-    return {
-      success: remaining.length === 0,
-      processed: processedCount,
-      remaining: remaining.length,
-    };
-  } finally {
-    isProcessingQueue = false;
-  }
-}
-
-function resolveTempIds(payload: any, map: Record<string, any>): any {
-  if (!payload || typeof payload !== "object") return payload;
-  const newPayload = { ...payload };
-  for (let key in newPayload) {
-    const val = newPayload[key];
-    if (typeof val === "string" && map[val]) {
-      newPayload[key] = map[val];
-    } else if (typeof val === "object" && val !== null) {
-      newPayload[key] = resolveTempIds(val, map);
-    }
-  }
-  return newPayload;
+    return { success: true, processed: 0, remaining: 0 };
 }
 
 async function syncLocalCacheItem<K extends keyof NFCData>(
@@ -526,25 +271,19 @@ async function syncLocalCacheItem<K extends keyof NFCData>(
 
   switch (action) {
     case "insert":
-      if (!tableList.some((x) => String(x.id || (x as any).key) === String(itemId))) {
-        tableList.push(payload);
-      }
+      if (!tableList.some((x) => String(x.id || (x as any).key) === String(itemId))) tableList.push(payload);
       break;
     case "update":
     case "upsert": {
       const idx = tableList.findIndex((x) => String(x.id || (x as any).key) === String(itemId));
-      if (idx !== -1) {
-        tableList[idx] = { ...tableList[idx], ...payload };
-      } else {
-        tableList.push(payload);
-      }
+      if (idx !== -1) tableList[idx] = { ...tableList[idx], ...payload };
+      else tableList.push(payload);
       break;
     }
     case "delete":
       cache[table] = tableList.filter((x) => String(x.id || (x as any).key) !== String(itemId)) as any;
       break;
   }
-
   saveLocalCache(cache);
 }
 
@@ -556,93 +295,69 @@ export function clearAllLocalState() {
 }
 
 export async function wipeAllData(): Promise<void> {
-  if (!_isSyncConfigured || !isOnline() || !supabase) {
-    throw new Error("System must be online to perform a full cloud wipe.");
-  }
-  
-  const keys: (keyof NFCData)[] = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
+  const keys: (keyof NFCData)[] = ["sources", "transactions", "daily_collections", "source_payments"];
   for (const key of keys) {
-     const { data } = await supabase.from(key).select(key === 'settings' ? 'key' : 'id');
-     if (data && data.length > 0) {
-       for (const row of data) {
-          await supabase.from(key).delete().eq(key === 'settings' ? 'key' : 'id', (row as any).key || (row as any).id);
-       }
-     }
+     const snap = await getDocs(collection(db, key));
+     const batch = writeBatch(db);
+     snap.docs.forEach((d: any) => batch.delete(d.ref));
+     if(snap.docs.length > 0) await batch.commit();
   }
   
-  clearAllLocalState();
-  
-  for(const item of INITIAL_SEED_DATA.users) { await supabase.from('users').upsert(item); }
-  for(const item of INITIAL_SEED_DATA.settings) { await supabase.from('settings').upsert(item); }
+  const cache = getLocalCache();
+  cache.sources = [];
+  cache.transactions = [];
+  cache.daily_collections = [];
+  cache.source_payments = [];
+  saveLocalCache(cache);
   
   window.location.reload();
 }
 
-if (typeof window !== "undefined") {
-  window.addEventListener("online", () => {
-    loadAll()
-      .then(() => {
-        console.log("Synchronized fresh Supabase snapshot.");
-      })
-      .catch((e) => console.error("Snapshot sync failed", e))
-      .finally(() => {
-        processQueue()
-          .then((res) => {
-            if (res.processed > 0) {
-              console.log(`Auto queue resolved ${res.processed} records.`);
-            }
-          })
-          .catch((err) => console.error("Auto queue sync error", err));
-      });
-  });
-}
-
-export async function authenticateUserWithPIN(
-  userId: string | number,
-  pin: string
-): Promise<{ success: boolean; user?: User }> {
-  try {
-     const cache = getLocalCache();
-     let matchedUser = cache.users.find((u) => String(u.id) === String(userId) && String(u.pin) === String(pin));
-     if (matchedUser) return { success: true, user: matchedUser };
-  } catch(e) {}
-  return { success: false };
-}
-
 export function setupRealtimeSubscriptions(onUpdate?: () => void): () => void {
-  if (!_isSyncConfigured || !supabase) return () => {};
-
   const tables = ["users", "buyers", "sources", "transactions", "daily_collections", "source_payments", "settings"];
-  const channels: any[] = [];
+  const unsubscribes: any[] = [];
 
   tables.forEach((table) => {
-    const channel = supabase!.channel(`realtime_${table}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        (payload) => {
-          let action: any = "upsert";
-          if (payload.eventType === 'DELETE') action = "delete";
-          
-          const record = payload.new || payload.old;
-          if (!record) return;
+    let q = collection(db, table) as any;
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot: any) => {
+        snapshot.docChanges().forEach((change: any) => {
+          let action: "upsert" | "delete" | "insert" | "update" = "upsert";
+          if (change.type === "removed") action = "delete";
+          const record = change.doc.data();
+          if (table === 'settings' && !record.key) record.key = change.doc.id;
+          else if (!record.id) record.id = change.doc.id;
           
           syncLocalCacheItem(table as keyof NFCData, action, record).then(() => {
-             if (typeof window !== "undefined") {
-               window.dispatchEvent(new Event("queue_updated"));
-             }
-             if (onUpdate) onUpdate();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new Event("queue_updated"));
+            }
           });
-        }
-      )
-      .subscribe((status, err) => {
-         if (err) console.warn(`Supabase realtime ${table} subscription error:`, err);
-      });
-      
-    channels.push(channel);
+        });
+        if (onUpdate) onUpdate();
+      },
+      (error: any) => {
+         console.warn(`Firebase realtime subscription error on ${table}:`, error);
+      }
+    );
+    unsubscribes.push(unsubscribe);
   });
 
   return () => {
-    channels.forEach(channel => supabase!.removeChannel(channel));
+    unsubscribes.forEach((u) => u());
   };
+}
+
+
+export async function factoryResetData(): Promise<void> {
+  const keys: (keyof NFCData)[] = ['sources', 'transactions', 'daily_collections', 'source_payments', 'buyers', 'users', 'settings'];
+  for (const key of keys) {
+     const snap = await getDocs(collection(db, key));
+     for (const docSnap of snap.docs) {
+         await deleteDoc(docSnap.ref);
+     }
+  }
+  clearAllLocalState();
 }

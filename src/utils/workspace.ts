@@ -6,7 +6,7 @@
  * This runs directly in the browser using the OAuth access token.
  */
 
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { NFCData, Transaction, DailyCollection, SourcePayment, Buyer, Source } from "../db";
 
@@ -19,7 +19,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:1066701172350:web:48e49c3e6889aad58c722f"
 };
 
-const app = initializeApp(firebaseConfig);
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 
 const provider = new GoogleAuthProvider();
@@ -199,7 +199,7 @@ export async function syncDataToGoogleSheets(data: NFCData, reportType: "auction
     ]);
   } else if (reportType === "source_payment") {
     sheetName = "Source Landings";
-    headers = ["Settlement Date", "Payment ID", "Source Source ID", "Delivered Weight (KG)", "Agreed Landing Rate (৳)", "Estimated Sales Total (৳)", "Broker Fee 5% Commission (৳)", "Net Share Settled Cash (৳)", "Status"];
+    headers = ["Settlement Date", "Payment ID", "Source Source ID", "Delivered Weight (KG)", "Agreed Landing Rate (৳)", "Estimated Sales Total (৳)", "Broker Commission (৳)", "Net Share Settled Cash (৳)", "Status"];
     
     const payments = data.source_payments || [];
     rows = payments.map(p => [
@@ -362,7 +362,7 @@ export function constructPlainReportText(data: NFCData, reportType: "auction" | 
     txt += `TOTAL SALES REVENUE  : ৳${totalVolume}\n`;
   } else if (reportType === "source_payment") {
     txt += `SOURCE commission & NET PAYOUT SETTLEMENTS:\n`;
-    txt += `ID          | VESSEL SOURCE NAME            | TOTAL WEIGHT | SALE SUM | COMM (5%) | NET PAYOUT\n`;
+    txt += `ID          | VESSEL SOURCE NAME            | TOTAL WEIGHT | SALE SUM | COMMISION | NET PAYOUT\n`;
     txt += `------------+-------------------------------+--------------+----------+-----------+------------\n`;
     const payments = data.source_payments || [];
     payments.forEach(p => {

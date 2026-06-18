@@ -6,7 +6,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useData } from "./DataContext";
-import { User as DbUser } from "../db";
+import { User as DbUser, expandFishType } from "../db";
 import {
   FileText,
   Printer,
@@ -112,19 +112,29 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
 
       // 1. Transactions (Auctions) for this specific day
       const txData = [...salesForDay]
-        .sort((a,b) => String(b.date).localeCompare(String(a.date)))
+        .sort((a,b) => {
+          const sA = getSourceName(a.source_id);
+          const sB = getSourceName(b.source_id);
+          if (sA !== sB) return sA.localeCompare(sB);
+          
+          const fA = a.fish_type || "Unspecified";
+          const fB = b.fish_type || "Unspecified";
+          if (fA !== fB) return fA.localeCompare(fB);
+
+          return String(b.date).localeCompare(String(a.date));
+        })
         .map(tx => ({
           "Time": new Date(tx.date).toLocaleTimeString(),
-          "Buyer Name": getBuyerName(tx.buyer_id),
           "Source Name": getSourceName(tx.source_id),
+          "Crate / Fish Type": expandFishType(tx.fish_type),
+          "Buyer Name": getBuyerName(tx.buyer_id),
           "Authorizing Operator": getUserName(tx.added_by),
-          "Fish Type": tx.fish_type || 'Mixed',
           "Lot Weight (Kg)": tx.weight,
           "Rate Per Kg (BDT)": tx.price_per_kg,
           "Total Amount (BDT)": tx.total_price
         }));
       const wsTx = XLSX.utils.json_to_sheet(txData);
-      wsTx['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 25}, {wch: 22}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 18} ];
+      wsTx['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 20}, {wch: 25}, {wch: 22}, {wch: 15}, {wch: 15}, {wch: 18} ];
       XLSX.utils.book_append_sheet(wb, wsTx, "Daily Auctions");
 
       // 2. Collections (Jama) for this specific day
@@ -233,7 +243,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
         type: "purchase",
         id: tx.id,
         date: tx.date || appDate,
-        description: `Purchased: ${tx.fish_type}`,
+        description: `Crate: ${tx.fish_type ? expandFishType(tx.fish_type) : '-'}`,
         weight: tx.weight,
         pricePerKg: tx.price_per_kg,
         chargeAmount: tx.total_price,

@@ -163,24 +163,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setOnline(isOnline());
     } catch (e) {
       console.warn("Local cache aggregator failed", e);
-    }
-
-    // 2. Only show main loading spinner on initial app launch
-    const isFirstLoad = isFirstLoadRef.current;
-    if (isFirstLoad) {
-      setLoading(true);
-    }
-
-    try {
-      // 3. Perform silent, asynchronous cloud database fetches
-      const allDataRemote = await loadAll();
-      setData(allDataRemote);
-      setQueue(getQueue());
-      setOnline(isOnline());
-    } catch (e) {
-      console.error("Failed to background-refresh application data", e);
     } finally {
-      if (isFirstLoad) {
+      if (isFirstLoadRef.current) {
         setLoading(false);
         isFirstLoadRef.current = false;
       }
@@ -192,13 +176,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshData();
   }, [refreshData]);
 
-  // Establish Supabase Real-time table subscription listeners
+  // Establish Firebase Real-time table subscription listeners
   useEffect(() => {
     const unsubscribe = setupRealtimeSubscriptions(() => {
-      loadAll().then((freshData) => {
-        setData(freshData);
-        setQueue(getQueue());
-      });
+      setData(getLocalOptimisticData());
+      setQueue(getQueue());
     });
     return () => {
       unsubscribe();
@@ -209,10 +191,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const handleQueueUpdated = () => {
       setQueue(getQueue());
-      // Re-load data to parse optimistic queue updates correctly
-      loadAll().then((freshData) => {
-        setData(freshData);
-      });
+      // Utilize local cache for optimistic queue updates without triggering blocking network requests
+      setData(getLocalOptimisticData());
     };
 
     const handleOnlineStatus = () => {

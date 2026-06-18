@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.5
  */
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import React, { useState, Suspense, lazy } from "react";
 import { DataProvider, useData } from "./components/DataContext";
 import { User } from "./db";
@@ -403,79 +404,95 @@ const MarketDashboard: React.FC = () => {
               ) : (
                 <AnimatePresence mode="wait">
                   {activeTab === "dash" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <DashboardPanel
-                        key="dash"
-                        activeUser={activeUser}
-                        isAuthenticated={isAuthenticated}
-                        onNavigate={(tab) => setActiveTab(tab)}
-                      />
-                    </Suspense>
+                    <ErrorBoundary componentName="DashboardPanel">
+                      <Suspense fallback={<FallbackLoader />}>
+                        <DashboardPanel
+                          key="dash"
+                          activeUser={activeUser}
+                          isAuthenticated={isAuthenticated}
+                          onNavigate={(tab) => setActiveTab(tab)}
+                        />
+                      </Suspense>
+                    </ErrorBoundary>
                   )}
                   {activeTab === "transactions" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <TransactionPanel
+                    <ErrorBoundary componentName="TransactionPanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <TransactionPanel
                         key="transactions"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                         deviceMode="laptop"
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                   {activeTab === "collections" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <CollectPanel
+                    <ErrorBoundary componentName="CollectPanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <CollectPanel
                         key="collections"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                   {activeTab === "buyers" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <BuyerPanel
+                    <ErrorBoundary componentName="BuyerPanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <BuyerPanel
                         key="buyers"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                   {activeTab === "halkhata" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <HalkhataPanel
+                    <ErrorBoundary componentName="HalkhataPanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <HalkhataPanel
                         key="halkhata"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                   {activeTab === "sources" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <SourcePanel
+                    <ErrorBoundary componentName="SourcePanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <SourcePanel
                         key="sources"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                   {activeTab === "history" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <HistoryPanel
+                    <ErrorBoundary componentName="HistoryPanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <HistoryPanel
                         key="history"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                   {activeTab === "settings" && (
-                    <Suspense fallback={<FallbackLoader />}>
-                      <SettingsPanel
+                    <ErrorBoundary componentName="SettingsPanel">
+              <Suspense fallback={<FallbackLoader />}>
+                <SettingsPanel
                         key="settings"
                         activeUser={activeUser}
                         isAuthenticated={isAuthenticated}
                         onLogout={handleStationLock}
                       />
-                    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
                   )}
                 </AnimatePresence>
               )}
@@ -667,14 +684,15 @@ const MarketDashboard: React.FC = () => {
           
           {/* Subpanel Container */}
           <div className={`text-zinc-900 print:h-auto print:overflow-visible print:p-0 ${activeTab === "transactions" ? "h-full pb-0" : "pb-10 space-y-4"}`} id="android-viewport-content">
-            <Suspense fallback={<FallbackLoader />}>
-              {activeTab === "dash" && (
-                <DashboardPanel
-                  activeUser={activeUser}
-                  isAuthenticated={isAuthenticated}
-                  onNavigate={(tab) => setActiveTab(tab)}
-                />
-              )}
+            <ErrorBoundary componentName="Active Tab">
+              <Suspense fallback={<FallbackLoader />}>
+                {activeTab === "dash" && (
+                  <DashboardPanel
+                    activeUser={activeUser}
+                    isAuthenticated={isAuthenticated}
+                    onNavigate={(tab) => setActiveTab(tab)}
+                  />
+                )}
               {activeTab === "transactions" && (
                 <TransactionPanel
                   activeUser={activeUser}
@@ -720,6 +738,7 @@ const MarketDashboard: React.FC = () => {
                 />
               )}
             </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
       </div>
@@ -728,14 +747,16 @@ const MarketDashboard: React.FC = () => {
 
   return (
     <>
-    <Suspense fallback={<FallbackLoader />}>
-      <PinGate 
+    <ErrorBoundary componentName="PinGate">
+              <Suspense fallback={<FallbackLoader />}>
+                <PinGate 
         activeUser={activeUser}
         setActiveUser={setActiveUser}
         isAuthenticated={isAuthenticated}
         setIsAuthenticated={setIsAuthenticated}
       />
-    </Suspense>
+              </Suspense>
+            </ErrorBoundary>
       
       <AnimatePresence>
         {showExitToast && (

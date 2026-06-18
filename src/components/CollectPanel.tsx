@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { CashDenominator } from './CashDenominator';
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useData } from "./DataContext";
@@ -581,109 +582,17 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
 
                 {/* India Note Counter block */}
                 {showCashCalc && buyerId && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    className="p-3.5 bg-indigo-950/20 border border-indigo-900/30 rounded-2xl space-y-3 font-mono text-[11px]"
-                  >
-                    <div className="flex justify-between items-center text-xs font-sans font-bold text-zinc-200">
-                      <span>Physical Cash Drawer Note Counter</span>
-                      <span className="text-indigo-400">INR denominations</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-zinc-500 text-[10px]">₹500:</span>
-                        <input
-                          type="text"
-                          value={notes500}
-                          onChange={(e) => setNotes500(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
-                          placeholder="qty"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-zinc-500 text-[10px]">₹200:</span>
-                        <input
-                          type="text"
-                          value={notes200}
-                          onChange={(e) => setNotes200(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-855 rounded p-1 text-center font-mono"
-                          placeholder="qty"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-zinc-500 text-[10px]">₹100:</span>
-                        <input
-                          type="text"
-                          value={notes100}
-                          onChange={(e) => setNotes100(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
-                          placeholder="qty"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-zinc-500 text-[10px]">₹50:</span>
-                        <input
-                          type="text"
-                          value={notes50}
-                          onChange={(e) => setNotes50(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-805 rounded p-1 text-center font-mono"
-                          placeholder="qty"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-zinc-500 text-[10px]">₹20:</span>
-                        <input
-                          type="text"
-                          value={notes20}
-                          onChange={(e) => setNotes20(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
-                          placeholder="qty"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-10 text-zinc-500 text-[10px]">₹10:</span>
-                        <input
-                          type="text"
-                          value={notes10}
-                          onChange={(e) => setNotes10(e.target.value.replace(/\D/g, ""))}
-                          className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded p-1 text-center font-mono"
-                          placeholder="qty"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-2 border-t border-indigo-950 text-xs">
-                      <span className="font-sans font-bold text-zinc-400">Drawer Sum:</span>
-                      <span className="font-extrabold text-teal-400 font-mono">₹{calculatedCashTotal.toLocaleString()}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNotes500("");
-                          setNotes200("");
-                          setNotes100("");
-                          setNotes50("");
-                          setNotes20("");
-                          setNotes10("");
-                        }}
-                        className="py-1 bg-zinc-900 hover:bg-zinc-800 rounded text-zinc-400 font-sans cursor-pointer text-[10px]"
-                      >
-                        Reset Counts
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleApplyCashTotal}
-                        disabled={calculatedCashTotal <= 0}
-                        className="py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-sans font-bold cursor-pointer text-[10px]"
-                      >
-                        Apply Counter Sum
-                      </button>
-                    </div>
-                  </motion.div>
+                  <CashDenominator 
+                      notes500={notes500} setNotes500={setNotes500} 
+                      notes200={notes200} setNotes200={setNotes200} 
+                      notes100={notes100} setNotes100={setNotes100} 
+                      notes50={notes50} setNotes50={setNotes50} 
+                      notes20={notes20} setNotes20={setNotes20} 
+                      notes10={notes10} setNotes10={setNotes10} 
+                      calculatedCashTotal={calculatedCashTotal} 
+                      handleApplyCashTotal={handleApplyCashTotal} 
+                      onClose={() => setShowCashCalc(false)} 
+                    />
                 )}
 
                 {/* Fixed Numpad for amount paid input if toggled */}

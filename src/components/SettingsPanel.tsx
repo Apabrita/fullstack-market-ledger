@@ -802,18 +802,41 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
           </div>
           <div className="space-y-3 relative">
              <p className={`text-[10.5px] leading-relaxed font-sans ${activeTheme === "light" ? "text-zinc-600" : "text-zinc-400"}`}>
-               Completely erase all Buyers, Sources, Transactions, and Reports from the Cloud Firestore Database. Cannot be undone!
+               Completely erase all Transactions, Source Records, and Daily Collections from the Cloud Database. Buyers, Settings, and User accounts will remain intact. This action cannot be undone!
              </p>
-             <div className="flex justify-end pt-1">
+             <div className="flex flex-col sm:flex-row justify-end pt-1 gap-3">
                <button
                  onClick={async () => {
-                   const step1 = window.confirm("🚨 DANGER ZONE 🚨\n\nThis will completely ERASE the entire database globally (All buyers, sources, transactions). It CANNOT be undone.\n\nAre you mathematically sure you want to proceed?");
+                   const step1 = window.confirm("🚨 LAST WARNING 🚨\n\nThis will completely ERASE everything (Transactions, Sources, Collections, Users, Buyers, Settings) globally.\n\nYou will have to create a new user to log in again!\n\nAre you absolutely sure you want to proceed?");
                    if (!step1) return;
-                   const step2 = window.prompt("Type 'DELETE' to confirm complete system wipe:");
+                   const step2 = window.prompt("Type 'FACTORY RESET' to confirm COMPLETE SYSTEM WIPE:");
+                   if (step2 === "FACTORY RESET") {
+                     try {
+                       const { factoryResetData } = await import('../db');
+                       await factoryResetData();
+                       alert("Factory Reset Complete. The app will now reload.");
+                       window.location.reload();
+                     } catch(e: any) {
+                       alert('Wipe failed: ' + e.message);
+                     }
+                   }
+                 }}
+                 className="px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-2xl transition border border-red-800 text-red-500 hover:bg-red-950 cursor-pointer w-full sm:w-auto text-center"
+               >
+                 FACTORY RESET
+               </button>
+               
+               <button
+                 onClick={async () => {
+                   const step1 = window.confirm("🚨 PURGE TRANSACTIONS 🚨\n\nThis will completely ERASE all transaction and collection data globally. (Buyers & Users are kept).\n\nAre you sure you want to proceed?");
+                   if (!step1) return;
+                   const step2 = window.prompt("Type 'DELETE' to confirm transaction wipe:");
                    if (step2 === "DELETE") {
                      try {
                        const { wipeAllData } = await import('../db');
                        await wipeAllData();
+                       alert("Transactions Wiped. The app will now reload.");
+                       window.location.reload();
                      } catch(e: any) {
                        alert('Wipe failed: ' + e.message);
                      }
@@ -821,7 +844,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                  }}
                  className="px-4 py-2 text-[10.5px] font-bold uppercase tracking-wider rounded-2xl transition bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-500/20 cursor-pointer w-full sm:w-auto text-center"
                >
-                 WIPE ENTIRE DATABASE 🗑️
+                 WIPE TRANSACTIONS 🗑️
                </button>
              </div>
           </div>
