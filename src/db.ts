@@ -83,7 +83,9 @@ export function expandFishType(code: string): string {
 // 3. Firebase Architecture Sync Setup
 // ==========================================
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+const db = (firebaseConfig as any).firestoreDatabaseId 
+  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId) 
+  : getFirestore(app);
 
 if (typeof window !== "undefined") {
   enableIndexedDbPersistence(db).catch((err) => {
@@ -150,6 +152,39 @@ export function saveLocalCache(data: NFCData) {
 export function getQueue(): QueueItem[] { return []; } 
 export function saveQueue(queue: QueueItem[]) {}
 
+async function migrateLegacyOfflineQueue() {
+  if (typeof window === "undefined") return;
+  const stored = localStorage.getItem(QUEUE_KEY);
+  if (!stored) return;
+  
+  try {
+    const queue = JSON.parse(stored) as QueueItem[];
+    if (queue && queue.length > 0) {
+      console.log(`Migrating ${queue.length} legacy offline queue items to Firebase...`);
+      for (const item of queue) {
+        const itemId = String(item.id || item.payload?.id || item.payload?.key || "");
+        if (!itemId) continue;
+        
+        try {
+          if (item.action === "insert" || item.action === "upsert" || item.action === "update") {
+             const cleanPayload = sanitizePayload(item.table, item.payload);
+             await setDoc(doc(db, item.table, itemId), cleanPayload, { merge: true });
+          } else if (item.action === "delete") {
+             await deleteDoc(doc(db, item.table, itemId));
+          }
+        } catch(e) {
+          console.warn(`Legacy queue migration error for item ${item.id}`, e);
+        }
+      }
+      // Clear legacy queue once migrated
+      localStorage.removeItem(QUEUE_KEY);
+      console.log("Legacy queue migrated successfully and cleared.");
+    }
+  } catch (e) {
+    console.warn("Failed to parse legacy offline queue", e);
+  }
+}
+
 export async function authenticateUserWithPIN(userId: string | number, pin: string): Promise<{ success: boolean; user?: User; error?: string }> {
   try {
     // Read directly from cached data to prevent a 5-second blocking network call during login
@@ -166,7 +201,50 @@ export async function authenticateUserWithPIN(userId: string | number, pin: stri
 // 5. Offline Queue Engine Logic (Now natively Firebase)
 // ==========================================
 
+export async function migrateLegacyCacheToFirebase() {
+  if (typeof window === "undefined") return;
+  const stored = localStorage.getItem(CACHE_KEY);
+  const migrated = localStorage.getItem("nfc_cache_migrated_to_firebase_v2");
+  if (!stored || migrated === "true") return;
+
+  try {
+    const cache = JSON.parse(stored) as NFCData;
+    console.log("Migrating full legacy cache (APK offline data) to Firebase...");
+    let anyMigrated = false;
+    for (const tableString of Object.keys(VALID_TABLE_COLUMNS)) {
+       const table = tableString as keyof NFCData;
+       if (table === 'users' || table === 'settings') continue; // Skip settings/users for now
+       const items = cache[table] || [];
+       for (const item of items) {
+          const itemId = String(item.id || (item as any).key || "");
+          if (!itemId) continue;
+          try {
+             const cleanPayload = sanitizePayload(table, item);
+             await setDoc(doc(db, table, itemId), cleanPayload, { merge: true });
+             anyMigrated = true;
+          } catch(e) { console.warn(e); }
+       }
+    }
+    localStorage.setItem("nfc_cache_migrated_to_firebase_v2", "true");
+    console.log("Legacy cache migration completed.");
+  } catch (e) {
+    console.warn("Failed to migrate legacy cache", e);
+  }
+}
+
+// Auto-run migration early on client boot
+if (typeof window !== "undefined") {
+  setTimeout(() => {
+    migrateLegacyOfflineQueue().catch(console.warn);
+    migrateLegacyCacheToFirebase().catch(console.warn);
+  }, 1000);
+}
+
 export async function loadAll(): Promise<NFCData> {
+  // Push any data from the old local-first implementation to Firebase
+  migrateLegacyOfflineQueue().catch(console.warn);
+  migrateLegacyCacheToFirebase().catch(console.warn);
+
   let fetched: NFCData = getLocalCache();
 
   try {
@@ -212,7 +290,7 @@ const VALID_TABLE_COLUMNS: Record<keyof NFCData, string[]> = {
   users: ["id", "name", "pin", "role"],
   buyers: ["id", "nickname", "lifetime_debt", "credit_limit"],
   sources: ["id", "name", "date", "is_completed", "is_archived", "rate_per_kg"],
-  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by", "timestamp"],
+  transactions: ["id", "source_id", "buyer_id", "weight", "price_per_kg", "total_price", "date", "fish_type", "added_by", "timestamp", "device_id"],
   daily_collections: ["id", "buyer_id", "date", "total_owed_today", "amount_paid", "is_rolled_over", "is_approved", "created_at"],
   source_payments: ["id", "source_id", "date", "total_kg", "sale_total", "amount_paid_to_source", "commission", "is_settled", "items_json", "rate_per_kg"],
   settings: ["key", "value"],

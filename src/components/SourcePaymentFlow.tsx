@@ -31,15 +31,15 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
       }
     }
 
-    const types = Array.from(new Set(transactions.map((t: any) => t.fish_type || "Unsorted"))) as string[];
-    const items = types.map((ft, idx) => {
-      const fTx = transactions.filter(t => (t.fish_type || "Unsorted") === ft);
-      const wt = fTx.reduce((sum, t) => sum + (t.weight || 0), 0);
-      const rev = fTx.reduce((sum, t) => sum + (t.total_price || 0), 0);
-      const mean = wt > 0 ? rev / wt : 0;
+    const items = transactions.map((t, idx) => {
+      const ft = t.fish_type || "Unsorted Catch";
+      const wt = t.weight || 0;
+      const rev = t.total_price || 0;
+      const mean = t.price_per_kg || 0;
       return {
-        id: `actual_${idx}_${Date.now()}`,
+        id: `actual_${idx}_${t.id}_${Date.now()}`,
         fishType: ft,
+        transactionId: t.id,
         actualWeight: wt,
         actualRevenue: rev,
         meanPrice: mean,
@@ -112,6 +112,7 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
 
   const parsedCommission = parseFloat(manualCommission) || 0;
   const netPaidToSource = Math.max(0, totalPayoutGross - parsedCommission);
+  const totalAratProfit = (totalActualRevenue - totalPayoutGross) + parsedCommission;
 
   const handleSettle = () => {
     setShowConfirmModal(true);
@@ -271,6 +272,12 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
                      ₹{mValue.toLocaleString()}
                    </div>
                 </div>
+                <div className="text-right sm:w-24 border-l border-zinc-200 pl-3">
+                   <label className="text-[10px] font-bold text-indigo-500 uppercase block mb-1">Trade Margin</label>
+                   <div className="font-mono font-bold text-indigo-600 text-sm py-1.5">
+                     ₹{(item.actualRevenue - mValue).toLocaleString()}
+                   </div>
+                </div>
                 {fishItems.length > 1 && (
                   <button
                     type="button"
@@ -307,6 +314,11 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
         <div className="pt-3 border-t border-zinc-200 flex justify-between items-center text-lg font-bold text-emerald-700">
           <span>Net Final Payment:</span>
           <span className="font-mono">₹{netPaidToSource.toLocaleString()}</span>
+        </div>
+
+        <div className="pt-3 border-t border-zinc-200 flex justify-between items-center text-xs font-bold text-indigo-700 bg-indigo-50/50 p-2 rounded-lg">
+          <span className="uppercase tracking-widest font-sans">Total Arat Profit from Source</span>
+          <span className="font-mono text-sm">₹{totalAratProfit.toLocaleString()}</span>
         </div>
       </div>
 

@@ -17,7 +17,8 @@ export const DashboardAI: React.FC<DashboardAIProps> = ({ transactions, onClose 
     try {
       const summary = transactions.map(t => `${t.fish_type} | ${t.weight}kg | ₹${t.price_per_kg}/kg`).join('\n').slice(0, 3000);
       
-      const res = await fetch("/api/analytics", {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
+      const res = await fetch(`${backendUrl}/api/analytics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: `Analyze these recent wholesale fish sales from today and predict future demand/pricing trends for tomorrow:\n${summary}` })

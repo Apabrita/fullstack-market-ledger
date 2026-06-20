@@ -82,8 +82,6 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({ txn, buyers, onSave,
                 type="text"
                 value={fishType}
                 onChange={(e) => setFishType(e.target.value)}
-                onFocus={() => setIsEditFishInputFocused(true)}
-                onBlur={() => setTimeout(() => setIsEditFishInputFocused(false), 200)}
                 className="w-full text-xs text-zinc-200 bg-zinc-950 border border-zinc-800 rounded-2xl p-3 pr-10 outline-none focus:ring-2 focus:ring-sky-500/50 uppercase font-sans font-semibold"
                 placeholder="Enter Crate No. & Type (e.g. 1234RE)"
               />
@@ -95,65 +93,6 @@ export const EditTxnModal: React.FC<EditTxnModalProps> = ({ txn, buyers, onSave,
                 >
                   ✕
                 </button>
-              )}
-
-              {isEditFishInputFocused && (
-                <div className="absolute top-[48px] left-0 right-0 z-30 max-h-72 overflow-y-auto bg-zinc-900 border border-zinc-700/50 p-3 rounded-2xl shadow-2xl shadow-black/80 flex flex-col gap-4">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2 px-1">Fish Types</div>
-                    <div className="flex flex-wrap gap-1.5 select-none">
-                      {[
-                        { lbl: "R", title: "Rui" }, { lbl: "K", title: "Katla" }, { lbl: "T", title: "Telapia" }, 
-                        { lbl: "I", title: "Ilish" }, { lbl: "Aar", title: "Aar" }, { lbl: "CNGR", title: "Chingri" }, 
-                        { lbl: "BT", title: "Bata" }, { lbl: "TNGR", title: "Tangra" },
-                        { lbl: "PRS", title: "Parse" }, { lbl: "PBD", title: "Pabda" }, { lbl: "DHL", title: "Dhela" },
-                        { lbl: "PMF", title: "Pomfret" }, { lbl: "BHK", title: "Bhetki" }
-                      ].map((item) => (
-                        <button
-                          key={item.lbl}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => setFishType((prev: string) => prev + item.lbl)}
-                          title={item.title}
-                          className="px-3 py-1.5 text-xs font-black border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white rounded flex items-center justify-center cursor-pointer transition-colors active:scale-95"
-                        >
-                          {item.lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-amber-500/80 font-bold mb-2 px-1">Eggs</div>
-                    <div className="flex flex-wrap gap-1.5 select-none">
-                      {[
-                        { lbl: "E", title: "All Eggs", isEgg: true }, { lbl: "EM", title: "Mixed Eggs", isEgg: true }
-                      ].map((item) => (
-                        <button
-                          key={item.lbl}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => setFishType((prev: string) => prev + item.lbl)}
-                          title={item.title}
-                          className="px-3 py-1.5 text-xs font-black border rounded flex items-center justify-center cursor-pointer transition-colors active:scale-95 bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
-                        >
-                          {item.lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2 border-t border-zinc-800">
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => setIsEditFishInputFocused(false)}
-                      className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm uppercase tracking-widest transition-colors"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
               )}
             </div>
           </div>

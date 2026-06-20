@@ -20,7 +20,7 @@ export const AuctionTxnList: React.FC<AuctionTxnListProps> = ({
   canEdit,
   onEdit
 }) => {
-  const localTxns = activeTxns.filter(t => !t.device_id || t.device_id === deviceId);
+  const localTxns = activeTxns;
   
   if (localTxns.length === 0) {
     return (

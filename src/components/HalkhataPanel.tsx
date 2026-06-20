@@ -102,15 +102,14 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
 
   const exportDayExcel = async () => {
     try {
-      const XLSX = await import('xlsx');
-      
       const getBuyerName = (id: any) => data?.buyers?.find((b) => String(b.id) === String(id))?.nickname || String(id);
       const getSourceName = (id: any) => data?.sources?.find((s) => String(s.id) === String(id))?.name || String(id);
       const getUserName = (id: any) => data?.users?.find((u) => String(u.id) === String(id))?.name || String(id);
 
-      const wb = XLSX.utils.book_new();
+      const exportData: any[] = [];
 
       // 1. Transactions (Auctions) for this specific day
+      exportData.push({"TABLE": "*** DAILY AUCTIONS ***"});
       const txData = [...salesForDay]
         .sort((a,b) => {
           const sA = getSourceName(a.source_id);
@@ -133,11 +132,11 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
           "Rate Per Kg (BDT)": tx.price_per_kg,
           "Total Amount (BDT)": tx.total_price
         }));
-      const wsTx = XLSX.utils.json_to_sheet(txData);
-      wsTx['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 20}, {wch: 25}, {wch: 22}, {wch: 15}, {wch: 15}, {wch: 18} ];
-      XLSX.utils.book_append_sheet(wb, wsTx, "Daily Auctions");
+      exportData.push(...txData);
 
       // 2. Collections (Jama) for this specific day
+      exportData.push({});
+      exportData.push({"TABLE": "*** DAILY COLLECTIONS ***"});
       const colData = [...collectionsForDay]
         .sort((a,b) => String(b.date).localeCompare(String(a.date)))
         .map(col => ({
@@ -147,11 +146,11 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
           "Total Outstanding": col.total_owed_today,
           "Approval Status": col.is_approved ? 'Approved' : 'Pending'
         }));
-      const wsCol = XLSX.utils.json_to_sheet(colData);
-      wsCol['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 20}, {wch: 20}, {wch: 18} ];
-      XLSX.utils.book_append_sheet(wb, wsCol, "Daily Collections");
+      exportData.push(...colData);
 
       // 3. Source Payments for this specific day
+      exportData.push({});
+      exportData.push({"TABLE": "*** DAILY SOURCE PAYMENTS ***"});
       const spForDay = data?.source_payments?.filter(s => s.date.startsWith(appDate)) || [];
       const spData = [...spForDay]
         .sort((a,b) => String(b.date).localeCompare(String(a.date)))
@@ -163,13 +162,12 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
           "Net Paid to Source (BDT)": sp.amount_paid_to_source,
           "Settlement Status": sp.is_settled ? 'Settled' : 'Unsettled'
         }));
-      const wsSp = XLSX.utils.json_to_sheet(spData);
-      wsSp['!cols'] = [ {wch: 15}, {wch: 25}, {wch: 18}, {wch: 18}, {wch: 22}, {wch: 18} ];
-      XLSX.utils.book_append_sheet(wb, wsSp, "Daily Source Payments");
+      exportData.push(...spData);
 
-      XLSX.writeFile(wb, `NFC_DAILY_REPORT_${appDate}.xlsx`);
+      const { downloadCSV } = await import('../utils/fileExport');
+      await downloadCSV(exportData, `NFC_DAILY_REPORT_${appDate}.csv`);
     } catch (err) {
-      console.error("Failed to export Excel", err);
+      console.error("Failed to export CSV", err);
     }
   };
 
@@ -455,7 +453,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
                   onClick={exportDayExcel}
                   className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-2xl shadow-sm transition border cursor-pointer flex items-center justify-center gap-1.5 shrink-0 bg-blue-900/50 hover:bg-blue-800 text-blue-300 border-blue-800"
                 >
-                  📥 Download Data (.xlsx)
+                  📥 Download Data (.csv)
                 </button>
                 {activeUser?.role === "admin" && isAuthenticated ? (
                   <button

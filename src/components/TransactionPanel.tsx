@@ -411,7 +411,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         total_price: totalNum,
         date: appDate,
         fish_type: currentFishType.trim() || "Unsorted Lot",
-        timestamp: new Date().toISOString(),
+        timestamp: Date.now(),
         added_by: activeUser?.name || "System Staff",
         device_id: getDeviceId(),
       };
@@ -1010,94 +1010,6 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
                     ✕
                   </button>
                 )}
-
-              {/* Edit Mode Dropdown for Fish Types & Historical Suggestions */}
-              {isFishInputFocused && (
-                <div className="absolute top-[48px] left-0 right-0 z-30 max-h-72 overflow-y-auto bg-zinc-900 border border-zinc-700/50 p-3 rounded-2xl shadow-2xl shadow-black/80 flex flex-col gap-4">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold mb-2 px-1">Fish Types</div>
-                    <div className="flex flex-wrap gap-1.5 select-none">
-                      {[
-                        { lbl: "R", title: "Rui" }, { lbl: "K", title: "Katla" }, { lbl: "T", title: "Telapia" }, 
-                        { lbl: "I", title: "Ilish" }, { lbl: "Aar", title: "Aar" }, { lbl: "CNGR", title: "Chingri" }, 
-                        { lbl: "BT", title: "Bata" }, { lbl: "TNGR", title: "Tangra" },
-                        { lbl: "PRS", title: "Parse" }, { lbl: "PBD", title: "Pabda" }, { lbl: "DHL", title: "Dhela" },
-                        { lbl: "PMF", title: "Pomfret" }, { lbl: "BHK", title: "Bhetki" }
-                      ].map((item) => (
-                        <button
-                          key={item.lbl}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => setFishType((prev: string) => prev + item.lbl)}
-                          title={item.title}
-                          className="px-3 py-1.5 text-xs font-black border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white rounded flex items-center justify-center cursor-pointer transition-colors active:scale-95"
-                        >
-                          {item.lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-amber-500/80 font-bold mb-2 px-1">Eggs</div>
-                    <div className="flex flex-wrap gap-1.5 select-none">
-                      {[
-                        { lbl: "E", title: "All Eggs", isEgg: true }, { lbl: "EM", title: "Mixed Eggs", isEgg: true }
-                      ].map((item) => (
-                        <button
-                          key={item.lbl}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => setFishType((prev: string) => prev + item.lbl)}
-                          title={item.title}
-                          className="px-3 py-1.5 text-xs font-black border rounded flex items-center justify-center cursor-pointer transition-colors active:scale-95 bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
-                        >
-                          {item.lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {fishSuggestions.length > 0 && !fishSuggestions.some(s => s.toLowerCase() === fishType.toLowerCase()) && fishSuggestions.filter((s) => !fishType || s.toLowerCase().startsWith(fishType.toLowerCase())).length > 0 && (
-                    <div>
-                      <div className="text-[10px] uppercase tracking-wider text-sky-500/80 font-bold mb-2 px-1">Recent Entries</div>
-                      <div className="flex flex-wrap gap-1.5 select-none">
-                        {fishSuggestions
-                          .filter((s) => !fishType || s.toLowerCase().startsWith(fishType.toLowerCase()))
-                          .map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                setFishType(s);
-                                setIsFishInputFocused(false);
-                                setField("weight");
-                              }}
-                              className="px-3 py-1.5 text-xs bg-sky-500/10 border border-sky-500/30 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300 rounded-xl cursor-pointer transition-colors font-mono font-bold font-sans uppercase min-w-[3rem]"
-                            >
-                              {s}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t border-zinc-800">
-                    <button
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setIsFishInputFocused(false);
-                        setField("weight");
-                      }}
-                      className="w-full py-3 bg-zinc-100 hover:bg-white text-zinc-950 font-black rounded-xl text-sm uppercase tracking-widest transition-colors"
-                    >
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
               </div>
             </div>
 

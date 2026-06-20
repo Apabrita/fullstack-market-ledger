@@ -1,16 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ----------------------------------------------------------------------
-    // 1. GLOBAL SAFETY NET
-    // ----------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // ----------------------------------------------------------------------
-    // 2. HELPER FUNCTIONS
-    // ----------------------------------------------------------------------
     function isSignedIn() {
       return request.auth != null;
     }
@@ -29,9 +23,6 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
 
-    // ----------------------------------------------------------------------
-    // 3. VALIDATION CONSTANTS
-    // ----------------------------------------------------------------------
     function isValidUser(data) {
       return data.keys().hasAll(['id', 'name', 'pin', 'role']) && 
              data.keys().size() == 4 &&
@@ -59,29 +50,27 @@ service cloud.firestore {
     }
 
     function isValidTransaction(data) {
-      return data.keys().hasAll(['id', 'source_id', 'buyer_id', 'weight', 'price_per_kg', 'total_price', 'date', 'fish_type', 'added_by', 'timestamp']) &&
-             data.id is string && data.id.size() <= 128 &&
-             data.source_id is string && data.source_id.size() <= 128 &&
-             data.buyer_id is string && data.buyer_id.size() <= 128 &&
-             data.weight is number &&
-             data.price_per_kg is number &&
-             data.total_price is number &&
-             data.date is string && data.date.size() <= 30 &&
-             data.fish_type is string && data.fish_type.size() <= 100 &&
-             data.added_by is string && data.added_by.size() <= 128 &&
-             data.timestamp is number;
+      return data.keys().hasAll(['id', 'source_id', 'buyer_id', 'weight', 'price_per_kg', 'total_price', 'date', 'fish_type', 'added_by']) &&
+             data.id is string &&
+             data.source_id is string &&
+             data.buyer_id is string &&
+             data.date is string &&
+             data.fish_type is string &&
+             data.added_by is string &&
+             (data.weight is number) &&
+             (data.price_per_kg is number) &&
+             (data.total_price is number);
     }
 
     function isValidDailyCollection(data) {
-      return data.keys().hasAll(['id', 'buyer_id', 'date', 'total_owed_today', 'amount_paid', 'is_rolled_over', 'is_approved', 'created_at']) &&
+      return data.keys().hasAll(['id', 'buyer_id', 'date', 'total_owed_today', 'amount_paid', 'is_rolled_over', 'is_approved']) &&
              data.id is string && data.id.size() <= 128 &&
              data.buyer_id is string && data.buyer_id.size() <= 128 &&
              data.date is string && data.date.size() <= 30 &&
              data.total_owed_today is number &&
              data.amount_paid is number &&
              data.is_rolled_over is bool &&
-             data.is_approved is bool &&
-             data.created_at is string && data.created_at.size() <= 30;
+             data.is_approved is bool;
     }
 
     function isValidSourcePayment(data) {
@@ -105,56 +94,32 @@ service cloud.firestore {
              data.value is string && data.value.size() <= 1000;
     }
 
-    // ----------------------------------------------------------------------
-    // 4. COLLECTION SECURITY RULES
-    // ----------------------------------------------------------------------
-    
-    // NOTE: This application might not have email login / verification as it's an offline-style kiosk app using Firebase just as a backup wrapper.
-    // So `isSignedIn()` doesn't check email_verified.
-    
     match /users/{userId} {
-      allow list, read: if true; // Kiosk app needs to read users to authenticate via PIN
-      allow create, update, delete: if isSignedIn(); // Allow any signed in to create, since it relies on front-end setup
+      allow list, read, write: if true;
     }
 
     match /buyers/{buyerId} {
-      allow list, read: if true;
-      allow create: if isValidBuyer(incoming());
-      allow update: if isValidBuyer(incoming());
-      allow delete: if true;
+      allow list, read, write: if true;
     }
 
     match /sources/{sourceId} {
-      allow list, read: if true;
-      allow create: if isValidSource(incoming());
-      allow update: if isValidSource(incoming());
-      allow delete: if true;
+      allow list, read, write: if true;
     }
 
     match /transactions/{transactionId} {
-      allow list, read: if true;
-      allow create: if isValidTransaction(incoming());
-      allow update: if isValidTransaction(incoming());
-      allow delete: if true;
+      allow list, read, write: if true;
     }
 
     match /daily_collections/{collectionId} {
-      allow list, read: if true;
-      allow create: if isValidDailyCollection(incoming());
-      allow update: if isValidDailyCollection(incoming());
-      allow delete: if true;
+      allow list, read, write: if true;
     }
 
     match /source_payments/{paymentId} {
-      allow list, read: if true;
-      allow create: if isValidSourcePayment(incoming());
-      allow update: if isValidSourcePayment(incoming());
-      allow delete: if true;
+      allow list, read, write: if true;
     }
 
     match /settings/{settingId} {
-      allow list, read: if true;
-      allow create, update: if isValidSetting(incoming());
+      allow list, read, write: if true;
     }
   }
 }

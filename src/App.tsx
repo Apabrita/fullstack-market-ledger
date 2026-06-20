@@ -56,7 +56,7 @@ const FallbackLoader = () => (
 );
 
 const MarketDashboard: React.FC = () => {
-  const { data, loading, queue, online, write, activeTheme, appDate, setAppDate } = useData();
+  const { data, loading, queue, online, write, writeBatch, activeTheme, appDate, setAppDate } = useData();
   const [activeUser, setActiveUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [deviceMode, setDeviceMode] = useState<"laptop" | "android">(() => {
@@ -65,6 +65,32 @@ const MarketDashboard: React.FC = () => {
     }
     return "laptop";
   });
+
+  // Emergency Migration: Ensure older auction transactions inputted without the correct appDate are moved to today.
+  React.useEffect(() => {
+    if (data?.transactions && data.transactions.length > 0 && appDate) {
+      if (typeof window !== "undefined" && !localStorage.getItem("migration_auction_date_" + appDate)) {
+        // Find any transactions that do not match appDate
+        const outOfDateTxns = data.transactions.filter((t: any) => t.date !== appDate);
+        if (outOfDateTxns.length > 0) {
+          console.log(`Migrating ${outOfDateTxns.length} transactions to active appDate: ${appDate}`);
+          const batchItems = outOfDateTxns.map((t: any) => ({
+            table: "transactions" as keyof typeof data,
+            action: "update" as const,
+            payload: { ...t, date: appDate }
+          }));
+          
+          writeBatch(batchItems).then(() => {
+             localStorage.setItem("migration_auction_date_" + appDate, "true");
+             console.log("Migration complete!");
+          });
+        } else {
+           localStorage.setItem("migration_auction_date_" + appDate, "true");
+        }
+      }
+    }
+  }, [data?.transactions?.length, appDate, writeBatch]);
+
   const [activeTab, setActiveTab] = useState<
     | "dash"
     | "transactions"

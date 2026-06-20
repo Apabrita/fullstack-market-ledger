@@ -240,19 +240,19 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
       </div>
 
       {/* Buyer actions block */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-zinc-50 border border-zinc-200 p-4 rounded-2xl">
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-zinc-50/80 backdrop-blur-sm border border-zinc-200/80 p-4 rounded-3xl shadow-sm">
+        <div className="relative w-full sm:max-w-xs transition-all duration-300 focus-within:max-w-md">
+          <Search className="absolute left-3.5 top-3 h-4 w-4 text-zinc-400" />
           <input
             type="text"
             placeholder="Search buyers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-4 py-2 w-full text-xs text-zinc-700 bg-white border border-zinc-200 rounded-2xl focus:outline-none focus:ring-1 focus:ring-teal-500"
+            className="pl-10 pr-4 py-2.5 w-full text-sm text-zinc-700 bg-white border border-zinc-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-shadow duration-200"
           />
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap sm:flex-nowrap gap-3 w-full sm:w-auto">
           {/* Collect Payment Button */}
           <button
             onClick={() => {
@@ -263,15 +263,15 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               setShowCollectionForm(!showCollectionForm);
               setShowAddBuyerForm(false);
             }}
-            className={`flex-grow sm:flex-grow-0 px-4 py-2 text-xs font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-5 py-2.5 text-sm font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-2 transition-all duration-300 active:scale-95 ${
               isAuthorizedToCollect
-                ? "bg-amber-600 hover:bg-amber-700 text-white"
-                : "bg-zinc-200 text-zinc-400 border border-zinc-300 cursor-not-allowed"
+                ? showCollectionForm ? "bg-amber-100 text-amber-700 border border-amber-200" : "bg-gradient-to-br from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-amber-500/20"
+                : "bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed"
             }`}
             id="btn-log-collection"
           >
-            <PlusCircle className="w-4 h-4" />
-            Log Client Collection
+            {showCollectionForm ? <Check className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
+            Log Receipt
           </button>
 
           {/* Add Buyer Button */}
@@ -284,14 +284,14 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
               setShowAddBuyerForm(!showAddBuyerForm);
               setShowCollectionForm(false);
             }}
-            className={`flex-grow sm:flex-grow-0 px-4 py-2 text-xs font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-1.5 transition duration-200 cursor-pointer ${
+            className={`flex-1 sm:flex-none px-5 py-2.5 text-sm font-semibold rounded-2xl shadow-sm flex items-center justify-center gap-2 transition-all duration-300 active:scale-95 ${
               isAdmin
-                ? "bg-teal-600 hover:bg-teal-700 text-white"
-                : "bg-zinc-200 text-zinc-400 border border-zinc-300 cursor-not-allowed"
+                ? showAddBuyerForm ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-zinc-800 hover:bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-400 border border-zinc-200 cursor-not-allowed"
             }`}
             id="btn-add-buyer"
           >
-            <PlusCircle className="w-4 h-4" />
+            {showAddBuyerForm ? <Check className="w-4 h-4" /> : <PlusCircle className="w-4 h-4" />}
             Add Buyer
           </button>
         </div>
@@ -299,17 +299,22 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
       {/* Forms Drawer: Add Buyer */}
       {showAddBuyerForm && (
-        <form onSubmit={handleAddBuyer} className="bg-zinc-50 border border-zinc-200 p-5 rounded-2xl space-y-4 animate-slideDown shadow-inner">
-          <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
-            <PlusCircle className="w-4 h-4 text-teal-655" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 font-sans">
-              Register New Wholesale buyer (Arat Client)
+        <form onSubmit={handleAddBuyer} className="bg-white border border-teal-100/50 relative p-6 rounded-3xl space-y-5 animate-slideDown shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="absolute top-0 right-0 p-4">
+             <button type="button" onClick={() => setShowAddBuyerForm(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"><X className="w-5 h-5"/></button>
+          </div>
+          <div className="flex items-center gap-3 pb-3 border-b border-zinc-100">
+            <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-teal-600">
+              <User className="w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-extrabold uppercase tracking-[0.1em] text-zinc-800 font-sans">
+              Register New Buyer Profile
             </h4>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Buyer Nickname <span className="text-red-500">*</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block">
+                Buyer Name <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
@@ -317,39 +322,35 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
                 onChange={(e) => setBuyerNickname(e.target.value)}
                 placeholder="e.g. Moni Fish Co."
                 required
-                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full text-sm text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder:text-zinc-400"
                 id="form-buyer-name"
               />
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Allowed Credit Limit (INR) <span className="text-red-500">*</span>
+            <div className="space-y-2">
+              <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block">
+                Credit Limit (INR) <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="number"
-                value={creditLimit}
-                onChange={(e) => setCreditLimit(e.target.value)}
-                placeholder="e.g. 150000"
-                required
-                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-teal-500"
-                id="form-buyer-credit"
-              />
+              <div className="relative">
+                <span className="absolute left-4 top-3 text-zinc-400 font-medium">₹</span>
+                <input
+                  type="number"
+                  value={creditLimit}
+                  onChange={(e) => setCreditLimit(e.target.value)}
+                  placeholder="150000"
+                  required
+                  className="w-full text-sm font-mono text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl py-3 pl-8 pr-4 outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder:text-zinc-400"
+                  id="form-buyer-credit"
+                />
+              </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200">
-            <button
-              type="button"
-              onClick={() => setShowAddBuyerForm(false)}
-              className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
-            >
-              Cancel
-            </button>
+          <div className="flex justify-end pt-3">
             <button
               type="submit"
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-2xl shadow cursor-pointer"
+              className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-sm font-bold rounded-xl shadow-lg shadow-teal-500/30 transition-all duration-200 cursor-pointer flex items-center gap-2"
               id="btn-save-buyer"
             >
-              Create Buyer
+              <Check className="w-4 h-4" /> Save Profile
             </button>
           </div>
         </form>
@@ -357,73 +358,74 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
       {/* Forms Drawer: Log Daily Collection Payment */}
       {showCollectionForm && (
-        <form onSubmit={handleAddCollection} className="bg-zinc-50 border border-zinc-200 p-5 rounded-2xl space-y-4 animate-slideDown shadow-inner">
-          <div className="flex items-center gap-2 pb-2 border-b border-zinc-200">
-            <PlusCircle className="w-4 h-4 text-amber-600" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 font-sans">
-              Log Daily Cash Payment Received (Halkhata Draft)
+        <form onSubmit={handleAddCollection} className="bg-white border border-amber-100/50 relative p-6 rounded-3xl space-y-5 animate-slideDown shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+          <div className="absolute top-0 right-0 p-4">
+             <button type="button" onClick={() => setShowCollectionForm(false)} className="text-zinc-400 hover:text-zinc-600 transition-colors cursor-pointer"><X className="w-5 h-5"/></button>
+          </div>
+          <div className="flex items-center gap-3 pb-3 border-b border-zinc-100">
+            <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+              <DollarSign className="w-4 h-4" />
+            </div>
+            <h4 className="text-sm font-extrabold uppercase tracking-[0.1em] text-zinc-800 font-sans">
+              Log Collection Receipt
             </h4>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Select Arat Buyer <span className="text-red-500">*</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block">
+                Select Buyer <span className="text-rose-500">*</span>
               </label>
               <select
                 value={collectBuyerId}
                 onChange={(e) => setCollectBuyerId(e.target.value)}
                 required
-                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full text-sm text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all appearance-none cursor-pointer"
                 id="form-collect-buyer-select"
               >
-                <option value="">-- CHOOSE BUYER --</option>
+                <option value="">Choose profile...</option>
                 {buyers.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.nickname} (Outstanding: ₹{b.lifetime_debt.toLocaleString()})
+                    {b.nickname} (Due: ₹{b.lifetime_debt.toLocaleString()})
                   </option>
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Amount Collected (INR) <span className="text-red-500">*</span>
+            <div className="space-y-2">
+              <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block">
+                Amount Collected <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="number"
-                value={collectAmount}
-                onChange={(e) => setCollectAmount(e.target.value)}
-                placeholder="e.g. 25000"
-                required
-                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
-                id="form-collect-amount"
-              />
+              <div className="relative">
+                <span className="absolute left-4 top-3 text-zinc-400 font-medium">₹</span>
+                <input
+                  type="number"
+                  value={collectAmount}
+                  onChange={(e) => setCollectAmount(e.target.value)}
+                  placeholder="25000"
+                  required
+                  className="w-full text-sm font-mono text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl py-3 pl-8 pr-4 outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all placeholder:text-zinc-400"
+                  id="form-collect-amount"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-sans font-bold text-zinc-600 block">
-                Collection Session Date
+            <div className="space-y-2">
+              <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block">
+                Deposit Date
               </label>
               <input
                 type="date"
                 value={collectDate}
                 onChange={(e) => setCollectDate(e.target.value)}
-                className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2.5 outline-none focus:ring-1 focus:ring-amber-500"
+                className="w-full text-sm text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all"
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-200">
-            <button
-              type="button"
-              onClick={() => setShowCollectionForm(false)}
-              className="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 text-zinc-700 text-xs font-semibold rounded-2xl cursor-pointer"
-            >
-              Cancel
-            </button>
+          <div className="flex justify-end pt-3">
             <button
               type="submit"
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-2xl shadow cursor-pointer"
+              className="px-6 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-sm font-bold rounded-xl shadow-lg shadow-amber-500/30 transition-all duration-200 cursor-pointer flex items-center gap-2"
               id="btn-save-collection"
             >
-              Log Collection & Review
+              <Check className="w-4 h-4" /> Save Receipt
             </button>
           </div>
         </form>
@@ -550,58 +552,61 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
 
             <div className="p-5 space-y-6 overflow-y-auto max-h-[600px] custom-scrollbar">
               {/* Profile Fields form for Admin info */}
-              <form onSubmit={handleSaveBuyerDetails} className="bg-zinc-50 border border-zinc-200 p-4.5 rounded-2xl space-y-4">
-                <div className="border-b border-zinc-200 pb-2 flex justify-between items-center select-none">
-                  <h5 className="text-[11px] font-extrabold uppercase tracking-widest text-teal-800 flex items-center gap-1">
-                    <User className="w-3.5 h-3.5" /> Buyer Information (অতিরিক্ত তথ্য)
+              <form onSubmit={handleSaveBuyerDetails} className="bg-white border border-zinc-200 p-5 rounded-3xl space-y-5 shadow-sm">
+                <div className="border-b border-zinc-100 pb-3 flex justify-between items-center select-none">
+                  <h5 className="text-[11px] font-black uppercase tracking-widest text-teal-800 flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-teal-600" /> Buyer Information
                   </h5>
-                  <span className="text-[9px] font-mono text-zinc-400 bg-zinc-100 px-1 py-0.2 rounded border font-sans">Admin Config</span>
+                  <span className="text-[9px] font-black text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full border border-zinc-200 font-sans tracking-wide">ADMIN EDIT</span>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-sans font-bold text-zinc-600 block select-none">
-                      Buyer Name (ক্রেতার নাম)
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-sans font-bold text-zinc-500 uppercase tracking-widest block select-none">
+                      Name (নাম)
                     </label>
                     <input
                       type="text"
                       value={editNickname}
                       onChange={(e) => setEditNickname(e.target.value)}
-                      placeholder="e.g. Haji Mohammad Ali"
-                      className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+                      placeholder="Haji Mohammad Ali"
+                      className="w-full text-sm text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all font-sans placeholder:text-zinc-400"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-sans font-bold text-zinc-600 block select-none">
-                      Mobile Number (মোবাইল নম্বর)
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-sans font-bold text-zinc-500 uppercase tracking-widest block select-none">
+                      Mobile Number (মোবাইল)
                     </label>
                     <input
                       type="text"
                       value={editMobile}
                       onChange={(e) => setEditMobile(e.target.value)}
-                      placeholder="e.g. +880 1888-999000"
-                      className="w-full text-xs text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
+                      placeholder="+880 1888-999000"
+                      className="w-full text-sm font-mono text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl p-3 outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder:text-zinc-400"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end pt-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-sans font-bold text-zinc-600 block select-none">
-                      Credit Ceiling Limit (ঋণ সীমা)
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-end pt-2">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-sans font-bold text-zinc-500 uppercase tracking-widest block select-none">
+                      Credit Limit (ঋণ সীমা)
                     </label>
-                    <input
-                      type="number"
-                      value={editCreditLimit}
-                      onChange={(e) => setEditCreditLimit(e.target.value)}
-                      className="w-full text-xs font-mono text-zinc-700 bg-white border border-zinc-300 rounded-2xl p-2 outline-none focus:ring-1 focus:ring-teal-500 font-sans"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-4 top-3 text-zinc-400 font-medium">₹</span>
+                      <input
+                        type="number"
+                        value={editCreditLimit}
+                        onChange={(e) => setEditCreditLimit(e.target.value)}
+                        className="w-full text-sm font-mono text-zinc-800 bg-zinc-50/50 border border-zinc-200 rounded-2xl py-3 pl-8 pr-4 outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all placeholder:text-zinc-400"
+                      />
+                    </div>
                   </div>
                   <button
                     type="submit"
-                    className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl text-xs font-semibold cursor-pointer shadow-sm transition h-9.5 text-center flex items-center justify-center gap-1 select-none"
+                    className="w-full px-5 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl text-xs font-black tracking-wide cursor-pointer shadow-lg shadow-teal-500/20 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5 select-none"
                   >
-                    Save Changes
+                    <Check className="w-4 h-4" /> Save Profile Details
                   </button>
                 </div>
               </form>

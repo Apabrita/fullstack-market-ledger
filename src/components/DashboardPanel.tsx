@@ -665,6 +665,69 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
         </div>
       </div>
 
+      {/* detailed Profit Ledger Section */}
+      <div className="bg-zinc-950 border border-zinc-800 rounded-2xl shadow-xl overflow-hidden p-4 space-y-4">
+        <div className="flex flex-col border-b border-zinc-800 pb-3">
+          <h3 className="text-sm font-black text-zinc-100 uppercase tracking-widest flex items-center gap-2">
+            <DollarSign className="w-4 h-4 text-indigo-500" />
+            Crate-Level Profit Ledger
+          </h3>
+          <span className="text-[10px] text-zinc-500 font-mono">Detailed breakdown of revenue, payout, and profit per crate</span>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs whitespace-nowrap">
+            <thead>
+              <tr className="text-zinc-500 border-b border-zinc-800/50">
+                <th className="pb-2 font-medium">Date</th>
+                <th className="pb-2 font-medium">Source - Crate</th>
+                <th className="pb-2 font-medium text-right">Actual Revenue</th>
+                <th className="pb-2 font-medium text-right">Paid to Source</th>
+                <th className="pb-2 font-medium text-right">Trade Margin</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800/30">
+              {sourcePayments.flatMap(sp => {
+                let items: any[] = [];
+                try {
+                  if (sp.items_json) items = JSON.parse(sp.items_json);
+                } catch (e) {}
+                
+                const sItem = sources.find(s => String(s.id) === String(sp.source_id));
+                const sName = sItem?.name || `Source ${sp.source_id}`;
+
+                return items.map((itm, i) => {
+                  const mWeight = parseFloat(itm.payoutWeight) || 0;
+                  const mRate = parseFloat(itm.payoutRatePerKg) || 0;
+                  const cost = mWeight * mRate;
+                  const rev = itm.actualRevenue || 0;
+                  const margin = rev - cost;
+                  
+                  return (
+                    <tr key={`${sp.id}_${i}`} className="text-zinc-300">
+                      <td className="py-2.5 font-mono text-[10px] text-zinc-500">{sp.date}</td>
+                      <td className="py-2.5"><span className="text-zinc-400">{sName}</span> <span className="text-zinc-600">→</span> <strong>{itm.fishType}</strong></td>
+                      <td className="py-2.5 text-right font-mono text-emerald-400">₹{rev.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-mono text-rose-400">₹{cost.toLocaleString()}</td>
+                      <td className="py-2.5 text-right font-mono font-bold text-indigo-400">₹{margin.toLocaleString()}</td>
+                    </tr>
+                  );
+                });
+              })}
+              {sourcePayments.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-[10px] text-zinc-600 italic">No payouts analyzed yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex justify-between items-center bg-indigo-500/10 p-3 rounded-lg border border-indigo-500/20">
+           <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest">Total Profits (Margins + Commissions)</span>
+           <span className="text-sm font-mono font-black text-indigo-300">₹ {totalProfit.toLocaleString()}</span>
+        </div>
+      </div>
+
       {/* Recommended features block: Indian note calculator and helper tips */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         

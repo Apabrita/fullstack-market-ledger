@@ -1,5 +1,6 @@
 {
 	"appId": "com.newfishcenter.app",
 	"appName": "New Fish Center",
-	"webDir": "dist"
+	"webDir": "dist",
+	"bundledWebRuntime": false
 }

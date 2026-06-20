@@ -501,19 +501,22 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                 )}
 
                 {/* Amount Paid text box display + Device recorded date box */}
-                <div className="grid grid-cols-2 gap-3 items-end">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start pt-2">
                   
                   {/* Device captured date - strictly automatic */}
-                  <div className="space-y-1.5 text-xs">
-                    <label className="text-zinc-400 block font-bold">Device Date Stamps:</label>
-                    <div className="w-full text-xs text-emerald-500 text-emerald-400 bg-zinc-900 border border-emerald-900/10 rounded-2xl p-3 font-mono font-bold select-none text-center">
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block">Device Date Stamp</label>
+                    <div className="w-full text-sm text-emerald-400 bg-zinc-900 border border-emerald-900/20 rounded-2xl p-3 font-mono font-bold select-none text-center shadow-inner">
                       ⚡ {collectionDate}
                     </div>
                   </div>
 
-                  <div className="space-y-1.5 text-xs relative">
-                    <label className="text-zinc-400 block font-bold">Amount Paid (₹):</label>
-                    <div className="relative">
+                  <div className="space-y-2 relative">
+                    <label className="text-[11px] font-sans font-bold text-zinc-500 uppercase tracking-wider block flex justify-between">
+                      <span>Amount Paid</span>
+                      <span className="text-zinc-600">INR</span>
+                    </label>
+                    <div className="relative group">
                       <button
                         type="button"
                         onClick={() => {
@@ -522,7 +525,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                              setShowCashCalc(false);
                            }
                         }}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition cursor-pointer"
+                        className="absolute left-1.5 top-1/2 -translate-y-1/2 p-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-zinc-400 hover:text-white transition-all cursor-pointer z-10"
                         title="Toggle Keypad"
                       >
                         ⌨️
@@ -545,40 +548,52 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                             alert("Please select or search a buyer first.");
                           }
                         }}
-                        placeholder="INR Amount"
-                        className="w-full text-xs text-zinc-200 bg-zinc-900 border border-zinc-800 rounded-2xl py-3 pr-3 pl-10 focus:outline-none focus:ring-1 focus:ring-teal-500 font-mono text-right font-bold"
+                        placeholder="0"
+                        className="w-full text-sm text-white bg-zinc-900 border border-zinc-700 rounded-2xl py-3 pr-4 pl-12 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 font-mono text-right font-black transition-all shadow-inner placeholder:text-zinc-700"
                         required
                         disabled={!buyerId}
                       />
+                      {/* Currency Symbol indicator */}
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 font-medium pointer-events-none opacity-0 transition-opacity">
+                         ₹
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Auxiliary Helpers Toggle row */}
-                {buyerId && (
-                  <div className="flex gap-2 justify-end text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCashCalc(!showCashCalc);
-                        setShowNumpad(false);
-                      }}
-                      className="px-2.5 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-indigo-400 border border-indigo-900/40 font-mono font-bold flex items-center gap-1 cursor-pointer"
+                {/* Fixed animations and placement */}
+                <AnimatePresence>
+                  {buyerId && (
+                    <motion.div 
+                      key="calc-helpers"
+                      className="flex gap-2 justify-end mt-2"
+                      initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
                     >
-                      <Calculator className="w-3.5 h-3.5" /> India Note Counter
-                    </button>
-
-                    {showNumpad && (
                       <button
                         type="button"
-                        onClick={() => setShowNumpad(false)}
-                        className="px-2.5 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-800 font-mono cursor-pointer"
+                        onClick={() => {
+                          setShowCashCalc(!showCashCalc);
+                          setShowNumpad(false);
+                        }}
+                        className="px-3 py-2 rounded-xl bg-zinc-900 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/10 hover:border-indigo-500 font-mono text-[10px] font-bold tracking-wide flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-sm"
                       >
-                        Hide Pad
+                        <Calculator className="w-3.5 h-3.5" /> Note Counter
                       </button>
-                    )}
-                  </div>
-                )}
+
+                      {showNumpad && (
+                        <button
+                          type="button"
+                          onClick={() => setShowNumpad(false)}
+                          className="px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-500 text-[10px] font-bold tracking-wide cursor-pointer transition-all active:scale-95"
+                        >
+                          Hide Pad
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* India Note Counter block */}
                 {showCashCalc && buyerId && (

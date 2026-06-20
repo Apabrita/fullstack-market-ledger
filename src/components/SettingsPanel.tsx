@@ -721,15 +721,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
             <button
               type="button"
               onClick={async () => {
-                const XLSX = await import('xlsx');
-                
                 const getBuyerName = (id: any) => data?.buyers?.find((b) => String(b.id) === String(id))?.nickname || String(id);
                 const getSourceName = (id: any) => data?.sources?.find((s) => String(s.id) === String(id))?.name || String(id);
                 const getUserName = (id: any) => data?.users?.find((u) => String(u.id) === String(id))?.name || String(id);
 
-                const wb = XLSX.utils.book_new();
+                const exportData: any[] = [];
 
                 // 1. Transactions (Auctions)
+                exportData.push({"TABLE": "*** LOT AUCTIONS ***"});
                 const txData = [...(data?.transactions || [])]
                   .sort((a,b) => String(b.date).localeCompare(String(a.date)))
                   .map(tx => ({
@@ -742,11 +741,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                     "Rate Per Kg (BDT)": tx.price_per_kg,
                     "Total Amount (BDT)": tx.total_price
                   }));
-                const wsTx = XLSX.utils.json_to_sheet(txData);
-                wsTx['!cols'] = [ {wch: 22}, {wch: 25}, {wch: 25}, {wch: 22}, {wch: 15}, {wch: 15}, {wch: 15}, {wch: 18} ];
-                XLSX.utils.book_append_sheet(wb, wsTx, "Lot Auctions");
+                exportData.push(...txData);
 
                 // 2. Collections (Jama)
+                exportData.push({});
+                exportData.push({"TABLE": "*** CASH COLLECTIONS ***"});
                 const colData = [...(data?.daily_collections || [])]
                   .sort((a,b) => String(b.date).localeCompare(String(a.date)))
                   .map(col => ({
@@ -756,11 +755,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                     "Total Outstanding That Day": col.total_owed_today,
                     "Approval Status": col.is_approved ? 'Approved' : 'Pending'
                   }));
-                const wsCol = XLSX.utils.json_to_sheet(colData);
-                wsCol['!cols'] = [ {wch: 22}, {wch: 25}, {wch: 20}, {wch: 25}, {wch: 18} ];
-                XLSX.utils.book_append_sheet(wb, wsCol, "Cash Collections");
+                exportData.push(...colData);
 
                 // 3. Source Payments 
+                exportData.push({});
+                exportData.push({"TABLE": "*** SOURCE PAYMENTS ***"});
                 const spData = [...(data?.source_payments || [])]
                   .sort((a,b) => String(b.date).localeCompare(String(a.date)))
                   .map(sp => ({
@@ -771,11 +770,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                     "Net Paid to Source (BDT)": sp.amount_paid_to_source,
                     "Settlement Status": sp.is_settled ? 'Settled' : 'Unsettled'
                   }));
-                const wsSp = XLSX.utils.json_to_sheet(spData);
-                wsSp['!cols'] = [ {wch: 22}, {wch: 25}, {wch: 18}, {wch: 18}, {wch: 22}, {wch: 18} ];
-                XLSX.utils.book_append_sheet(wb, wsSp, "Source Payments");
+                exportData.push(...spData);
 
-                XLSX.writeFile(wb, `NFC_BACKUP_${new Date().toISOString().split("T")[0]}.xlsx`);
+                const { downloadCSV } = await import('../utils/fileExport');
+                await downloadCSV(exportData, `NFC_BACKUP_${new Date().toISOString().split("T")[0]}.csv`);
               }}
               className={`px-4 py-2 w-full sm:w-auto text-center font-bold text-xs rounded-2xl shadow border transition cursor-pointer ${
                 activeTheme === "light"
@@ -783,7 +781,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ activeUser, isAuth
                   : "bg-blue-600 border-blue-500 text-white hover:bg-blue-700 shadow-blue-500/10"
               }`}
             >
-              📥 Download Local Excel Backup (.xlsx)
+              📥 Download Local CSV Backup
             </button>
           </div>
         </div>
