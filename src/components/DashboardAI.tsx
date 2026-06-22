@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Sparkles, Loader, X, Brain, RefreshCcw } from "lucide-react";
+import Markdown from "react-markdown";
 
 interface DashboardAIProps {
   transactions: any[];
@@ -17,11 +18,27 @@ export const DashboardAI: React.FC<DashboardAIProps> = ({ transactions, onClose 
     try {
       const summary = transactions.map(t => `${t.fish_type} | ${t.weight}kg | ₹${t.price_per_kg}/kg`).join('\n').slice(0, 3000);
       
+      const prompt = `Analyze these recent wholesale fish sales from today and predict future demand/pricing trends for tomorrow. 
+
+Please structure your response strictly with the following sections using Markdown format:
+
+### ⚡ Judgment
+[Provide the primary prediction and advice clearly and concisely]
+
+### ⚠️ Disclaimer
+[State the exact logic and factors leading to why this choice was made]
+
+### 📊 Explanation
+[Provide a high detail but concise explanation of the reasoning based on the provided trade data]
+
+Data:
+${summary ? summary : "No recent trades recorded for today."}`;
+
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
       const res = await fetch(`${backendUrl}/api/analytics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `Analyze these recent wholesale fish sales from today and predict future demand/pricing trends for tomorrow:\n${summary}` })
+        body: JSON.stringify({ prompt })
       });
       
       const data = await res.json();
@@ -96,11 +113,13 @@ export const DashboardAI: React.FC<DashboardAIProps> = ({ transactions, onClose 
               <div className="absolute top-0 right-0 p-3 opacity-10">
                 <Brain className="w-24 h-24 text-indigo-400" />
               </div>
-              <div className="relative z-10 prose prose-invert prose-sm max-w-none">
-                <div className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">{insight}</div>
+              <div className="relative z-10">
+                <div className="markdown-body prose prose-invert prose-sm max-w-none prose-headings:text-indigo-400 prose-headings:font-black prose-p:text-zinc-300">
+                  <Markdown>{insight}</Markdown>
+                </div>
               </div>
               
-              <div className="mt-6 flex justify-center">
+              <div className="mt-6 flex justify-center relative z-10">
                 <button
                   onClick={fetchInsights}
                   className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-full text-[10px] font-bold tracking-wider uppercase transition flex items-center gap-1.5"

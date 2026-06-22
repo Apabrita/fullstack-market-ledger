@@ -449,7 +449,7 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                       {/* Display recent fish types summary */}
                       {srcTx.length > 0 && (
                         <div className="bg-white border border-zinc-100 rounded-xl p-2.5 space-y-1.5 shadow-sm mt-2">
-                          <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-100 pb-1 mb-1">Live Auction Details ({srcTx.length} items logged)</div>
+                          <div className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-100 pb-1 mb-1">Live Auction Details • Crates Sold: {srcTx.length}</div>
                           {Array.from(new Set(srcTx.map(t => t.fish_type || "Unsorted"))).slice(0, 3).map((fishType, idx) => {
                             const specificTx = srcTx.filter(t => (t.fish_type || "Unsorted") === fishType);
                             const fishKg = specificTx.reduce((sum, t) => sum + (t.weight || 0), 0);
@@ -477,9 +477,9 @@ export const SourcePanel: React.FC<SourcePanelProps> = ({ activeUser, isAuthenti
                         </div>
                         <div>
                           <div className="text-zinc-500 uppercase font-sans font-bold text-[8px]">
-                             {netPayout !== null ? "Settled Net Payout" : "Current Est. Yield"}
+                             {isSettled ? "Settled Net Payout" : "Current Est. Yield"}
                           </div>
-                          <div className="font-bold text-emerald-700 text-sm mt-0.5">₹ {(netPayout !== null ? netPayout : displaySale).toLocaleString()}</div>
+                          <div className="font-bold text-emerald-700 text-sm mt-0.5">₹ {(isSettled ? netPayout : displaySale)?.toLocaleString()}</div>
                         </div>
                       </div>
 

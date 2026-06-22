@@ -215,14 +215,76 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   const [editSourceName, setEditSourceName] = useState("");
   const [editSourceRate, setEditSourceRate] = useState("");
 
+  const lastStateHash = React.useRef<string>("");
+  const lastCloudHash = React.useRef<string>("");
+  const isIncomingSync = React.useRef<boolean>(false);
 
+  // Sync state to Cloud logic - allows casting between devices on same ID
+  useEffect(() => {
+    if (isIncomingSync.current) {
+      isIncomingSync.current = false;
+      return;
+    }
+    if (!activeUser?.name) return;
+
+    const stateObj = {
+      activeSourceId: activeSourceId || "",
+      buyer,
+      fishType,
+      weight,
+      price,
+      field,
+    };
+    
+    const key = `auction_state_${activeUser.name}`;
+    const value = JSON.stringify(stateObj);
+    
+    if (lastStateHash.current === value) return; // Ignore exact match triggers
+    lastStateHash.current = value;
+
+    // Small timeout to prevent hammering local storage & Firebase on extremely fast typing
+    const writeTimer = setTimeout(() => {
+      write("settings", "upsert", { key, value }).catch(() => {});
+    }, 150);
+
+    return () => clearTimeout(writeTimer);
+  }, [activeSourceId, buyer, fishType, weight, price, field, activeUser?.name, write]);
+
+  // Read state from Cloud Logic
+  useEffect(() => {
+    if (!activeUser?.name) return;
+    const key = `auction_state_${activeUser.name}`;
+    const remoteState = store_settings.find((s: any) => s.key === key);
+    
+    if (remoteState && remoteState.value) {
+      try {
+        if (remoteState.value === lastCloudHash.current) return;
+        
+        const parsed = JSON.parse(remoteState.value);
+        isIncomingSync.current = true;
+        lastCloudHash.current = remoteState.value;
+        lastStateHash.current = remoteState.value;
+
+        if (parsed.activeSourceId !== undefined && parsed.activeSourceId !== activeSourceId) setActiveSourceId(parsed.activeSourceId);
+        if (parsed.buyer !== undefined) setBuyer(parsed.buyer);
+        if (parsed.fishType !== undefined && parsed.fishType !== fishType) setFishType(parsed.fishType);
+        if (parsed.weight !== undefined && parsed.weight !== weight) setWeight(parsed.weight);
+        if (parsed.price !== undefined && parsed.price !== price) setPrice(parsed.price);
+        if (parsed.field !== undefined && parsed.field !== field) setField(parsed.field);
+        
+      } catch (e) {
+        console.warn("Failed to parse remote auction state", e);
+      }
+    }
+  }, [store_settings, activeUser?.name]);
 
   // Derive dynamic entities
-  const fishSuggestions = getSmartFishSuggestions(store.transactions, activeSourceId, buyer?.id, appDate);
-  const buyerSuggestions = getSmartBuyerSuggestions(store.transactions, store.buyers, activeSourceId, fishType);
+  const activeUserTxns = store.transactions.filter((t) => (t.added_by || "System Staff") === (activeUser?.name || "System Staff"));
+  const fishSuggestions = getSmartFishSuggestions(activeUserTxns, activeSourceId, buyer?.id, appDate);
+  const buyerSuggestions = getSmartBuyerSuggestions(activeUserTxns, store.buyers, activeSourceId, fishType);
   const todaySources = store.sources.filter((s) => s.date === appDate && !s.is_archived);
   const activeSrc = store.sources.find((s) => String(s.id) === String(activeSourceId));
-  const activeTxns = store.transactions.filter((t) => String(t.source_id) === String(activeSourceId));
+  const activeTxns = activeUserTxns.filter((t) => String(t.source_id) === String(activeSourceId));
   const totalKg = activeTxns.reduce((sum, t) => sum + (t.weight || 0), 0);
   const totalAmt = activeTxns.reduce((sum, t) => sum + (t.total_price || 0), 0);
 
@@ -244,9 +306,9 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
     setTimeout(() => setFlash(""), 1700);
   };
 
-  const addBuyer = async (name: string) => {
+  const addBuyer = async (name: string, overrideB?: any) => {
     const newId = `buyer_rec_${Date.now()}`;
-    const newB = { id: newId, nickname: name, lifetime_debt: 0, credit_limit: 100000 };
+    const newB = overrideB || { id: newId, nickname: name, lifetime_debt: 0, credit_limit: 100000 };
     await write("buyers", "insert", newB);
     doFlash("✔ Buyer Registered!");
     return newB;
@@ -275,6 +337,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
   const saveSourceEdit = async () => {
     if (!activeSrc) return;
+    if (!window.confirm("Are you sure you want to modify this source's rate and name? This will alter related ledger records.")) return;
+
     const rate = parseFloat(editSourceRate) || 0;
     await write("sources", "update", {
       ...activeSrc,
@@ -297,6 +361,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
 
   const lockSource = async () => {
     if (!activeSrc) return;
+    if (!window.confirm("Are you sure you want to mark this source as completed? This locks it from further transactions unless reopened by an admin.")) return;
+
     await write("sources", "update", { ...activeSrc, is_completed: true });
     
     // Auto-create or Update source payment slip structure inside ledger
@@ -596,9 +662,11 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         }}
         onClose={() => setShowPicker(false)}
         onAddAndSelect={async (name) => {
-          const nb = await addBuyer(name);
+          const newId = `buyer_rec_${Date.now()}`;
+          const nb = { id: newId, nickname: name, lifetime_debt: 0, credit_limit: 100000 };
           setBuyer(nb);
           setShowPicker(false);
+          await addBuyer(name, nb);
         }}
       />
     );

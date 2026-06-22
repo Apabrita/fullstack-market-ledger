@@ -57,10 +57,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   // 1. Gather auctions
   transactions.forEach((tx) => {
-    const buyer = buyers.find((b) => String(b.id) === String(tx.buyer_id));
-    const buyerName = buyer ? buyer.nickname : `Buyer: ID-${tx.buyer_id}`;
-    const source = sources.find((s) => String(s.id) === String(tx.source_id));
-    const sourceName = source ? source.name : `Source: ID-${tx.source_id}`;
+    const buyer = buyers.find(b => String(b.id).trim().toLowerCase() === String(tx.buyer_id).trim().toLowerCase());
+    const buyerName = buyer ? buyer.nickname || (buyer as any).name || (buyer as any).fullname : (!String(tx.buyer_id).startsWith('temp_') ? tx.buyer_id : "Unknown");
+    const source = sources.find(s => String(s.id).trim().toLowerCase() === String(tx.source_id).trim().toLowerCase());
+    const sourceName = source ? source.name || (source as any).nickname : (!String(tx.source_id).startsWith('temp_') ? tx.source_id : "Unknown");
 
     const isQueued = queue.some((q) => q.table === "transactions" && q.id === tx.id);
 
@@ -81,8 +81,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   // 2. Gather collections payments
   collections.forEach((col) => {
-    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
-    const buyerName = buyer ? buyer.nickname : `Buyer: ID-${col.buyer_id}`;
+    const buyer = buyers.find(b => String(b.id).trim().toLowerCase() === String(col.buyer_id).trim().toLowerCase());
+    const buyerName = buyer ? buyer.nickname || (buyer as any).name || (buyer as any).fullname : (!String(col.buyer_id).startsWith('temp_') ? col.buyer_id : "Unknown");
 
     const isQueued = queue.some((q) => q.table === "daily_collections" && q.id === col.id);
 
@@ -160,8 +160,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   collections.forEach((col) => {
     if (!col.amount_paid) return;
     const dateStr = col.date || appDate;
-    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
-    const name = buyer ? buyer.nickname : "Buyer";
+    const buyer = buyers.find(b => String(b.id).trim().toLowerCase() === String(col.buyer_id).trim().toLowerCase());
+    const name = buyer ? buyer.nickname || (buyer as any).name || (buyer as any).fullname : (!String(col.buyer_id).startsWith('temp_') ? col.buyer_id : "Unknown Buyer");
 
     if (!dayWiseCashbook[dateStr]) {
       dayWiseCashbook[dateStr] = { totalInflows: 0, totalOutflows: 0, collectionsCount: 0, settlementsCount: 0, details: [] };
@@ -175,8 +175,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   sourcePayments.forEach((sp) => {
     if (!sp.amount_paid_to_source) return;
     const dateStr = sp.date || appDate;
-    const source = sources.find((s) => String(s.id) === String(sp.source_id));
-    const name = source ? source.name : "Source";
+    const source = sources.find(s => String(s.id).trim().toLowerCase() === String(sp.source_id).trim().toLowerCase());
+    const name = source ? source.name || (source as any).nickname : (!String(sp.source_id).startsWith('temp_') ? sp.source_id : "Unknown Source");
 
     if (!dayWiseCashbook[dateStr]) {
       dayWiseCashbook[dateStr] = { totalInflows: 0, totalOutflows: 0, collectionsCount: 0, settlementsCount: 0, details: [] };

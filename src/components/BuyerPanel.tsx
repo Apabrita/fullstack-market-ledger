@@ -134,6 +134,15 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
     const col = dailyCollections.find((c) => c.id === colId);
     if (!col) return;
 
+    // Check authority or prompt
+    if (activeUser?.role !== "admin") {
+      alert("Administrator privileges required to toggle rollover states.");
+      return;
+    }
+
+    const actionText = col.is_rolled_over ? "remove the rollover tag from" : "flag and rollover";
+    if (!window.confirm(`Are you sure you want to ${actionText} this collection?`)) return;
+
     // Mark as rolled over to next ledger session
     const updatedCollection = {
       ...col,

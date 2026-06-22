@@ -167,6 +167,8 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       return;
     }
 
+    if (!window.confirm("Are you sure you want to approve this collection to the vault? This will officially deduct the buyer's outstanding debt.")) return;
+
     const col = collections.find((c) => String(c.id) === String(colId));
     if (!col) return;
 
@@ -186,17 +188,6 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
       is_approved: true,
     };
     await write("daily_collections", "update", updatedCollection);
-  };
-
-  const handleRollover = async (colId: string | number) => {
-    const col = collections.find((c) => c.id === colId);
-    if (!col) return;
-
-    const updated = {
-      ...col,
-      is_rolled_over: !col.is_rolled_over,
-    };
-    await write("daily_collections", "update", updated);
   };
 
   const handleDeleteDraft = async (colId: string | number) => {
@@ -729,11 +720,11 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                 {collections
                   .filter((col) => {
                     if (!ledgerSearch) return true;
-                    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
-                    return buyer?.nickname.toLowerCase().includes(ledgerSearch.toLowerCase());
+                    const buyer = buyers.find(b => String(b.id).trim().toLowerCase() === String(col.buyer_id).trim().toLowerCase());
+                    return (buyer?.nickname || (buyer as any)?.name || "").toLowerCase().includes(ledgerSearch.toLowerCase());
                   })
                   .map((col) => {
-                    const buyer = buyers.find((b) => String(b.id) === String(col.buyer_id));
+                    const buyer = buyers.find(b => String(b.id).trim().toLowerCase() === String(col.buyer_id).trim().toLowerCase());
                     return (
                       <motion.div
                         key={col.id}
@@ -745,7 +736,7 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-zinc-200">
-                              {buyer ? buyer.nickname : "Unknown Buyer ID"}
+                              {buyer ? buyer.nickname || (buyer as any).name || (buyer as any).fullname : (!String(col.buyer_id).startsWith('temp_') ? col.buyer_id : "Unknown Buyer")}
                             </span>
                             {col.is_approved ? (
                               <span className="text-[9px] bg-emerald-950/50 text-emerald-400 border border-emerald-900/40 px-1.5 py-0.5 rounded-full uppercase font-mono font-bold">
@@ -821,18 +812,6 @@ export const CollectPanel: React.FC<CollectPanelProps> = ({
                               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Settled Cloud Log
                             </div>
                           )}
-
-                          {/* Rollover trigger */}
-                          <button
-                            onClick={() => handleRollover(col.id)}
-                            className={`px-2 py-1.5 rounded-2xl text-[10px] font-bold border transition ${
-                              col.is_rolled_over
-                                ? "bg-indigo-950/30 text-indigo-400 border-indigo-900/50 hover:bg-indigo-950/50"
-                                : "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800 hover:text-white"
-                            } cursor-pointer`}
-                          >
-                            {col.is_rolled_over ? "Rolled Over" : "Rollover"}
-                          </button>
                         </div>
                       </motion.div>
                     );

@@ -87,16 +87,16 @@ export const PinGate: React.FC<PinGateProps> = ({
               </div>
               <div>
                 <span className="text-[9px] md:text-[10px] tracking-widest font-mono font-bold text-teal-400 uppercase">
-                  ENTERPRISE ARAT LEDGER
+                  AQUATRADE ENTERPRISE SUITE
                 </span>
                 <h1 className="text-lg md:text-2xl font-black text-white tracking-tight uppercase leading-tight">
-                  New Fish Center
+                  Fishery Central Hub
                 </h1>
               </div>
             </div>
             
             <p className="hidden md:block text-xs text-zinc-400 leading-relaxed font-sans pt-2">
-              Welcome to the high-velocity wholesale fish market ledger portal. Please authorize your operational role to access transaction books.
+              Welcome to the centralized fish wholesale management portal. Please authorize your operational role to access enterprise trades, landing logistics, and collections processing.
             </p>
           </div>
 

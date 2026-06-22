@@ -259,8 +259,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
   const activeSourcesCount = sources.filter((s) => !s.is_completed).length;
 
   // Commissions cumulative earnings
-  const totalCommissions = sourcePayments.reduce((sum, p) => sum + (p.commission || 0), 0);
-  const totalProfit = sourcePayments.reduce((sum, p) => sum + ((p.sale_total || 0) - (p.amount_paid_to_source || 0)), 0);
+  const totalCommissions = sourcePayments.reduce((sum, p) => sum + (p.is_settled ? (p.commission || 0) : 0), 0);
+  const totalProfit = sourcePayments.reduce((sum, p) => sum + (p.is_settled ? ((p.sale_total || 0) - (p.amount_paid_to_source || 0)) : 0), 0);
 
   // Dynamic Ledger calculations for each buyer to show accurate rollover balances
   const buyerBalancesList = buyers.map((b) => {
@@ -294,7 +294,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
      if (leaderboardTime === "weekly") {
         const txTime = new Date(tx.date).getTime();
         const nowTime = new Date(appDate).getTime();
-        return (nowTime - txTime) <= 7 * 24 * 60 * 60 * 1000 && txTime <= nowTime;
+        return (nowTime - txTime) <= 30 * 24 * 60 * 60 * 1000 && txTime <= nowTime;
      }
      if (leaderboardTime === "monthly") {
         return tx.date.substring(0, 7) === appDate.substring(0, 7);
@@ -307,7 +307,7 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
      if (leaderboardTime === "weekly") {
         const cTime = new Date(c.date).getTime();
         const nowTime = new Date(appDate).getTime();
-        return (nowTime - cTime) <= 7 * 24 * 60 * 60 * 1000 && cTime <= nowTime;
+        return (nowTime - cTime) <= 30 * 24 * 60 * 60 * 1000 && cTime <= nowTime;
      }
      if (leaderboardTime === "monthly") {
         return c.date.substring(0, 7) === appDate.substring(0, 7);
@@ -619,15 +619,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <h4 className="text-[10px] font-bold text-teal-400 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-2">Largest Volume Buyers</h4>
             <div className="space-y-2">
               {topBuyersByVolume.length === 0 ? <div className="text-[10px] text-zinc-600 italic">No activity</div> : null}
-              {topBuyersByVolume.map(([bId, amt], i) => (
+              {topBuyersByVolume.map(([bId, amt], i) => {
+                const matched = buyers.find(b => String(b.id).trim().toLowerCase() === String(bId).trim().toLowerCase());
+                const dispName = matched?.nickname || (matched as any)?.name || (matched as any)?.fullname || (!bId.startsWith('temp_') && bId !== String(matched?.id) ? bId : "Unknown Buyer");
+                return (
                 <div key={bId} className="flex justify-between items-center text-xs">
                   <span className="text-zinc-300 font-bold truncate max-w-[120px] flex gap-1.5 items-center">
                     <span className="text-zinc-600 text-[9px] w-3">{i + 1}.</span> 
-                    {buyers.find(b => String(b.id) === bId)?.nickname || bId}
+                    {dispName}
                   </span>
                   <span className="font-mono text-teal-500 font-bold">₹{Math.round(amt).toLocaleString()}</span>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 
@@ -635,15 +638,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-2">Most Consistent Payers</h4>
             <div className="space-y-2">
               {topPayers.length === 0 ? <div className="text-[10px] text-zinc-600 italic">No activity</div> : null}
-              {topPayers.map(([bId, amt], i) => (
+              {topPayers.map(([bId, amt], i) => {
+                const matched = buyers.find(b => String(b.id).trim().toLowerCase() === String(bId).trim().toLowerCase());
+                const dispName = matched?.nickname || (matched as any)?.name || (matched as any)?.fullname || (!bId.startsWith('temp_') && bId !== String(matched?.id) ? bId : "Unknown Buyer");
+                return (
                 <div key={bId} className="flex justify-between items-center text-xs">
                   <span className="text-zinc-300 font-bold truncate max-w-[120px] flex gap-1.5 items-center">
                     <span className="text-zinc-600 text-[9px] w-3">{i + 1}.</span> 
-                    {buyers.find(b => String(b.id) === bId)?.nickname || bId}
+                    {dispName}
                   </span>
                   <span className="font-mono text-indigo-500 font-bold">₹{Math.round(amt).toLocaleString()}</span>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 
@@ -651,15 +657,18 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
             <h4 className="text-[10px] font-bold text-rose-400 uppercase tracking-widest border-b border-zinc-800 pb-2 mb-2">Top Grossing Sellers</h4>
             <div className="space-y-2">
               {topSellers.length === 0 ? <div className="text-[10px] text-zinc-600 italic">No activity</div> : null}
-              {topSellers.map(([sId, amt], i) => (
+              {topSellers.map(([sId, amt], i) => {
+                const matched = sources.find(s => String(s.id).trim().toLowerCase() === String(sId).trim().toLowerCase());
+                const dispName = matched?.name || (matched as any)?.nickname || (!sId.startsWith('temp_') && sId !== String(matched?.id) ? sId : "Unknown Source");
+                return (
                 <div key={sId} className="flex justify-between items-center text-xs">
                   <span className="text-zinc-300 font-bold truncate max-w-[120px] flex gap-1.5 items-center">
                     <span className="text-zinc-600 text-[9px] w-3">{i + 1}.</span> 
-                    {sources.find(s => String(s.id) === sId)?.name || sId}
+                    {dispName}
                   </span>
                   <span className="font-mono text-rose-500 font-bold">₹{Math.round(amt).toLocaleString()}</span>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         </div>
@@ -693,8 +702,8 @@ export const DashboardPanel: React.FC<DashboardPanelProps> = ({
                   if (sp.items_json) items = JSON.parse(sp.items_json);
                 } catch (e) {}
                 
-                const sItem = sources.find(s => String(s.id) === String(sp.source_id));
-                const sName = sItem?.name || `Source ${sp.source_id}`;
+                const sItem = sources.find(s => String(s.id).trim().toLowerCase() === String(sp.source_id).trim().toLowerCase());
+                const sName = sItem?.name || (sItem as any)?.nickname || (!String(sp.source_id).startsWith('temp_') ? sp.source_id : "Unknown Source");
 
                 return items.map((itm, i) => {
                   const mWeight = parseFloat(itm.payoutWeight) || 0;

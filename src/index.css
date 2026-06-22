@@ -433,6 +433,9 @@
 }
 
 @media print {
+  @page {
+    margin: 20mm 15mm;
+  }
   body, .theme-dark body, .theme-light body {
     background-color: white !important;
     color: black !important;

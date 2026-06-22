@@ -26,7 +26,7 @@ export const AuctionTxnList: React.FC<AuctionTxnListProps> = ({
     return (
       <div className="text-center py-20 text-zinc-500 text-xs font-sans space-y-2 select-none">
         <div className="text-2xl animate-bounce">🎣</div>
-        <div className="font-bold">No transactions logged from this device yet.</div>
+        <div className="font-bold">No transactions logged by you in this source yet.</div>
         <p className="text-[10.5px] text-zinc-600 max-w-sm mx-auto">
           Select or register a source chip above, pick your buyer nickname at the bottom, and enter weights on the custom keypad.
         </p>

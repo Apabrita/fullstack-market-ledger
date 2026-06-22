@@ -31,27 +31,37 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
       }
     }
 
-    const items = transactions.map((t, idx) => {
+    const grouped = transactions.reduce((acc, t) => {
       const ft = t.fish_type || "Unsorted Catch";
-      const wt = t.weight || 0;
-      const rev = t.total_price || 0;
-      const mean = t.price_per_kg || 0;
+      if (!acc[ft]) {
+        acc[ft] = { weight: 0, revenue: 0 };
+      }
+      acc[ft].weight += (Number(t.weight) || 0);
+      acc[ft].revenue += (t.total_price || 0);
+      return acc;
+    }, {} as Record<string, { weight: number, revenue: number }>);
+
+    const items = Object.entries(grouped).map((entry, idx) => {
+      const ft = entry[0];
+      const val = entry[1] as { weight: number, revenue: number };
+      const mean = val.weight > 0 ? val.revenue / val.weight : 0;
       return {
-        id: `actual_${idx}_${t.id}_${Date.now()}`,
+        id: `actual_${idx}_${Date.now()}`,
         fishType: ft,
-        transactionId: t.id,
-        actualWeight: wt,
-        actualRevenue: rev,
+        transactionId: `grouped_${idx}`,
+        actualWeight: val.weight,
+        actualRevenue: val.revenue,
         meanPrice: mean,
         // editable printable fields
-        payoutWeight: wt.toString(),
-        payoutRatePerKg: mean.toString()
+        payoutWeight: val.weight.toString(),
+        payoutRatePerKg: Math.round(mean).toString()
       };
     });
     if (items.length === 0) {
       items.push({
         id: "unsorted_0",
         fishType: "Unsorted Catch",
+        transactionId: "none",
         actualWeight: 0,
         actualRevenue: 0,
         meanPrice: 0,
@@ -188,7 +198,7 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
       </div>
 
       <div className="bg-zinc-50/50 border border-zinc-200 rounded-xl p-4 space-y-2">
-        <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block font-sans">Original Auction Data (Read-Only)</h4>
+        <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block font-sans">Original Auction Data (Read-Only) • Crates: {transactions.length}</h4>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs whitespace-nowrap">
             <thead>
@@ -345,6 +355,7 @@ export const SourcePaymentFlow: React.FC<SourcePaymentFlowProps> = ({ source, tr
                   <div className="text-xl font-black text-zinc-950 font-mono tracking-wider">PAYOUT BILL</div>
                   <div className="text-xs font-bold text-zinc-700 mt-2 uppercase">Source: {source.name}</div>
                   <div className="text-xs text-zinc-500 font-mono mt-1">Date: {source.date || appDate}</div>
+                  <div className="text-[11px] font-bold text-zinc-600 font-sans mt-0.5 uppercase tracking-wide">Total Crates Sold: {transactions.length}</div>
                 </div>
               </div>
 

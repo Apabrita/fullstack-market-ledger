@@ -73,37 +73,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setThemeState(savedTheme);
       }
       
-      const cachedDate = localStorage.getItem("nfc_app_date");
+      const cachedDate = sessionStorage.getItem("nfc_app_date");
       const todayString = new Date().toLocaleDateString("en-CA");
       
-      // If no cached date OR the cached date is strictly from previous days (in local timezone)
-      if (!cachedDate || cachedDate < todayString) {
+      // Use sessionStorage so the app resets to today on a fresh open/new tab
+      // but survives a simple page reload.
+      if (!cachedDate) {
         setAppDateState(todayString);
-        localStorage.setItem("nfc_app_date", todayString);
+        sessionStorage.setItem("nfc_app_date", todayString);
       } else {
         setAppDateState(cachedDate);
       }
     }
   }, []);
 
-  // Background process to check for midnight rollover
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const todayString = new Date().toLocaleDateString("en-CA");
-      if (todayString > appDate) {
-        setAppDateState(todayString);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("nfc_app_date", todayString);
-        }
-      }
-    }, 60000); // Check every minute
-    return () => clearInterval(timer);
-  }, [appDate]);
-
   const setAppDate = (d: string) => {
     setAppDateState(d);
     if (typeof window !== "undefined") {
-      localStorage.setItem("nfc_app_date", d);
+      sessionStorage.setItem("nfc_app_date", d);
     }
   };
 
@@ -155,18 +142,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshData = useCallback(async () => {
-    // 1. Instant optimistic state update from local cache (0ms)
+    let hasCache = false;
     try {
+      if (typeof window !== "undefined") {
+        hasCache = !!localStorage.getItem("nfc_offline_cache");
+      }
       const allDataLocal = getLocalOptimisticData();
       setData(allDataLocal);
       setQueue(getQueue());
       setOnline(isOnline());
     } catch (e) {
       console.warn("Local cache aggregator failed", e);
-    } finally {
-      if (isFirstLoadRef.current) {
-        setLoading(false);
-        isFirstLoadRef.current = false;
+    } 
+
+    if (isFirstLoadRef.current) {
+      isFirstLoadRef.current = false;
+      
+      if (!hasCache && isOnline()) {
+         // Block rendering up to brief timeout to fetch all cloud data on a totally fresh install
+         loadAll().then(fullData => {
+            setData(fullData);
+         }).catch(err => console.warn(err)).finally(() => {
+            setLoading(false);
+         });
+      } else {
+         // App already has cached data, drop loading screen instantly
+         setLoading(false);
+         
+         // Background sync to prune deleted items and fetch latest
+         loadAll().then(fullData => {
+            setData(fullData);
+         }).catch(err => console.warn(err));
       }
     }
   }, []);

@@ -106,10 +106,9 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
       const getSourceName = (id: any) => data?.sources?.find((s) => String(s.id) === String(id))?.name || String(id);
       const getUserName = (id: any) => data?.users?.find((u) => String(u.id) === String(id))?.name || String(id);
 
-      const exportData: any[] = [];
+      const sheets = [];
 
       // 1. Transactions (Auctions) for this specific day
-      exportData.push({"TABLE": "*** DAILY AUCTIONS ***"});
       const txData = [...salesForDay]
         .sort((a,b) => {
           const sA = getSourceName(a.source_id);
@@ -132,11 +131,9 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
           "Rate Per Kg (BDT)": tx.price_per_kg,
           "Total Amount (BDT)": tx.total_price
         }));
-      exportData.push(...txData);
+      sheets.push({ name: "Daily Auctions", data: txData });
 
       // 2. Collections (Jama) for this specific day
-      exportData.push({});
-      exportData.push({"TABLE": "*** DAILY COLLECTIONS ***"});
       const colData = [...collectionsForDay]
         .sort((a,b) => String(b.date).localeCompare(String(a.date)))
         .map(col => ({
@@ -146,11 +143,9 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
           "Total Outstanding": col.total_owed_today,
           "Approval Status": col.is_approved ? 'Approved' : 'Pending'
         }));
-      exportData.push(...colData);
+      sheets.push({ name: "Daily Collections", data: colData });
 
       // 3. Source Payments for this specific day
-      exportData.push({});
-      exportData.push({"TABLE": "*** DAILY SOURCE PAYMENTS ***"});
       const spForDay = data?.source_payments?.filter(s => s.date.startsWith(appDate)) || [];
       const spData = [...spForDay]
         .sort((a,b) => String(b.date).localeCompare(String(a.date)))
@@ -162,12 +157,12 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
           "Net Paid to Source (BDT)": sp.amount_paid_to_source,
           "Settlement Status": sp.is_settled ? 'Settled' : 'Unsettled'
         }));
-      exportData.push(...spData);
+      sheets.push({ name: "Source Payments", data: spData });
 
-      const { downloadCSV } = await import('../utils/fileExport');
-      await downloadCSV(exportData, `NFC_DAILY_REPORT_${appDate}.csv`);
+      const { downloadXLSX } = await import('../utils/fileExport');
+      await downloadXLSX(sheets, `NFC_DAILY_REPORT_${appDate}.xlsx`);
     } catch (err) {
-      console.error("Failed to export CSV", err);
+      console.error("Failed to export Excel", err);
     }
   };
 
@@ -453,7 +448,7 @@ export const HalkhataPanel: React.FC<HalkhataPanelProps> = ({
                   onClick={exportDayExcel}
                   className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold rounded-2xl shadow-sm transition border cursor-pointer flex items-center justify-center gap-1.5 shrink-0 bg-blue-900/50 hover:bg-blue-800 text-blue-300 border-blue-800"
                 >
-                  📥 Download Data (.csv)
+                  📥 Download Data (.xlsx)
                 </button>
                 {activeUser?.role === "admin" && isAuthenticated ? (
                   <button

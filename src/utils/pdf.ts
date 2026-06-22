@@ -35,7 +35,7 @@ export const shareAsPDF = async (
   const clone = originalElement.cloneNode(true) as HTMLElement;
   
   // Force desktop-width layout bounds so flex/grids don't collapse on mobile screens
-  clone.style.setProperty('width', '1000px', 'important'); 
+  clone.style.setProperty('width', '794px', 'important'); 
   clone.style.removeProperty('height');
   clone.style.setProperty('height', 'auto', 'important'); 
   clone.style.setProperty('overflow', 'visible', 'important'); 
@@ -68,61 +68,137 @@ export const shareAsPDF = async (
     // A small delay to let image fetching or fonts process on the cloned node
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Use html-to-image instead of html2canvas to natively support OKLCH and modern CSS in webview
-    const imgDataUrl = await toJpeg(clone, {
-      quality: 1.0,
-      backgroundColor: '#ffffff',
-      pixelRatio: canvasScale, // Safe resolution to prevent crashes
-      style: {
-        transform: 'scale(1)',
-        transformOrigin: 'top left',
-        width: '1000px',
-      }
-    });
-
+    // Check if we have explicitly paginated wrappers
+    const pageNodes = Array.from(clone.querySelectorAll('.print-page-wrapper')) as HTMLElement[];
+    
     const pdf = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4'
     });
-
-    const imgProps = pdf.getImageProperties(imgDataUrl);
+    
     const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const canvasWidth = imgProps.width;
-    const canvasHeight = imgProps.height;
-    
-    if (!canvasWidth || !canvasHeight) {
-      throw new Error("Generated image has invalid dimensions");
-    }
+    const pdfPageHeight = pdf.internal.pageSize.getHeight();
+    const topMargin = 12; // 12mm top margin
+    const bottomMargin = 22; // Increased to provide 2-3 rows space before footnote
+    const usableHeight = pdfPageHeight - topMargin - bottomMargin; 
+    let globalPageNum = 1;
 
-    const pdfHeight = (canvasHeight * pdfWidth) / canvasWidth;
-
-    let heightLeft = pdfHeight;
-    let position = 0;
-    let pageNum = 1;
-
-    pdf.addImage(imgDataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
-    
-    // Add page number to first page
-    pdf.setFontSize(10);
-    pdf.setTextColor(150);
-    pdf.text(`Page ${pageNum}`, pdfWidth / 2, pageHeight - 5, { align: 'center' });
-    
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      position = heightLeft - pdfHeight;
-      pdf.addPage();
-      pdf.addImage(imgDataUrl, 'JPEG', 0, position, pdfWidth, pdfHeight);
-      pageNum++;
+    if (pageNodes.length > 0) {
+      const masterHeaders = Array.from(clone.querySelectorAll('.pdf-master-header'));
       
-      // Blank out the top margin if there is content overflowing from previous
+      // If there are master headers, add a cloned wrapper to EVERY page node
+      if (masterHeaders.length > 0) {
+        masterHeaders.forEach(h => {
+          if (h.parentNode) h.parentNode.removeChild(h);
+        });
+
+        // Loop and prepend to all pages
+        pageNodes.forEach(node => {
+          const headerBlock = document.createElement('div');
+          headerBlock.className = 'mb-6 space-y-6';
+          masterHeaders.forEach(h => {
+            headerBlock.appendChild(h.cloneNode(true));
+          });
+          node.insertBefore(headerBlock, node.firstChild);
+        });
+      }
+
+      // Logic for explicitly chunked pages
+      for (let i = 0; i < pageNodes.length; i++) {
+        const pageNode = pageNodes[i];
+        
+        pageNode.style.height = 'auto';
+        pageNode.style.position = 'relative';
+        pageNode.style.backgroundColor = '#ffffff';
+
+        const pageImgData = await toJpeg(pageNode, {
+          quality: 1.0,
+          backgroundColor: '#ffffff',
+          pixelRatio: canvasScale,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left',
+            margin: '0'
+          }
+        });
+
+        // Add a new page if it's not the very first page of the document
+        if (i > 0 || globalPageNum > 1) {
+            if (i > 0) pdf.addPage();
+        }
+        
+        const imgProps = pdf.getImageProperties(pageImgData);
+        let fitHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        let fitWidth = pdfWidth;
+
+        // Smart fit: if the box exceeds A4 height natively, scale it down slightly to guarantee it fits exactly on 1 page!
+        if (fitHeight > usableHeight) {
+             const ratio = usableHeight / fitHeight;
+             fitHeight = usableHeight;
+             fitWidth = pdfWidth * ratio;
+        }
+
+        const xOffset = (pdfWidth - fitWidth) / 2;
+        pdf.addImage(pageImgData, 'JPEG', xOffset, topMargin, fitWidth, fitHeight);
+        
+        pdf.setFontSize(10);
+        pdf.setTextColor(150);
+        pdf.text(`Page ${globalPageNum}`, pdfWidth / 2, pdfPageHeight - 5, { align: 'center' });
+        
+        globalPageNum++;
+      }
+    } else {
+      // Legacy single-canvas logic for non-chunked content applying the same lossless pagination
+      const imgDataUrl = await toJpeg(clone, {
+        quality: 1.0,
+        backgroundColor: '#ffffff',
+        pixelRatio: canvasScale,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left',
+          width: '794px',
+        }
+      });
+
+      const imgProps = pdf.getImageProperties(imgDataUrl);
+      const canvasWidth = imgProps.width;
+      const canvasHeight = imgProps.height;
+      
+      if (!canvasWidth || !canvasHeight) {
+        throw new Error("Generated image has invalid dimensions");
+      }
+
+      const totalPdfHeight = (canvasHeight * pdfWidth) / canvasWidth;
+
+      let heightLeft = totalPdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgDataUrl, 'JPEG', 0, topMargin + position, pdfWidth, totalPdfHeight);
+      
       pdf.setFillColor(255, 255, 255);
-      pdf.rect(0, 0, pdfWidth, 10, 'F');
+      pdf.rect(0, pdfPageHeight - bottomMargin, pdfWidth, bottomMargin, 'F');
       
-      pdf.text(`Page ${pageNum}`, pdfWidth / 2, pageHeight - 5, { align: 'center' });
-      heightLeft -= pageHeight;
+      pdf.setFontSize(10);
+      pdf.setTextColor(150);
+      pdf.text(`Page ${globalPageNum}`, pdfWidth / 2, pdfPageHeight - 5, { align: 'center' });
+      
+      heightLeft -= usableHeight;
+
+      while (heightLeft > 0) {
+        position -= usableHeight;
+        pdf.addPage();
+        globalPageNum++;
+        
+        pdf.addImage(imgDataUrl, 'JPEG', 0, topMargin + position, pdfWidth, totalPdfHeight);
+        
+        pdf.setFillColor(255, 255, 255);
+        pdf.rect(0, 0, pdfWidth, topMargin, 'F');
+        pdf.rect(0, pdfPageHeight - bottomMargin, pdfWidth, bottomMargin, 'F');
+        
+        pdf.text(`Page ${globalPageNum}`, pdfWidth / 2, pdfPageHeight - 5, { align: 'center' });
+        heightLeft -= usableHeight;
+      }
     }
 
     const pdfBlob = pdf.output('blob');
