@@ -37,56 +37,17 @@ import { Filesystem, Directory } from "@capacitor/filesystem";
 import { triggerHaptic } from "./utils/haptics";
 import { motion, AnimatePresence } from "motion/react";
 
-// Lazy load heavy components for better Android/Web scale
-const NetworkSimulator = lazy(() =>
-  import("./components/NetworkSimulator").then((m) => ({
-    default: m.NetworkSimulator,
-  })),
-);
-const UserSimulator = lazy(() =>
-  import("./components/UserSimulator").then((m) => ({
-    default: m.UserSimulator,
-  })),
-);
-const TransactionPanel = lazy(() =>
-  import("./components/TransactionPanel").then((m) => ({
-    default: m.TransactionPanel,
-  })),
-);
-const BuyerPanel = lazy(() =>
-  import("./components/BuyerPanel").then((m) => ({ default: m.BuyerPanel })),
-);
-const SourcePanel = lazy(() =>
-  import("./components/SourcePanel").then((m) => ({ default: m.SourcePanel })),
-);
-const SettingsPanel = lazy(() =>
-  import("./components/SettingsPanel").then((m) => ({
-    default: m.SettingsPanel,
-  })),
-);
-const DashboardPanel = lazy(() =>
-  import("./components/DashboardPanel").then((m) => ({
-    default: m.DashboardPanel,
-  })),
-);
-const CollectPanel = lazy(() =>
-  import("./components/CollectPanel").then((m) => ({
-    default: m.CollectPanel,
-  })),
-);
-const HalkhataPanel = lazy(() =>
-  import("./components/HalkhataPanel").then((m) => ({
-    default: m.HalkhataPanel,
-  })),
-);
-const HistoryPanel = lazy(() =>
-  import("./components/HistoryPanel").then((m) => ({
-    default: m.HistoryPanel,
-  })),
-);
-const PinGate = lazy(() =>
-  import("./components/PinGate").then((m) => ({ default: m.PinGate })),
-);
+import { NetworkSimulator } from "./components/NetworkSimulator";
+import { UserSimulator } from "./components/UserSimulator";
+import { TransactionPanel } from "./components/TransactionPanel";
+import { BuyerPanel } from "./components/BuyerPanel";
+import { SourcePanel } from "./components/SourcePanel";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { DashboardPanel } from "./components/DashboardPanel";
+import { CollectPanel } from "./components/CollectPanel";
+import { HalkhataPanel } from "./components/HalkhataPanel";
+import { HistoryPanel } from "./components/HistoryPanel";
+import { PinGate } from "./components/PinGate";
 
 const FallbackLoader = () => (
   <div className="flex items-center justify-center p-8 w-full h-full text-teal-500 font-mono text-xs">

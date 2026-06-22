@@ -115,10 +115,14 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   });
 
   useEffect(() => {
-    if (sessionEndedSetting) {
-      setIsAuctionSessionEnded(sessionEndedSetting.value === "true");
+    if (typeof window !== "undefined") {
+      if (sessionEndedSetting) {
+        setIsAuctionSessionEnded(sessionEndedSetting.value === "true");
+      } else {
+        setIsAuctionSessionEnded(localStorage.getItem(`nfc_auction_session_ended_${appDate}`) === "true");
+      }
     }
-  }, [sessionEndedSetting]);
+  }, [appDate, sessionEndedSetting]);
 
   const [buyer, setBuyer] = useState<any>(() => {
     if (typeof window !== "undefined") {
@@ -279,19 +283,30 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
   }, [store_settings, activeUser?.name]);
 
   // Derive dynamic entities
-  const activeUserTxns = store.transactions.filter((t) => (t.added_by || "System Staff") === (activeUser?.name || "System Staff"));
+  const activeUserTxns = store.transactions.filter((t) => (t.added_by || "System Staff") === (activeUser?.name || "System Staff") && t.date === appDate);
   const fishSuggestions = getSmartFishSuggestions(activeUserTxns, activeSourceId, buyer?.id, appDate);
   const buyerSuggestions = getSmartBuyerSuggestions(activeUserTxns, store.buyers, activeSourceId, fishType);
-  const todaySources = store.sources.filter((s) => s.date === appDate && !s.is_archived);
+  const todaySources = store.sources.filter((s) => s.date === appDate);
   const activeSrc = store.sources.find((s) => String(s.id) === String(activeSourceId));
   const activeTxns = activeUserTxns.filter((t) => String(t.source_id) === String(activeSourceId));
   const totalKg = activeTxns.reduce((sum, t) => sum + (t.weight || 0), 0);
   const totalAmt = activeTxns.reduce((sum, t) => sum + (t.total_price || 0), 0);
 
-  // Set default active source if none is selected
+  // Synchronize activeSourceId with appDate
   useEffect(() => {
-    if (!activeSourceId && todaySources.length > 0) {
-      // Find first uncompleted source
+    if (activeSourceId) {
+      const currentActiveSrc = store.sources.find((s) => String(s.id) === String(activeSourceId));
+      if (!currentActiveSrc || currentActiveSrc.date !== appDate) {
+        const firstActive = todaySources.find((s) => !s.is_completed);
+        if (firstActive) {
+          setActiveSourceId(firstActive.id);
+        } else if (todaySources.length > 0) {
+          setActiveSourceId(todaySources[0].id);
+        } else {
+          setActiveSourceId(null);
+        }
+      }
+    } else if (todaySources.length > 0) {
       const firstActive = todaySources.find((s) => !s.is_completed);
       if (firstActive) {
         setActiveSourceId(firstActive.id);
@@ -299,7 +314,20 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
         setActiveSourceId(todaySources[0].id);
       }
     }
-  }, [todaySources, activeSourceId]);
+  }, [appDate, todaySources, activeSourceId, store.sources]);
+
+  // Compute if target date is within 30 days of June 22, 2026
+  const isWithin30Days = (() => {
+    try {
+      const today = new Date("2026-06-22");
+      const target = new Date(appDate);
+      const diffTime = Math.abs(today.getTime() - target.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 30;
+    } catch {
+      return true;
+    }
+  })();
 
   const doFlash = (msg: string) => {
     setFlash(msg);
@@ -949,7 +977,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       )}
 
       {/* 2. Scrollable Transaction Audit Log */}
-      {isAuctionSessionEnded ? (
+      {(isAuctionSessionEnded && !isWithin30Days) ? (
         <div className="flex-grow flex flex-col items-center justify-center p-6 text-center space-y-5 select-none bg-gradient-to-b from-zinc-950 to-zinc-900 overflow-y-auto">
           <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/20 rounded-full flex items-center justify-center text-rose-500 animate-pulse shadow-sm animate-scaleUp">
             <Lock className="w-8 h-8" />
@@ -960,7 +988,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
               Auction Session Closed
             </h4>
             <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
-              All transactions have been finalized and the digital auction slate has been closed for <span className="font-mono text-amber-500 font-bold">{appDate}</span>.
+              All transactions have been finalized and the digital auction slate has been closed for <span className="font-mono text-amber-500 font-bold">{appDate}</span>. Archival editing limit (30 days) has been exceeded for this date.
             </p>
           </div>
 
@@ -1007,6 +1035,35 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({ activeUser, 
       ) : (
         <>
           <div className="flex-grow overflow-y-auto p-4 space-y-4">
+            {isAuctionSessionEnded && isWithin30Days && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 text-left animate-slideDown shadow-md">
+                <div className="flex items-center gap-2.5">
+                  <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div>
+                    <div className="text-xs text-amber-500 font-extrabold uppercase tracking-wider">
+                      Auction Session Ended
+                    </div>
+                    <div className="text-[10px] text-zinc-400">
+                      This auction session is closed. Viewing & editing are fully enabled as this date is within the 30-day editing window.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsAuctionSessionEnded(false);
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem(`nfc_auction_session_ended_${appDate}`, "false");
+                    }
+                    await write("settings", "upsert", { key: `auction_session_ended_${appDate}`, value: "false" });
+                    doFlash("🔓 Auction Session Reopened!");
+                  }}
+                  className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-mono font-black text-[9px] rounded-lg tracking-wide uppercase transition duration-150 cursor-pointer w-full sm:w-auto text-center shrink-0"
+                >
+                  🔓 Reopen Session
+                </button>
+              </div>
+            )}
             <AuctionTxnList 
               activeTxns={activeTxns} 
               deviceId={getDeviceId()} 

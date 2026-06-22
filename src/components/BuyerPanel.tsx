@@ -42,7 +42,22 @@ export const BuyerPanel: React.FC<BuyerPanelProps> = ({ activeUser, isAuthentica
   const [searchQuery, setSearchQuery] = useState("");
 
   const buyers = data?.buyers || [];
-  const dailyCollections = data?.daily_collections || [];
+  const dailyCollections = [...(data?.daily_collections || [])].sort((a, b) => {
+    // Determine priority for approval
+    const aNeedsApproval = !a.is_approved && (a.amount_paid > 0 || a.is_rolled_over);
+    const bNeedsApproval = !b.is_approved && (b.amount_paid > 0 || b.is_rolled_over);
+    
+    if (aNeedsApproval && !bNeedsApproval) return -1;
+    if (!aNeedsApproval && bNeedsApproval) return 1;
+
+    // Then alphabetical
+    const aBuyer = data?.buyers?.find((buy) => String(buy.id) === String(a.buyer_id));
+    const bBuyer = data?.buyers?.find((buy) => String(buy.id) === String(b.buyer_id));
+    const aName = aBuyer ? (aBuyer.nickname || "").toLowerCase() : String(a.buyer_id);
+    const bName = bBuyer ? (bBuyer.nickname || "").toLowerCase() : String(b.buyer_id);
+    
+    return aName.localeCompare(bName);
+  });
 
   const handleAddBuyer = async (e: React.FormEvent) => {
     e.preventDefault();
